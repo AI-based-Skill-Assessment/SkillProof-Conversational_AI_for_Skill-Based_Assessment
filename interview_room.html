@@ -1,0 +1,2134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillProof — Interview Room</title>
+  <meta name="description" content="Live camera and microphone AI interview with continuous biometric verification." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <!-- face-api.js — loaded early so models can start downloading in background -->
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #09090f;
+      --bg-card: #12121c;
+      --bg-glass: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #6c63ff;
+      --accent-2: #a78bfa;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #38bdf8;
+      --text: #f1f1f5;
+      --text-muted: #8b8ba7;
+      --radius-lg: 1.25rem;
+      --radius-md: 0.75rem;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    html,
+    body {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 70% 50% at 15% 0%, rgba(108, 99, 255, 0.15) 0%, transparent 60%), radial-gradient(ellipse 50% 40% at 85% 100%, rgba(167, 139, 250, 0.10) 0%, transparent 55%);
+      pointer-events: none;
+      z-index: 0
+    }
+
+    /* ── Top Bar ─────────────────────────────────── */
+    .topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: rgba(9, 9, 15, 0.9);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      gap: 1rem;
+      z-index: 100
+    }
+
+    .tb-logo {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-weight: 800;
+      font-size: 1rem;
+      letter-spacing: -.02em
+    }
+
+    .tb-logo-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      display: grid;
+      place-items: center;
+      font-size: .85rem
+    }
+
+    .tb-divider {
+      width: 1px;
+      height: 22px;
+      background: var(--border)
+    }
+
+    .tb-session {
+      font-size: .75rem;
+      color: var(--text-muted);
+      font-family: monospace;
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap
+    }
+
+    .tb-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: .75rem
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      padding: .25rem .7rem;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--danger);
+      text-transform: uppercase;
+      letter-spacing: .06em
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--danger);
+      animation: blink 1.2s ease-in-out infinite
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .2
+      }
+    }
+
+    .q-counter {
+      font-size: .8rem;
+      color: var(--text-muted);
+      font-weight: 600
+    }
+
+    /* ── Layout ─────────────────────────────────── */
+    .main {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      height: 100vh;
+      padding-top: 56px
+    }
+
+    @media(max-width:860px) {
+      .main {
+        grid-template-columns: 1fr;
+        grid-template-rows: 260px 1fr
+      }
+    }
+
+    /* ── Camera Panel ───────────────────────────── */
+    .cam-panel {
+      background: #000;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden
+    }
+
+    .cam-feed {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #000
+    }
+
+    #camVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      display: block
+    }
+
+    #camOverlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1);
+      pointer-events: none
+    }
+
+    .scan-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: scan 3s linear infinite;
+      display: none
+    }
+
+    .scanning .scan-line {
+      display: block
+    }
+
+    @keyframes scan {
+      0% {
+        top: 0
+      }
+
+      100% {
+        top: 100%
+      }
+    }
+
+    .cam-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: .75rem;
+      color: var(--text-muted);
+      background: #0a0a12
+    }
+
+    .cam-placeholder .icon {
+      font-size: 3.5rem
+    }
+
+    .cam-placeholder p {
+      font-size: .82rem;
+      text-align: center;
+      max-width: 200px;
+      line-height: 1.5
+    }
+
+    .bio-strip {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: .6rem 1rem;
+      background: linear-gradient(to top, rgba(0, 0, 0, .85), transparent);
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      display: none
+    }
+
+    .bio-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .2rem .55rem;
+      border-radius: 999px;
+      font-size: .68rem;
+      font-weight: 700;
+      backdrop-filter: blur(8px)
+    }
+
+    .bio-chip.ok {
+      background: rgba(34, 197, 94, .2);
+      border: 1px solid rgba(34, 197, 94, .4);
+      color: var(--success)
+    }
+
+    .bio-chip.warn {
+      background: rgba(239, 68, 68, .2);
+      border: 1px solid rgba(239, 68, 68, .4);
+      color: var(--danger)
+    }
+
+    .bio-chip.grey {
+      background: rgba(255, 255, 255, .08);
+      border: 1px solid var(--border);
+      color: var(--text-muted)
+    }
+
+    .bio-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%
+    }
+
+    .ok .bio-dot {
+      background: var(--success);
+      animation: blink 2s infinite
+    }
+
+    .warn .bio-dot {
+      background: var(--danger);
+      animation: blink .6s infinite
+    }
+
+    .grey .bio-dot {
+      background: var(--text-muted)
+    }
+
+    .cam-footer {
+      padding: .75rem 1rem;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      flex-wrap: wrap
+    }
+
+    .mic-bar {
+      flex: 1;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .06);
+      overflow: hidden
+    }
+
+    .mic-level {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      width: 0%;
+      transition: width .1s linear
+    }
+
+    .mic-label {
+      font-size: .72rem;
+      color: var(--text-muted);
+      font-weight: 600
+    }
+
+    /* ── Interview Panel ────────────────────────── */
+    .interview-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden
+    }
+
+    .pre-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      padding: 2rem;
+      text-align: center
+    }
+
+    .pre-icon {
+      font-size: 4rem
+    }
+
+    .pre-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -.03em
+    }
+
+    .pre-sub {
+      color: var(--text-muted);
+      font-size: .9rem;
+      max-width: 360px;
+      line-height: 1.55
+    }
+
+    .spinner-lg {
+      width: 48px;
+      height: 48px;
+      border: 3px solid rgba(108, 99, 255, .2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .question-area {
+      padding: 1.5rem 1.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(108, 99, 255, .04);
+      display: none
+    }
+
+    .question-area.visible {
+      display: block
+    }
+
+    .q-label {
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--accent-2);
+      margin-bottom: .5rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem
+    }
+
+    .speaking-anim {
+      display: none;
+      align-items: center;
+      gap: 3px;
+      height: 14px
+    }
+
+    .speaking-anim.active {
+      display: flex
+    }
+
+    .speaking-anim span {
+      width: 3px;
+      border-radius: 999px;
+      background: var(--accent-2);
+      animation: bar .8s ease-in-out infinite
+    }
+
+    .speaking-anim span:nth-child(1) {
+      height: 6px;
+      animation-delay: 0s
+    }
+
+    .speaking-anim span:nth-child(2) {
+      height: 12px;
+      animation-delay: .15s
+    }
+
+    .speaking-anim span:nth-child(3) {
+      height: 8px;
+      animation-delay: .3s
+    }
+
+    .speaking-anim span:nth-child(4) {
+      height: 14px;
+      animation-delay: .1s
+    }
+
+    .speaking-anim span:nth-child(5) {
+      height: 5px;
+      animation-delay: .25s
+    }
+
+    @keyframes bar {
+
+      0%,
+      100% {
+        transform: scaleY(.4)
+      }
+
+      50% {
+        transform: scaleY(1)
+      }
+    }
+
+    .question-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+      line-height: 1.55;
+      color: var(--text);
+      animation: fadeSlide .4s ease
+    }
+
+    @keyframes fadeSlide {
+      from {
+        opacity: 0;
+        transform: translateY(8px)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    .status-bar {
+      padding: .6rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: none;
+      align-items: center;
+      gap: .75rem
+    }
+
+    .status-bar.visible {
+      display: flex
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .3rem .8rem;
+      border-radius: 999px;
+      font-size: .78rem;
+      font-weight: 700;
+      transition: all .3s ease
+    }
+
+    .status-indicator.listening {
+      background: rgba(34, 197, 94, .12);
+      border: 1px solid rgba(34, 197, 94, .3);
+      color: var(--success)
+    }
+
+    .status-indicator.speaking {
+      background: rgba(108, 99, 255, .12);
+      border: 1px solid rgba(108, 99, 255, .3);
+      color: var(--accent-2)
+    }
+
+    .status-indicator.processing {
+      background: rgba(245, 158, 11, .12);
+      border: 1px solid rgba(245, 158, 11, .3);
+      color: var(--warning)
+    }
+
+    .status-indicator.waiting {
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid var(--border);
+      color: var(--text-muted)
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%
+    }
+
+    .listening .status-dot {
+      background: var(--success);
+      animation: blink 1s infinite
+    }
+
+    .speaking .status-dot {
+      background: var(--accent-2);
+      animation: blink .5s infinite
+    }
+
+    .processing .status-dot {
+      background: var(--warning);
+      border: 2px solid rgba(245, 158, 11, .3);
+      border-top-color: var(--warning);
+      animation: spin 1s linear infinite
+    }
+
+    .waiting .status-dot {
+      background: var(--text-muted)
+    }
+
+    .transcript-live {
+      flex: 1;
+      font-size: .82rem;
+      color: var(--text-muted);
+      font-style: italic;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .transcript-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent
+    }
+
+    .transcript-panel::-webkit-scrollbar {
+      width: 4px
+    }
+
+    .transcript-panel::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 999px
+    }
+
+    .msg {
+      display: flex;
+      flex-direction: column;
+      gap: .2rem;
+      animation: fadeSlide .35s ease
+    }
+
+    .msg-role {
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding-left: .1rem
+    }
+
+    .msg.ai .msg-role {
+      color: var(--accent-2)
+    }
+
+    .msg.user .msg-role {
+      color: var(--success)
+    }
+
+    .msg-bubble {
+      padding: .75rem 1rem;
+      border-radius: var(--radius-md);
+      font-size: .88rem;
+      line-height: 1.55;
+      max-width: 92%
+    }
+
+    .msg.ai .msg-bubble {
+      background: rgba(108, 99, 255, .1);
+      border: 1px solid rgba(108, 99, 255, .2);
+      color: var(--text);
+      align-self: flex-start
+    }
+
+    .msg.user .msg-bubble {
+      background: rgba(34, 197, 94, .08);
+      border: 1px solid rgba(34, 197, 94, .18);
+      color: var(--text);
+      align-self: flex-end
+    }
+
+    .answer-controls {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border);
+      background: var(--bg-card);
+      display: none;
+      flex-direction: column;
+      gap: .75rem
+    }
+
+    .answer-controls.visible {
+      display: flex
+    }
+
+    .answer-hint {
+      font-size: .78rem;
+      color: var(--text-muted);
+      text-align: center
+    }
+
+    .mic-btn-wrap {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      align-items: center
+    }
+
+    .btn-mic {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      font-size: 1.6rem;
+      transition: all .2s ease;
+      position: relative
+    }
+
+    .btn-mic.idle {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 4px 24px rgba(108, 99, 255, .45)
+    }
+
+    .btn-mic.idle:hover {
+      transform: scale(1.06);
+      box-shadow: 0 8px 32px rgba(108, 99, 255, .6)
+    }
+
+    .btn-mic.active {
+      background: linear-gradient(135deg, #dc2626, #ef4444);
+      box-shadow: 0 4px 24px rgba(239, 68, 68, .5);
+      animation: pulse-btn 1.5s ease-in-out infinite
+    }
+
+    .btn-mic:disabled {
+      opacity: .4;
+      cursor: not-allowed;
+      transform: none !important
+    }
+
+    @keyframes pulse-btn {
+
+      0%,
+      100% {
+        box-shadow: 0 4px 24px rgba(239, 68, 68, .5)
+      }
+
+      50% {
+        box-shadow: 0 4px 40px rgba(239, 68, 68, .8)
+      }
+    }
+
+    .btn-mic.active::before,
+    .btn-mic.active::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 2px solid rgba(239, 68, 68, .4);
+      animation: ripple 1.8s ease-out infinite
+    }
+
+    .btn-mic.active::after {
+      animation-delay: .6s
+    }
+
+    @keyframes ripple {
+      0% {
+        transform: scale(1);
+        opacity: 1
+      }
+
+      100% {
+        transform: scale(1.6);
+        opacity: 0
+      }
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      padding: .6rem 1.2rem;
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all .2s
+    }
+
+    .btn:disabled {
+      opacity: .4;
+      cursor: not-allowed
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border)
+    }
+
+    .btn-outline:not(:disabled):hover {
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(108, 99, 255, .4)
+    }
+
+    /* ═══════════════════════════════════════════
+       GAZE WARNING OVERLAY
+    ═══════════════════════════════════════════ */
+    .gaze-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      padding: 2rem;
+      text-align: center;
+      background: rgba(9, 9, 15, 0.7);
+      backdrop-filter: blur(6px);
+      animation: fadeIn .35s ease;
+    }
+
+    .gaze-overlay.show {
+      display: flex
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0
+      }
+
+      to {
+        opacity: 1
+      }
+    }
+
+    .gaze-box {
+      background: var(--bg-card);
+      border: 2px solid var(--warning);
+      border-radius: var(--radius-lg);
+      padding: 2rem 2.5rem;
+      max-width: 460px;
+      box-shadow: 0 0 60px rgba(245, 158, 11, .25), var(--shadow);
+      animation: shake .4s ease;
+    }
+
+    @keyframes shake {
+
+      0%,
+      100% {
+        transform: none
+      }
+
+      25% {
+        transform: translateX(-6px)
+      }
+
+      75% {
+        transform: translateX(6px)
+      }
+    }
+
+    .gaze-icon {
+      font-size: 3.5rem;
+      margin-bottom: .5rem
+    }
+
+    .gaze-title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--warning);
+      margin-bottom: .5rem
+    }
+
+    .gaze-msg {
+      color: var(--text-muted);
+      font-size: .9rem;
+      line-height: 1.55
+    }
+
+    .gaze-countdown {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--warning);
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 3px solid rgba(245, 158, 11, .3);
+      border-top-color: var(--warning);
+      display: grid;
+      place-items: center;
+      margin: 0.5rem auto 0;
+      animation: spin 1s linear infinite;
+    }
+
+    .gaze-dismiss-bar {
+      height: 4px;
+      border-radius: 999px;
+      background: var(--warning);
+      width: 100%;
+      animation: shrink linear forwards
+    }
+
+    @keyframes shrink {
+      from {
+        width: 100%
+      }
+
+      to {
+        width: 0
+      }
+    }
+
+    /* ═══════════════════════════════════════════
+       FLAG BANNER (sticky top)
+    ═══════════════════════════════════════════ */
+    .flag-banner {
+      position: fixed;
+      top: 56px;
+      left: 0;
+      right: 0;
+      z-index: 200;
+      background: rgba(239, 68, 68, .1);
+      border-bottom: 2px solid rgba(239, 68, 68, .4);
+      padding: .6rem 1.5rem;
+      display: none;
+      align-items: center;
+      gap: .75rem;
+      font-size: .82rem;
+      color: var(--danger);
+      font-weight: 600;
+    }
+
+    .flag-banner.show {
+      display: flex
+    }
+
+    .flag-banner .fb-icon {
+      font-size: 1.1rem
+    }
+
+    /* ═══════════════════════════════════════════
+       CAMERA INTERRUPT OVERLAY
+    ═══════════════════════════════════════════ */
+    .cam-interrupt-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      background: rgba(0, 0, 0, .85);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: .75rem;
+      text-align: center;
+      padding: 1.5rem;
+    }
+
+    .cam-interrupt-overlay.show {
+      display: flex
+    }
+
+    .ci-icon {
+      font-size: 3rem
+    }
+
+    .ci-msg {
+      font-size: .85rem;
+      color: var(--warning);
+      font-weight: 600;
+      line-height: 1.4
+    }
+
+    /* ═══════════════════════════════════════════
+       RESULTS OVERLAY
+    ═══════════════════════════════════════════ */
+    .results-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(9, 9, 15, .95);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      animation: fadeIn .5s ease
+    }
+
+    .results-overlay.show {
+      display: flex
+    }
+
+    .results-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      max-width: 620px;
+      width: 100%;
+      box-shadow: var(--shadow);
+      text-align: center;
+      max-height: 85vh;
+      overflow-y: auto
+    }
+
+    .results-icon {
+      font-size: 4rem;
+      margin-bottom: 1rem
+    }
+
+    .results-title {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.04em;
+      margin-bottom: .4rem
+    }
+
+    .results-sub {
+      color: var(--text-muted);
+      font-size: .9rem;
+      margin-bottom: 2rem
+    }
+
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem
+    }
+
+    .score-item {
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1rem .75rem;
+      text-align: center
+    }
+
+    .score-val {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.03em;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent
+    }
+
+    .score-lbl {
+      font-size: .72rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-top: .25rem
+    }
+
+    .verdict-badge {
+      display: inline-block;
+      padding: .35rem 1.2rem;
+      border-radius: 999px;
+      font-size: .85rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 1.5rem
+    }
+
+    .verdict-verified {
+      background: rgba(34, 197, 94, .15);
+      border: 1px solid rgba(34, 197, 94, .4);
+      color: var(--success)
+    }
+
+    .verdict-review {
+      background: rgba(245, 158, 11, .15);
+      border: 1px solid rgba(245, 158, 11, .4);
+      color: var(--warning)
+    }
+
+    .verdict-failed {
+      background: rgba(239, 68, 68, .15);
+      border: 1px solid rgba(239, 68, 68, .4);
+      color: var(--danger)
+    }
+
+    .reasoning-box {
+      background: rgba(255, 255, 255, .03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      font-size: .82rem;
+      color: var(--text-muted);
+      text-align: left;
+      line-height: 1.6;
+      margin-bottom: 1.5rem
+    }
+
+    .integrity-box {
+      background: rgba(239, 68, 68, .05);
+      border: 1px solid rgba(239, 68, 68, .2);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      font-size: .8rem;
+      color: var(--danger);
+      text-align: left;
+      line-height: 1.6;
+      margin-bottom: 1.5rem
+    }
+
+    .results-actions {
+      display: flex;
+      justify-content: center;
+      gap: .75rem;
+      flex-wrap: wrap
+    }
+
+    /* ── Connecting Overlay ─────────────────── */
+    .conn-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 150;
+      background: rgba(9, 9, 15, .92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.25rem;
+      text-align: center;
+      padding: 2rem
+    }
+
+    .conn-overlay.hide {
+      display: none
+    }
+
+    .conn-title {
+      font-size: 1.3rem;
+      font-weight: 700
+    }
+
+    .conn-sub {
+      color: var(--text-muted);
+      font-size: .88rem;
+      max-width: 320px;
+      line-height: 1.5
+    }
+
+    .model-progress {
+      width: 280px;
+      height: 4px;
+      background: rgba(255, 255, 255, .06);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: .5rem
+    }
+
+    .model-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      width: 0%;
+      transition: width .4s ease;
+      border-radius: 999px
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Connecting / Loading Overlay ─────────── -->
+  <div class="conn-overlay" id="connOverlay">
+    <div class="spinner-lg"></div>
+    <div class="conn-title" id="connTitle">Loading AI Models…</div>
+    <div class="conn-sub" id="connSub">Loading face recognition models, then starting camera and connecting to
+      interviewer.</div>
+    <div class="model-progress">
+      <div class="model-bar" id="modelBar"></div>
+    </div>
+  </div>
+
+  <!-- ── Flag Banner ───────────────────────────── -->
+  <div class="flag-banner" id="flagBanner">
+    <span class="fb-icon">🚩</span>
+    <span id="flagBannerText">This interview has been flagged for integrity violations.</span>
+    <span style="margin-left:auto;font-size:.72rem;opacity:.7" id="flagCount"></span>
+  </div>
+
+  <!-- ── Gaze Warning Overlay ──────────────────── -->
+  <div class="gaze-overlay" id="gazeOverlay">
+    <div class="gaze-box">
+      <div class="gaze-icon" id="gazeIcon">👁️</div>
+      <div class="gaze-title" id="gazeTitle">Look at the Camera</div>
+      <div class="gaze-msg" id="gazeMsg">
+        Your face is not clearly visible.<br>Please look directly at the camera to continue your interview.
+      </div>
+      <div class="gaze-dismiss-bar" id="gazeBar" style="animation-duration:8s"></div>
+    </div>
+  </div>
+
+  <!-- ── Top Bar ────────────────────────────────── -->
+  <div class="topbar">
+    <div class="tb-logo">
+      <div class="tb-logo-icon">🛡</div> SkillProof
+    </div>
+    <div class="tb-divider"></div>
+    <div class="tb-session" id="tbSession">Loading session…</div>
+    <div class="tb-right">
+      <span class="q-counter" id="qCounter">Q 0 / 5</span>
+      <span class="live-badge" id="liveBadge" style="display:none">
+        <span class="live-dot"></span> LIVE
+      </span>
+    </div>
+  </div>
+
+  <!-- ── Main Grid ──────────────────────────────── -->
+  <div class="main">
+
+    <!-- LEFT: Camera Panel -->
+    <div class="cam-panel scanning" id="camPanel">
+      <div class="cam-feed" id="camFeed">
+        <div class="cam-placeholder" id="camPlaceholder">
+          <div class="icon">📷</div>
+          <p>Activating camera…</p>
+        </div>
+        <video id="camVideo" autoplay playsinline muted style="display:none"></video>
+        <canvas id="camOverlay" style="display:none"></canvas>
+        <div class="scan-line"></div>
+
+        <!-- Camera interrupt overlay -->
+        <div class="cam-interrupt-overlay" id="camInterruptOverlay">
+          <div class="ci-icon">📵</div>
+          <div class="ci-msg" id="camInterruptMsg">
+            Camera feed interrupted.<br>Please turn on your camera to resume.
+          </div>
+        </div>
+
+        <div class="bio-strip" id="bioStrip">
+          <span class="bio-chip grey" id="faceChip"><span class="bio-dot"></span> Face: –</span>
+          <span class="bio-chip grey" id="voiceChip"><span class="bio-dot"></span> Voice: –</span>
+          <span style="margin-left:auto;font-size:.68rem;color:var(--text-muted)" id="fraudLabel"></span>
+        </div>
+      </div>
+
+      <div class="cam-footer">
+        <span class="mic-label">🎙</span>
+        <div class="mic-bar">
+          <div class="mic-level" id="micLevel"></div>
+        </div>
+        <span class="mic-label" id="micStatus">Off</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: Interview Panel -->
+    <div class="interview-panel" id="interviewPanel">
+      <div class="pre-screen" id="preScreen">
+        <div class="pre-icon">🤖</div>
+        <div class="pre-title">AI Interviewer</div>
+        <div class="pre-sub">Connecting… your interviewer will appear momentarily.</div>
+      </div>
+
+      <div class="question-area" id="questionArea">
+        <div class="q-label">
+          🤖 AI Question
+          <div class="speaking-anim" id="speakingAnim">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="question-text" id="questionText"></div>
+      </div>
+
+      <div class="status-bar" id="statusBar">
+        <div class="status-indicator waiting" id="statusIndicator">
+          <div class="status-dot"></div>
+          <span id="statusText">Waiting…</span>
+        </div>
+        <div class="transcript-live" id="transcriptLive"></div>
+      </div>
+
+      <div class="transcript-panel" id="transcriptPanel"></div>
+
+      <div class="answer-controls" id="answerControls">
+        <div class="answer-hint" id="answerHint">Wait for question to finish, then press mic and speak.</div>
+        <div class="mic-btn-wrap">
+          <button class="btn btn-outline" id="btnSkip" onclick="skipQuestion()" disabled>Skip</button>
+          <button class="btn-mic idle" id="btnMic" onclick="toggleMic()" disabled>🎤</button>
+          <button class="btn btn-outline" id="btnRepeat" onclick="repeatQuestion()">🔊</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+
+  <!-- ── Results Overlay ──────────────────────────── -->
+  <div class="results-overlay" id="resultsOverlay">
+    <div class="results-card">
+      <div class="results-icon" id="resultsIcon">🏆</div>
+      <div class="results-title">Interview Complete</div>
+      <div class="results-sub">Your skill verification results are below.</div>
+      <div id="verdictWrap"></div>
+      <div class="score-grid" id="scoreGrid"></div>
+      <div class="reasoning-box" id="reasoningBox" style="display:none"></div>
+      <div class="integrity-box" id="integrityBox" style="display:none"></div>
+      <div class="results-actions">
+        <button class="btn btn-primary" onclick="viewFullScorecard()">📊 Full Scorecard</button>
+        <button class="btn btn-outline" onclick="location.reload()">↺ Start Over</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════ -->
+  <script>
+    /* ─────────────────────────────────────────────
+       CONFIG
+    ───────────────────────────────────────────── */
+    const BASE_URL = 'http://127.0.0.1:8000';
+    const WS_BASE = 'ws://127.0.0.1:8000';
+    // face-api model CDN (vladmandic fork has reliable hosting)
+    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+
+    // Timing constants
+    const BIO_CHECK_MS = 6000;   // real-time verify every 6 sec
+    const GAZE_MISS_LIMIT = 2;      // consecutive misses before warning
+    const GAZE_FLAG_LIMIT = 3;      // total gaze violations before flag
+    const NOSE_OFFSET_MAX = 0.42;   // head-turn threshold (42% off center → too far sideways)
+
+    /* ─────────────────────────────────────────────
+       STATE
+    ───────────────────────────────────────────── */
+    let sessionId = null;
+    let ws = null;
+    let camStream = null;
+    let micStream = null;
+    let audioCtx = null;
+    let analyser = null;
+    let micAnimFrame = null;
+    let recognition = null;
+    let isListening = false;
+    let currentQ = '';
+    let qIndex = 0;
+    let totalQ = 5;
+    let pingInterval = null;
+    let bioInterval = null;
+    let modelsLoaded = false;
+
+    // gaze tracking
+    let consecutiveMisses = 0;
+    let gazeOverlayShowing = false;
+    let gazeOverlayTimer = null;
+    let totalGazeViolations = 0;
+    let sideGazeCount = 0;
+    let camInterrupted = false;
+    let camInterruptWarned = false;
+
+    // voice recording (for voice verification after each answer)
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let lastVoiceEmbed = null;
+
+    // interview started flag
+    let interviewStarted = false;
+
+    /* ─────────────────────────────────────────────
+       INIT
+    ───────────────────────────────────────────── */
+    window.addEventListener('DOMContentLoaded', async () => {
+      const params = new URLSearchParams(window.location.search);
+      sessionId = params.get('session');
+      if (!sessionId) {
+        showConnError('No session ID in URL', 'Add ?session=<uuid> to the URL.');
+        return;
+      }
+      document.getElementById('tbSession').textContent = sessionId;
+
+      // 1. Load face-api.js models
+      setConnMsg('Loading face recognition models…', 'This takes a few seconds on first load.');
+      try {
+        await loadFaceModels();
+      } catch (e) {
+        console.warn('face-api models failed to load — gaze detection disabled.', e);
+      }
+
+      // 2. Start camera
+      setConnMsg('Starting camera…', 'Requesting camera permission.');
+      setModelBar(80);
+      await startCamera();
+
+      // 3. Start mic meter
+      await startMicMeter();
+
+      // 4. Connect WebSocket
+      setConnMsg('Connecting to AI Interviewer…', 'Opening WebSocket connection.');
+      setModelBar(95);
+      await new Promise(r => setTimeout(r, 400));
+      connectWS();
+    });
+
+    /* ─────────────────────────────────────────────
+       FACE-API MODEL LOADING
+    ───────────────────────────────────────────── */
+    async function loadFaceModels() {
+      setModelBar(10);
+      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      setModelBar(35);
+      await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
+      setModelBar(60);
+      await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+      setModelBar(75);
+      modelsLoaded = true;
+      console.log('[face-api] All models loaded.');
+    }
+
+    function setModelBar(pct) {
+      document.getElementById('modelBar').style.width = pct + '%';
+    }
+
+    /* ─────────────────────────────────────────────
+       CAMERA
+    ───────────────────────────────────────────── */
+    async function startCamera() {
+      try {
+        camStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: 640, height: 480 },
+          audio: false
+        });
+        const vid = document.getElementById('camVideo');
+        vid.srcObject = camStream;
+        await vid.play();
+        document.getElementById('camPlaceholder').style.display = 'none';
+        vid.style.display = 'block';
+
+        const overlay = document.getElementById('camOverlay');
+        overlay.style.display = 'block';
+        overlay.width = vid.videoWidth || 640;
+        overlay.height = vid.videoHeight || 480;
+
+        document.getElementById('bioStrip').style.display = 'flex';
+
+        // Monitor camera interruption (tab hidden / video paused)
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden && interviewStarted) {
+            handleCameraInterrupt('Tab hidden — camera feed lost.');
+          } else if (!document.hidden && camInterrupted) {
+            dismissCameraInterrupt();
+          }
+        });
+
+        vid.addEventListener('pause', () => {
+          if (interviewStarted) handleCameraInterrupt('Camera stream paused.');
+        });
+        vid.addEventListener('play', () => {
+          if (camInterrupted) dismissCameraInterrupt();
+        });
+
+      } catch (err) {
+        document.getElementById('camPlaceholder').querySelector('p').textContent =
+          'Camera access denied: ' + err.message;
+      }
+    }
+
+    /* ─────────────────────────────────────────────
+       MIC METER
+    ───────────────────────────────────────────── */
+    async function startMicMeter() {
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = audioCtx.createMediaStreamSource(micStream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        src.connect(analyser);
+        animateMicMeter();
+        document.getElementById('micStatus').textContent = 'Ready';
+      } catch (e) {
+        document.getElementById('micStatus').textContent = 'No Mic';
+      }
+    }
+
+    function animateMicMeter() {
+      const data = new Uint8Array(analyser ? analyser.frequencyBinCount : 0);
+      const lvl = document.getElementById('micLevel');
+      function tick() {
+        micAnimFrame = requestAnimationFrame(tick);
+        if (!analyser) return;
+        analyser.getByteFrequencyData(data);
+        const avg = data.reduce((a, b) => a + b, 0) / data.length;
+        lvl.style.width = Math.min(100, avg * 2.5) + '%';
+      }
+      tick();
+    }
+
+    /* ─────────────────────────────────────────────
+       WEBSOCKET
+    ───────────────────────────────────────────── */
+    function connectWS() {
+      ws = new WebSocket(`${WS_BASE}/api/v1/interview/${sessionId}/ws`);
+
+      ws.onopen = () => {
+        document.getElementById('connOverlay').classList.add('hide');
+        document.getElementById('liveBadge').style.display = 'inline-flex';
+        pingInterval = setInterval(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }));
+        }, 25000);
+      };
+
+      ws.onmessage = (evt) => {
+        let msg;
+        try { msg = JSON.parse(evt.data); } catch { return; }
+        if (msg.type === 'pong') return;
+
+        if (msg.type === 'ready') {
+          interviewStarted = true;
+          showInterviewUI();
+          currentQ = msg.first_question || '';
+          appendMsg('ai', currentQ);
+          setQuestion(currentQ);
+          startBioMonitoring();       // ← live verification loop starts
+          startVoiceRecording();      // ← start recording audio for voice embed
+          speakText(currentQ, () => enableAnswering());
+        }
+
+        if (msg.type === 'question') {
+          qIndex = msg.q_index || qIndex + 1;
+          currentQ = msg.text || '';
+          appendMsg('ai', currentQ);
+          setQuestion(currentQ);
+          updateQCounter(qIndex, totalQ);
+          disableAnswering();
+          startVoiceRecording();   // fresh recording for each question
+          speakText(currentQ, () => enableAnswering());
+        }
+
+        if (msg.type === 'complete') {
+          interviewStarted = false;
+          clearInterval(pingInterval);
+          clearInterval(bioInterval);
+          stopMicStream();
+          disableAnswering();
+          appendMsg('ai', msg.message || 'Interview complete!');
+          speakText(msg.message || 'Interview complete. Thank you.', () => {
+            setTimeout(() => showResults(msg.evaluation), 800);
+          });
+        }
+
+        if (msg.type === 'error') {
+          setStatus('waiting', '⚠ ' + (msg.message || 'Error from server'));
+        }
+      };
+
+      ws.onclose = () => {
+        clearInterval(pingInterval);
+        document.getElementById('liveBadge').style.display = 'none';
+      };
+
+      ws.onerror = () => {
+        showConnError('WebSocket Error', 'Cannot connect to interview server. Is the backend running?');
+      };
+    }
+
+    /* ─────────────────────────────────────────────
+       BIOMETRIC MONITORING LOOP
+    ───────────────────────────────────────────── */
+    function startBioMonitoring() {
+      bioInterval = setInterval(runBioCheck, BIO_CHECK_MS);
+    }
+
+    async function runBioCheck() {
+      const vid = document.getElementById('camVideo');
+      if (!vid || vid.readyState < 2 || !interviewStarted) return;
+      if (camInterrupted) return;
+
+      // ── 1. Face detection & gaze check ──────────────────────────────────────
+      let faceEmbedding = null;
+      let faceDetected = false;
+
+      if (modelsLoaded) {
+        try {
+          const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 });
+          const result = await faceapi
+            .detectSingleFace(vid, opts)
+            .withFaceLandmarks(true)
+            .withFaceDescriptor();
+
+          if (result) {
+            faceDetected = true;
+            consecutiveMisses = 0;
+            sideGazeCount = Math.max(0, sideGazeCount - 1);
+
+            // Draw live face box
+            drawFaceBox(result.detection.box, result.landmarks);
+
+            // Check head-turn via nose tip offset
+            const landmarks = result.landmarks;
+            const nose = landmarks.getNose();
+            const noseTip = nose[3];
+            const box = result.detection.box;
+            const faceCenterX = box.x + box.width / 2;
+            const offset = Math.abs(noseTip.x - faceCenterX) / (box.width || 1);
+
+            if (offset > NOSE_OFFSET_MAX) {
+              sideGazeCount++;
+              if (sideGazeCount >= 3) {
+                // Sustained sideways look (not just thinking)
+                await triggerGazeViolation('Sustained sideways gaze detected (head-turn > 42%)');
+              }
+            }
+
+            // Dismiss gaze overlay if face re-detected
+            if (gazeOverlayShowing) dismissGazeOverlay();
+
+            faceEmbedding = Array.from(result.descriptor);
+
+          } else {
+            // No face detected
+            consecutiveMisses++;
+            clearFaceBox();
+            if (consecutiveMisses >= GAZE_MISS_LIMIT) {
+              await triggerGazeViolation('Face not detected — candidate may have looked away');
+            }
+          }
+        } catch (e) {
+          console.warn('[face-api] Detection error:', e.message);
+        }
+      }
+
+      // ── 2. Voice embedding (from most recent recording) ───────────────────────
+      const voiceEmbed = lastVoiceEmbed;
+
+      // ── 3. Call interview-verify ─────────────────────────────────────────────
+      if (faceEmbedding || voiceEmbed) {
+        await callInterviewVerify(faceEmbedding, voiceEmbed);
+      } else {
+        // Still poll status to refresh chips
+        try {
+          const r = await fetch(`${BASE_URL}/api/v1/biometric/status/${sessionId}`);
+          const d = await r.json();
+          updateBioChips(null, null, d);
+        } catch (_) { }
+      }
+    }
+
+    async function callInterviewVerify(faceEmbedding, voiceEmbedding) {
+      try {
+        const body = { session_id: sessionId };
+        if (faceEmbedding) body.face_embedding = faceEmbedding;
+        if (voiceEmbedding) body.voice_embedding = voiceEmbedding;
+
+        const res = await fetch(`${BASE_URL}/api/v1/biometric/interview-verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        updateBioChips(faceEmbedding ? data.face_match : null,
+          voiceEmbedding ? data.voice_match : null,
+          data);
+
+        if (data.alert_level === 'flag' && !document.getElementById('flagBanner').classList.contains('show')) {
+          showFlagBanner(data.flag_reasons || [], data.fraud_flags);
+        } else if (data.alert_level === 'warn') {
+          showFlagBanner(['⚠ Biometric mismatch detected — please ensure you are the registered candidate.'], data.fraud_flags);
+        }
+      } catch (e) {
+        console.warn('[bio-verify] API error:', e.message);
+      }
+    }
+
+    /* ─────────────────────────────────────────────
+       GAZE VIOLATION
+    ───────────────────────────────────────────── */
+    async function triggerGazeViolation(detail) {
+      totalGazeViolations++;
+
+      // Report to backend
+      try {
+        const res = await fetch(`${BASE_URL}/api/v1/biometric/report-violation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionId,
+            violation_type: 'gaze',
+            details: detail
+          })
+        });
+        const data = await res.json();
+
+        if (data.interview_flagged) {
+          showFlagBanner(data.flag_reasons || [], data.fraud_flags);
+        }
+
+        // Show warning overlay
+        if (!gazeOverlayShowing) {
+          const isFlag = data.warning_level === 'flag';
+          const title = isFlag ? 'Interview Flagged' : 'Please Look at the Camera';
+          const iconText = isFlag ? '🚩' : '👁️';
+          const msgText = data.message || 'Please look at the camera to continue your interview.';
+          const secs = isFlag ? 10 : 7;
+          showGazeOverlay(iconText, title, msgText, secs);
+        }
+      } catch (e) {
+        console.warn('[gaze-report]', e.message);
+        if (!gazeOverlayShowing) showGazeOverlay('👁️', 'Look at the Camera', 'Please face the camera to continue.', 7);
+      }
+    }
+
+    function showGazeOverlay(icon, title, msg, seconds) {
+      gazeOverlayShowing = true;
+      document.getElementById('gazeIcon').textContent = icon;
+      document.getElementById('gazeTitle').textContent = title;
+      document.getElementById('gazeMsg').textContent = msg;
+
+      const bar = document.getElementById('gazeBar');
+      bar.style.animationDuration = seconds + 's';
+      // restart animation
+      bar.style.animation = 'none';
+      bar.offsetHeight;
+      bar.style.animation = `shrink ${seconds}s linear forwards`;
+
+      document.getElementById('gazeOverlay').classList.add('show');
+
+      // Auto-dismiss
+      if (gazeOverlayTimer) clearTimeout(gazeOverlayTimer);
+      gazeOverlayTimer = setTimeout(() => dismissGazeOverlay(), seconds * 1000);
+    }
+
+    function dismissGazeOverlay() {
+      gazeOverlayShowing = false;
+      document.getElementById('gazeOverlay').classList.remove('show');
+      if (gazeOverlayTimer) { clearTimeout(gazeOverlayTimer); gazeOverlayTimer = null; }
+    }
+
+    /* ─────────────────────────────────────────────
+       CAMERA INTERRUPT
+    ───────────────────────────────────────────── */
+    async function handleCameraInterrupt(detail) {
+      camInterrupted = true;
+      document.getElementById('camInterruptOverlay').classList.add('show');
+      document.getElementById('camInterruptMsg').textContent =
+        'Camera feed interrupted.\nPlease turn on your camera to resume the interview.';
+
+      try {
+        const res = await fetch(`${BASE_URL}/api/v1/biometric/report-violation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionId,
+            violation_type: 'camera',
+            details: detail
+          })
+        });
+        const data = await res.json();
+        if (data.interview_flagged) {
+          showFlagBanner(data.flag_reasons || [], data.fraud_flags);
+        }
+      } catch (_) { }
+    }
+
+    function dismissCameraInterrupt() {
+      camInterrupted = false;
+      document.getElementById('camInterruptOverlay').classList.remove('show');
+    }
+
+    /* ─────────────────────────────────────────────
+       CANVAS: Draw Face Detection Box
+    ───────────────────────────────────────────── */
+    function drawFaceBox(box, landmarks) {
+      const canvas = document.getElementById('camOverlay');
+      const vid = document.getElementById('camVideo');
+      if (!canvas || !vid.videoWidth) return;
+      canvas.width = vid.videoWidth;
+      canvas.height = vid.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Green bounding box
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+      // Corner accents
+      const c = 12;
+      ctx.strokeStyle = '#a78bfa';
+      ctx.lineWidth = 3;
+      [
+        [box.x, box.y, c, 0, c],
+        [box.x + box.width, box.y, -c, 0, -c],
+        [box.x, box.y + box.height, c, 0, c],
+        [box.x + box.width, box.y + box.height, -c, 0, -c],
+      ].forEach(([x1, y1, dx1, dy, dx2]) => {
+        ctx.beginPath();
+        ctx.moveTo(x1 + dx1, y1); ctx.lineTo(x1, y1); ctx.lineTo(x1, y1 + (dy || 12));
+        ctx.stroke();
+      });
+    }
+
+    function clearFaceBox() {
+      const canvas = document.getElementById('camOverlay');
+      if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    /* ─────────────────────────────────────────────
+       VOICE RECORDING (for interview-verify)
+    ───────────────────────────────────────────── */
+    function startVoiceRecording() {
+      if (!micStream) return;
+      audioChunks = [];
+      try {
+        mediaRecorder = new MediaRecorder(micStream);
+        mediaRecorder.ondataavailable = e => {
+          if (e.data.size > 0) audioChunks.push(e.data);
+        };
+        mediaRecorder.onstop = async () => {
+          if (audioChunks.length > 0) {
+            lastVoiceEmbed = await extractVoiceEmbedding(audioChunks).catch(() => null);
+          }
+        };
+        mediaRecorder.start(200);
+      } catch (e) {
+        console.warn('[mediaRecorder]', e.message);
+      }
+    }
+
+    function stopCurrentRecording() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+    }
+
+    /* ─────────────────────────────────────────────
+       VOICE EMBEDDING (spectral fingerprint)
+    ───────────────────────────────────────────── */
+    async function extractVoiceEmbedding(chunks) {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const arrBuf = await blob.arrayBuffer();
+      const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioBuf = await tempCtx.decodeAudioData(arrBuf);
+      await tempCtx.close();
+
+      const channelData = audioBuf.getChannelData(0);
+      const frameSize = 512;
+      const hopSize = 256;
+      const numBands = 64;
+      const embedding = new Array(numBands).fill(0);
+      let frames = 0;
+
+      for (let s = 0; s + frameSize < channelData.length; s += hopSize) {
+        const frame = channelData.slice(s, s + frameSize);
+        const mag = simpleDFT(frame, frameSize);
+        const bpb = Math.floor((frameSize / 2) / numBands);
+        for (let b = 0; b < numBands; b++) {
+          let sum = 0;
+          for (let k = 0; k < bpb; k++) sum += mag[b * bpb + k];
+          embedding[b] += sum / bpb;
+        }
+        frames++;
+      }
+      if (!frames) return null;
+      const mx = Math.max(...embedding);
+      return embedding.map(v => (v / frames) / (mx || 1));
+    }
+
+    function simpleDFT(frame, N) {
+      const half = Math.floor(N / 2);
+      const mag = new Float32Array(half);
+      for (let k = 0; k < half; k++) {
+        let re = 0, im = 0;
+        for (let n = 0; n < N; n++) {
+          const a = (2 * Math.PI * k * n) / N;
+          re += frame[n] * Math.cos(a);
+          im -= frame[n] * Math.sin(a);
+        }
+        mag[k] = Math.sqrt(re * re + im * im) / N;
+      }
+      return mag;
+    }
+
+    /* ─────────────────────────────────────────────
+       MIC / SPEECH RECOGNITION
+    ───────────────────────────────────────────── */
+    function toggleMic() {
+      isListening ? stopListening() : startListening();
+    }
+
+    function startListening() {
+      if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+        alert('Speech Recognition is not supported.\nPlease use Google Chrome or Microsoft Edge.');
+        return;
+      }
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SR();
+      recognition.lang = 'en-US';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      let finalT = '', interimT = '';
+
+      recognition.onstart = () => {
+        isListening = true;
+        document.getElementById('btnMic').className = 'btn-mic active';
+        document.getElementById('btnMic').textContent = '⏹';
+        document.getElementById('micStatus').textContent = 'Listening…';
+        setStatus('listening', 'Listening — speak your answer…');
+        document.getElementById('transcriptLive').textContent = '';
+        startVoiceRecording();   // fresh recording while answering
+      };
+
+      recognition.onresult = (e) => {
+        interimT = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          e.results[i].isFinal ? (finalT += t) : (interimT += t);
+        }
+        document.getElementById('transcriptLive').textContent = (finalT + ' ' + interimT).trim();
+      };
+
+      recognition.onerror = (e) => {
+        setStatus('waiting', 'Mic error: ' + e.error);
+        resetMicBtn();
+      };
+
+      recognition.onend = () => {
+        resetMicBtn();
+        stopCurrentRecording();   // capture voice embed
+        const answer = finalT.trim();
+        document.getElementById('transcriptLive').textContent = answer;
+        if (answer && ws && ws.readyState === WebSocket.OPEN) {
+          appendMsg('user', answer);
+          setStatus('processing', 'AI is thinking…');
+          disableAnswering();
+          ws.send(JSON.stringify({ type: 'answer', text: answer }));
+        }
+      };
+
+      recognition.start();
+    }
+
+    function stopListening() {
+      if (recognition) recognition.stop();
+      isListening = false;
+    }
+
+    function resetMicBtn() {
+      isListening = false;
+      document.getElementById('btnMic').className = 'btn-mic idle';
+      document.getElementById('btnMic').textContent = '🎤';
+      document.getElementById('micStatus').textContent = 'Ready';
+    }
+
+    function stopMicStream() {
+      stopListening();
+      stopCurrentRecording();
+      if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+      if (micAnimFrame) cancelAnimationFrame(micAnimFrame);
+      document.getElementById('micLevel').style.width = '0%';
+      document.getElementById('micStatus').textContent = 'Done';
+    }
+
+    /* ─────────────────────────────────────────────
+       TTS
+    ───────────────────────────────────────────── */
+    function speakText(text, onDone) {
+      if (!('speechSynthesis' in window)) { if (onDone) onDone(); return; }
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = 'en-US'; utt.rate = 0.95; utt.pitch = 1.0; utt.volume = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const pref = voices.find(v => v.lang === 'en-US' && (v.name.includes('Google') || v.name.includes('Samantha')));
+      if (pref) utt.voice = pref;
+
+      document.getElementById('speakingAnim').classList.add('active');
+      setStatus('speaking', 'AI is speaking…');
+
+      utt.onend = utt.onerror = () => {
+        document.getElementById('speakingAnim').classList.remove('active');
+        if (onDone) onDone();
+      };
+      window.speechSynthesis.speak(utt);
+    }
+
+    function repeatQuestion() { if (currentQ) speakText(currentQ, () => enableAnswering()); }
+
+    function skipQuestion() {
+      stopListening();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        appendMsg('user', '(skipped)');
+        ws.send(JSON.stringify({ type: 'answer', text: '(skipped)' }));
+        setStatus('processing', 'AI is thinking…');
+        disableAnswering();
+      }
+    }
+
+    /* ─────────────────────────────────────────────
+       UI HELPERS
+    ───────────────────────────────────────────── */
+    function showInterviewUI() {
+      document.getElementById('preScreen').style.display = 'none';
+      document.getElementById('questionArea').classList.add('visible');
+      document.getElementById('statusBar').classList.add('visible');
+      document.getElementById('answerControls').classList.add('visible');
+    }
+
+    function setQuestion(text) {
+      const el = document.getElementById('questionText');
+      el.textContent = text;
+      el.style.animation = 'none'; el.offsetHeight; el.style.animation = '';
+    }
+
+    function appendMsg(role, text) {
+      const p = document.getElementById('transcriptPanel');
+      const div = document.createElement('div');
+      div.className = 'msg ' + role;
+      div.innerHTML = `<div class="msg-role">${role === 'ai' ? '🤖 Interviewer' : '🎙 You'}</div><div class="msg-bubble">${escHtml(text)}</div>`;
+      p.appendChild(div);
+      p.scrollTop = p.scrollHeight;
+    }
+
+    function setStatus(type, text) {
+      const ind = document.getElementById('statusIndicator');
+      ind.className = 'status-indicator ' + type;
+      document.getElementById('statusText').textContent = text;
+    }
+
+    function enableAnswering() {
+      document.getElementById('btnMic').disabled = false;
+      document.getElementById('btnSkip').disabled = false;
+      document.getElementById('btnRepeat').disabled = false;
+      setStatus('listening', 'Your turn — press 🎤 and speak');
+      document.getElementById('micStatus').textContent = 'Ready';
+    }
+
+    function disableAnswering() {
+      if (isListening) stopListening();
+      document.getElementById('btnMic').disabled = true;
+      document.getElementById('btnSkip').disabled = true;
+    }
+
+    function updateQCounter(cur, total) {
+      document.getElementById('qCounter').textContent = `Q ${cur} / ${total}`;
+    }
+
+    function setConnMsg(title, sub) {
+      document.getElementById('connTitle').textContent = title;
+      document.getElementById('connSub').textContent = sub;
+    }
+
+    function showConnError(title, sub) {
+      document.getElementById('connTitle').textContent = '⚠ ' + title;
+      document.getElementById('connSub').textContent = sub;
+      document.querySelector('.conn-overlay .spinner-lg').style.display = 'none';
+      document.getElementById('modelBar').style.background = '#ef4444';
+    }
+
+    function updateBioChips(faceMatch, voiceMatch, data) {
+      const fc = document.getElementById('faceChip');
+      const vc = document.getElementById('voiceChip');
+      const fl = document.getElementById('fraudLabel');
+
+      if (faceMatch !== null && faceMatch !== undefined) {
+        fc.className = 'bio-chip ' + (faceMatch ? 'ok' : 'warn');
+        fc.innerHTML = `<span class="bio-dot"></span> Face: ${faceMatch ? 'OK' : 'MISMATCH!'}`;
+      } else if (data && data.face_registered !== undefined) {
+        fc.className = 'bio-chip ' + (data.face_registered ? 'ok' : 'grey');
+        fc.innerHTML = `<span class="bio-dot"></span> Face: ${data.face_registered ? 'Reg.' : '—'}`;
+      }
+
+      if (voiceMatch !== null && voiceMatch !== undefined) {
+        vc.className = 'bio-chip ' + (voiceMatch ? 'ok' : 'warn');
+        vc.innerHTML = `<span class="bio-dot"></span> Voice: ${voiceMatch ? 'OK' : 'MISMATCH!'}`;
+      } else if (data && data.voice_registered !== undefined) {
+        vc.className = 'bio-chip ' + (data.voice_registered ? 'ok' : 'grey');
+        vc.innerHTML = `<span class="bio-dot"></span> Voice: ${data.voice_registered ? 'Reg.' : '—'}`;
+      }
+
+      if (data) {
+        const flags = data.fraud_flags || 0;
+        fl.textContent = flags > 0 ? `⚠ ${flags} flag${flags > 1 ? 's' : ''}` : '';
+        fl.style.color = flags >= 3 ? 'var(--danger)' : 'var(--warning)';
+      }
+    }
+
+    function showFlagBanner(reasons, flagCount) {
+      const banner = document.getElementById('flagBanner');
+      banner.classList.add('show');
+      document.getElementById('flagBannerText').textContent =
+        '🚩 This interview has been flagged for integrity violations. ' +
+        (reasons.length > 0 ? reasons[reasons.length - 1] : '');
+      document.getElementById('flagCount').textContent = `${flagCount} flag${flagCount !== 1 ? 's' : ''}`;
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    /* ─────────────────────────────────────────────
+       RESULTS
+    ───────────────────────────────────────────── */
+    async function showResults(evaluation) {
+      // Fetch final biometric status for integrity report
+      let bioData = null;
+      try {
+        const r = await fetch(`${BASE_URL}/api/v1/biometric/status/${sessionId}`);
+        bioData = await r.json();
+      } catch (_) { }
+
+      document.getElementById('resultsOverlay').classList.add('show');
+
+      const scores = evaluation?.scores || [];
+      const verdict = scores[0]?.verdict || 'verified';
+      const vm = { verified: { icon: '🏆', cls: 'verified' }, needs_review: { icon: '⚠️', cls: 'review' }, not_verified: { icon: '❌', cls: 'failed' } };
+      const v = vm[verdict] || vm.verified;
+      document.getElementById('resultsIcon').textContent = v.icon;
+      document.getElementById('verdictWrap').innerHTML =
+        `<span class="verdict-badge verdict-${v.cls}">${verdict.toUpperCase().replace('_', ' ')}</span>`;
+
+      const grid = document.getElementById('scoreGrid');
+      grid.innerHTML = '';
+      if (scores.length > 0) {
+        const s = scores[0];
+        [['Specificity', s.specificity_score], ['Depth', s.depth_score],
+        ['Consistency', s.consistency_score], ['Overall', s.overall_skill_score]].forEach(([l, val]) => {
+          grid.innerHTML += `<div class="score-item"><div class="score-val">${typeof val === 'number' ? val.toFixed(1) : '–'}</div><div class="score-lbl">${l}</div></div>`;
+        });
+      }
+
+      if (scores[0]?.llm_reasoning) {
+        document.getElementById('reasoningBox').style.display = 'block';
+        document.getElementById('reasoningBox').textContent = scores[0].llm_reasoning;
+      }
+
+      if (bioData && (bioData.fraud_flags > 0 || bioData.interview_flagged)) {
+        const ib = document.getElementById('integrityBox');
+        ib.style.display = 'block';
+        ib.innerHTML = `<strong>🚩 Integrity Report</strong><br>
+      Fraud flags: ${bioData.fraud_flags} | Status: ${bioData.fraud_status}<br>
+      Gaze violations: ${bioData.gaze_violations ?? '–'} | Camera interruptions: ${bioData.camera_interruptions ?? '–'}<br>
+      Face mismatches: ${bioData.face_mismatch_count ?? '–'} | Voice mismatches: ${bioData.voice_mismatch_count ?? '–'}<br>
+      ${(bioData.flag_reasons || []).map(r => '• ' + r).join('<br>')}`;
+      }
+    }
+
+    function viewFullScorecard() {
+      window.location.href = `/score-card?session=${sessionId}`;
+    }
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
+  </script>
+</body>
+
+</html>

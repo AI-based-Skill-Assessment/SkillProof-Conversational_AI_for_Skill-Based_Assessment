@@ -1,0 +1,30 @@
+fastapi==0.111.0
+uvicorn==0.30.1
+sqlalchemy==2.0.31
+asyncpg==0.29.0
+redis==5.0.7
+pydantic==2.7.4
+pydantic-settings==2.3.4
+alembic==1.13.2
+websockets>=12.0
+python-multipart==0.0.9
+httpx==0.27.0
+groq==0.9.0
+pytest==8.2.2
+pytest-asyncio==0.23.7
+PyMuPDF==1.24.5
+pytesseract==0.3.10
+pdf2image==1.17.0
+pyzbar==0.1.9
+opencv-python-headless==4.9.0.80
+SpeechRecognition==3.10.4
+pydub==0.25.1
+
+# Document verification engine
+beautifulsoup4>=4.12.0
+playwright>=1.44.0          # optional: JS-rendered page fallback (run: playwright install chromium)
+
+# Real-time voice interview CLI (voice_cli.py)
+sounddevice>=0.4.7          # microphone recording
+scipy>=1.13.0               # audio processing
+pyttsx3>=2.90               # offline text-to-speech (no API key)
