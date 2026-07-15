@@ -67,7 +67,8 @@ async def health_check():
 
 
 # ── Serve biometric enrollment HTML page ──
-_UI_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# __file__ is backend/app/main.py. Go up three levels to reach skillproof/ root (where HTML files live)
+_UI_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 @app.get("/enroll", include_in_schema=False)
 async def serve_enroll_page():
