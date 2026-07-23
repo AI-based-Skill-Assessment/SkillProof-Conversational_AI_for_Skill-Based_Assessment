@@ -77,6 +77,14 @@ async def serve_enroll_page():
     return FileResponse(html_path, media_type="text/html")
 
 
+@app.get("/score-card", include_in_schema=False)
+async def serve_score_card():
+    """Serve the visual scorecard UI page."""
+    html_path = os.path.join(_UI_DIR, "score_card.html")
+    return FileResponse(html_path, media_type="text/html")
+# Reload statement cache
+
+
 @app.get("/interview-room", include_in_schema=False)
 async def serve_interview_room():
     """Serve the live camera+mic interview room UI page."""

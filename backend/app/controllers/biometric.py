@@ -25,8 +25,27 @@ from app.schemas.biometric import (
 
 router = APIRouter()
 
+from typing import Optional, List
+
+def _extract_face_embedding_if_present(face_image: Optional[str], fallback_emb: Optional[List[float]]) -> Optional[List[float]]:
+    if not face_image:
+        return fallback_emb
+    try:
+        from app.core.face_verifier import BackendFaceVerifier
+        verifier = BackendFaceVerifier()
+        img = verifier.base64_to_cv2(face_image)
+        face_crop = verifier.process_low_res_pipeline(img)
+        emb = verifier.extract_arcface_embedding(face_crop)
+        if emb:
+            return emb
+    except Exception as e:
+        print(f"[Biometric Controller] Backend ArcFace embedding extraction failed: {e}")
+    return fallback_emb
+
+
 FACE_DIST_THRESHOLD  = 0.60   # for register-time manual verify
 VOICE_SIM_THRESHOLD  = 0.80
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -44,21 +63,22 @@ async def register_biometrics(
     db: AsyncSession = Depends(get_db),
 ) -> BiometricStatusResponse:
     """
-    Store the candidate's face embedding (128-dim from face-api.js) and/or
-    voice embedding (MFCC spectral vector from Web Audio API).
+    Store the candidate's face embedding (128-dim from face-api.js or 512-dim ArcFace) and/or
+    voice embedding.
     Caller must run /biometric/check-duplicate FIRST; this endpoint does NOT
     block duplicate registrations by itself.
     """
-    if payload.face_embedding is None and payload.voice_embedding is None:
+    face_emb = _extract_face_embedding_if_present(payload.face_image, payload.face_embedding)
+    if face_emb is None and payload.voice_embedding is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Provide at least one of: face_embedding or voice_embedding.",
+            detail="Provide at least one of: face_image, face_embedding, or voice_embedding.",
         )
 
     profile = await biometric_repo.create_or_update_profile(
         db,
         session_id=payload.session_id,
-        face_embedding=payload.face_embedding,
+        face_embedding=face_emb,
         voice_embedding=payload.voice_embedding,
     )
     await db.commit()
@@ -144,15 +164,20 @@ async def check_duplicate(
     voice_sim = None
 
     # ── Face duplicate scan ───────────────────────────────────────────────────
-    if payload.face_embedding:
+    face_emb = _extract_face_embedding_if_present(payload.face_image, payload.face_embedding)
+    if face_emb:
         face_dup = await biometric_repo.find_face_duplicate(
-            db, payload.session_id, payload.face_embedding
+            db, payload.session_id, face_emb
         )
         if face_dup:
-            # Compute the best-match distance for transparency
-            face_dist = round(biometric_repo.euclidean_distance(
-                payload.face_embedding, face_dup.face_embedding
-            ), 4)
+            # Compute match distance (euclidean or 1-cosine)
+            if len(face_emb) == 512 and face_dup.face_embedding and len(face_dup.face_embedding) == 512:
+                sim = biometric_repo.cosine_similarity(face_emb, face_dup.face_embedding)
+                face_dist = round(1.0 - sim, 4)
+            else:
+                face_dist = round(biometric_repo.euclidean_distance(
+                    face_emb, face_dup.face_embedding
+                ), 4)
 
     # ── Voice duplicate scan ──────────────────────────────────────────────────
     if payload.voice_embedding:
@@ -233,12 +258,21 @@ async def verify_biometrics(
     voice_match = False; voice_conf = 0.0
     mismatch = False
 
-    if payload.face_embedding and profile.face_embedding:
-        dist = biometric_repo.euclidean_distance(
-            payload.face_embedding, profile.face_embedding
-        )
-        face_conf  = max(0.0, round(1.0 - dist / FACE_DIST_THRESHOLD, 4))
-        face_match = dist < FACE_DIST_THRESHOLD
+    face_emb = _extract_face_embedding_if_present(payload.face_image, payload.face_embedding)
+    if face_emb and profile.face_embedding:
+        is_arcface = len(face_emb) == 512 and len(profile.face_embedding) == 512
+        if is_arcface:
+            # ArcFace checks
+            sim = biometric_repo.cosine_similarity(face_emb, profile.face_embedding)
+            face_conf = max(0.0, round(sim, 4))
+            face_match = sim >= 0.40
+        else:
+            # face-api.js fallback checks
+            dist = biometric_repo.euclidean_distance(
+                face_emb, profile.face_embedding
+            )
+            face_conf  = max(0.0, round(1.0 - dist / FACE_DIST_THRESHOLD, 4))
+            face_match = dist < FACE_DIST_THRESHOLD
         if not face_match:
             mismatch = True
 
@@ -300,11 +334,12 @@ async def interview_verify(
             detail=f"No biometric profile for session {payload.session_id}.",
         )
 
+    face_emb = _extract_face_embedding_if_present(payload.face_image, payload.face_embedding)
     face_match, voice_match, face_conf, voice_conf, profile = (
         await biometric_repo.record_interview_verification(
             db,
             session_id=payload.session_id,
-            face_embedding=payload.face_embedding,
+            face_embedding=face_emb,
             voice_embedding=payload.voice_embedding,
         )
     )
@@ -319,11 +354,46 @@ async def interview_verify(
     else:
         alert = "ok"
 
+    # Build specific flags list
+    specific_flags = []
     parts = []
-    if payload.face_embedding:
-        parts.append("Face OK" if face_match else "Face mismatch — possible proxy!")
+
+    if payload.face_embedding or payload.face_image:
+        if face_match:
+            parts.append("Face OK")
+        else:
+            parts.append("Face mismatch — different person detected!")
+            specific_flags.append("face_mismatch")
+
     if payload.voice_embedding:
-        parts.append("Voice OK" if voice_match else "Voice mismatch — possible proxy!")
+        if voice_match:
+            parts.append("Voice OK")
+        else:
+            parts.append("Voice mismatch — different speaker detected!")
+            specific_flags.append("voice_mismatch")
+
+    # Check multi-face from request data (frontend sends this)
+    multi_face = getattr(payload, 'multi_face_detected', False)
+    if multi_face:
+        specific_flags.append("multiple_faces")
+        parts.append("Multiple faces detected in frame")
+
+    face_detected = getattr(payload, 'face_detected', True)
+    if not face_detected:
+        specific_flags.append("face_not_detected")
+        parts.append("Candidate face not visible")
+
+    # Compose specific message
+    if specific_flags:
+        flag_messages = {
+            "face_mismatch": "FACE MISMATCH: The person in the camera does not match the registered candidate. Possible proxy detected.",
+            "voice_mismatch": "VOICE MISMATCH: The speaker does not match the registered candidate voice profile. Possible proxy detected.",
+            "multiple_faces": "MULTIPLE FACES: More than one person detected in the camera frame. Unauthorized person present.",
+            "face_not_detected": "FACE NOT VISIBLE: Candidate's face is not visible in the camera. Please face the camera directly.",
+        }
+        specific_msg = " | ".join(flag_messages[f] for f in specific_flags if f in flag_messages)
+    else:
+        specific_msg = "Biometric verification passed."
 
     return InterviewVerifyResponse(
         session_id=payload.session_id,
@@ -337,7 +407,11 @@ async def interview_verify(
         fraud_status=profile.fraud_status,
         fraud_flags=profile.fraud_flags,
         alert_level=alert,
-        message=" | ".join(parts) or "Verification complete.",
+        message=specific_msg,
+        face_detected=face_detected,
+        multi_face_detected=multi_face,
+        gaze_direction=getattr(payload, 'gaze_direction', 'center'),
+        specific_flags=specific_flags,
     )
 
 
@@ -366,12 +440,50 @@ async def report_violation(
             detail=f"No biometric profile for session {payload.session_id}.",
         )
 
+    reasons = list(profile.flag_reasons or [])
+
+    # Specific violation messages
+    violation_messages = {
+        "gaze": {
+            "default": "Looking away from screen detected. Please look directly at the camera.",
+            "left": "Head turned too far to the left. Please face the camera directly.",
+            "right": "Head turned too far to the right. Please face the camera directly.",
+            "up": "Looking upward away from screen. Please maintain eye contact with the camera.",
+            "down": "Looking downward away from screen. Please maintain eye contact with the camera.",
+        },
+        "camera": {
+            "default": "Camera feed interrupted. Please turn on your camera to resume.",
+        },
+        "multi_face": {
+            "default": "MULTIPLE FACES DETECTED: More than one person found in camera frame. This is a serious integrity violation.",
+        },
+        "face_mismatch": {
+            "default": "FACE MISMATCH: The face on camera does not match the registered candidate. Proxy detected.",
+        },
+        "voice_mismatch": {
+            "default": "VOICE MISMATCH: The voice does not match the registered candidate. Proxy detected.",
+        },
+    }
+
+    # Parse details for specific sub-type
+    details_lower = (payload.details or "").lower()
+    violation_msgs = violation_messages.get(payload.violation_type, {"default": f"{payload.violation_type} violation detected"})
+
+    specific_msg = violation_msgs["default"]
+    for sub_type, msg in violation_msgs.items():
+        if sub_type != "default" and sub_type in details_lower:
+            specific_msg = msg
+            break
+
+    reasons.append(payload.details or specific_msg)
+    
     profile = await biometric_repo.record_violation(
         db,
         session_id=payload.session_id,
         violation_type=payload.violation_type,
-        reason=payload.details or "",
+        reason=reasons[-1],
     )
+    profile.flag_reasons = reasons
     await db.commit()
     await db.refresh(profile)
 
@@ -379,24 +491,15 @@ async def report_violation(
     if profile.interview_flagged:
         warn_level = "flag"
         msg = (
-            "Interview has been FLAGGED due to repeated attention violations. "
-            "This session will be reviewed manually."
+            "INTERVIEW FLAGGED: Repeated integrity violations detected. "
+            "This session will be reviewed manually for potential proxy activity."
         )
     elif total_violations >= 2:
         warn_level = "flag"
-        msg = "This is your final warning. Your interview is now flagged."
+        msg = "FINAL WARNING: Your interview is now flagged. Further violations will terminate the session."
     else:
         warn_level = "warn"
-        if payload.violation_type == "gaze":
-            msg = (
-                "Please look at the camera to continue your interview. "
-                "Repeated inattention will flag this session."
-            )
-        else:
-            msg = (
-                "Camera feed interrupted. Please turn on your camera to resume. "
-                "If this happens again, your interview will be flagged."
-            )
+        msg = specific_msg + " Repeated violations will flag this session."
 
     return ViolationReportResponse(
         session_id=payload.session_id,

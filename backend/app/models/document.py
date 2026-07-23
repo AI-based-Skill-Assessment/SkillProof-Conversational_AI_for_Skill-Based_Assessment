@@ -10,6 +10,12 @@ from app.database import Base
 class VerificationPath(str, enum.Enum):
     url_fetch = "url_fetch"
     mca21 = "mca21"
+    mca21_cin = "mca21_cin"
+    gst_portal = "gst_portal"
+    falconebiz_registry = "falconebiz_registry"
+    search_zaubacorp = "search_zaubacorp"
+    website_ping = "website_ping"
+    offline_whitelist = "offline_whitelist"
     none = "none"
 
 

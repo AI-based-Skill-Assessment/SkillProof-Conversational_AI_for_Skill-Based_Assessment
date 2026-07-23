@@ -90,7 +90,12 @@ async def ingest_credentials(
         else:
             await ingest_service.ingest_skill_only(db, session.id, skill_text or "", role or "")
     except Exception as e:
-        await session_repo.update_session_status(db, session.id, "failed")
+        await db.rollback()
+        try:
+            await session_repo.update_session_status(db, session.id, "failed")
+            await db.commit()
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ingestion failed: {str(e)}"

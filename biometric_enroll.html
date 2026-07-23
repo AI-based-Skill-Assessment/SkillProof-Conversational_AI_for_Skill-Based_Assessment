@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SkillProof — Biometric Enrollment</title>
-  <meta name="description" content="Register your face and voice for secure, proxy-free skill verification interviews." />
+  <meta name="description"
+    content="Register your face and voice for secure, proxy-free skill verification interviews." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
   <!-- face-api.js from CDN -->
   <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
@@ -15,24 +18,30 @@
        ROOT TOKENS
     ══════════════════════════════════════════════════════════ */
     :root {
-      --bg:          #09090f;
-      --bg-card:     #12121c;
-      --bg-glass:    rgba(255,255,255,0.04);
-      --border:      rgba(255,255,255,0.08);
-      --accent:      #6c63ff;
-      --accent-2:    #a78bfa;
-      --success:     #22c55e;
-      --warning:     #f59e0b;
-      --danger:      #ef4444;
-      --text:        #f1f1f5;
-      --text-muted:  #8b8ba7;
-      --radius-lg:   1.25rem;
-      --radius-md:   0.75rem;
-      --shadow:      0 20px 60px rgba(0,0,0,0.6);
-      --glow:        0 0 40px rgba(108,99,255,0.25);
+      --bg: #09090f;
+      --bg-card: #12121c;
+      --bg-glass: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #6c63ff;
+      --accent-2: #a78bfa;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #f1f1f5;
+      --text-muted: #8b8ba7;
+      --radius-lg: 1.25rem;
+      --radius-md: 0.75rem;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      --glow: 0 0 40px rgba(108, 99, 255, 0.25);
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
       font-family: 'Inter', sans-serif;
@@ -47,8 +56,8 @@
       content: '';
       position: fixed;
       inset: 0;
-      background: radial-gradient(ellipse 80% 60% at 20% -10%, rgba(108,99,255,0.18) 0%, transparent 60%),
-                  radial-gradient(ellipse 60% 50% at 80% 110%, rgba(167,139,250,0.12) 0%, transparent 55%);
+      background: radial-gradient(ellipse 80% 60% at 20% -10%, rgba(108, 99, 255, 0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 110%, rgba(167, 139, 250, 0.12) 0%, transparent 55%);
       pointer-events: none;
       z-index: 0;
     }
@@ -83,11 +92,14 @@
       text-decoration: none;
       margin-bottom: 1.5rem;
     }
+
     .logo-icon {
-      width: 36px; height: 36px;
+      width: 36px;
+      height: 36px;
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
       border-radius: 10px;
-      display: grid; place-items: center;
+      display: grid;
+      place-items: center;
       font-size: 1.1rem;
     }
 
@@ -101,6 +113,7 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
+
     .subtitle {
       color: var(--text-muted);
       font-size: 1rem;
@@ -116,6 +129,7 @@
       width: 100%;
       max-width: 520px;
     }
+
     .step {
       display: flex;
       flex-direction: column;
@@ -123,29 +137,57 @@
       gap: 0.35rem;
       flex: 1;
     }
+
     .step-dot {
-      width: 36px; height: 36px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       border: 2px solid var(--border);
       background: var(--bg-card);
-      display: grid; place-items: center;
+      display: grid;
+      place-items: center;
       font-size: 0.8rem;
       font-weight: 700;
       color: var(--text-muted);
       transition: all 0.35s ease;
     }
-    .step.active .step-dot  { border-color: var(--accent); color: var(--accent); background: rgba(108,99,255,0.12); }
-    .step.done .step-dot    { border-color: var(--success); color: #fff; background: var(--success); }
-    .step-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; }
-    .step.active .step-label { color: var(--text); }
-    .step.done .step-label  { color: var(--success); }
+
+    .step.active .step-dot {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(108, 99, 255, 0.12);
+    }
+
+    .step.done .step-dot {
+      border-color: var(--success);
+      color: #fff;
+      background: var(--success);
+    }
+
+    .step-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .step.active .step-label {
+      color: var(--text);
+    }
+
+    .step.done .step-label {
+      color: var(--success);
+    }
 
     .step-line {
-      flex: 1; height: 2px;
+      flex: 1;
+      height: 2px;
       background: var(--border);
       transition: background 0.35s ease;
     }
-    .step-line.done { background: var(--success); }
+
+    .step-line.done {
+      background: var(--success);
+    }
 
     /* ── Session Input ─────────────────────────────────────── */
     .card {
@@ -158,6 +200,7 @@
       position: relative;
       overflow: hidden;
     }
+
     .card::before {
       content: '';
       position: absolute;
@@ -165,6 +208,7 @@
       background: var(--bg-glass);
       pointer-events: none;
     }
+
     .card-title {
       font-size: 1.15rem;
       font-weight: 700;
@@ -173,7 +217,12 @@
       align-items: center;
       gap: 0.5rem;
     }
-    .card-desc { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem; }
+
+    .card-desc {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-bottom: 1.5rem;
+    }
 
     label {
       display: block;
@@ -184,10 +233,11 @@
       letter-spacing: 0.06em;
       margin-bottom: 0.5rem;
     }
+
     input[type="text"] {
       width: 100%;
       padding: 0.75rem 1rem;
-      background: rgba(255,255,255,0.05);
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       color: var(--text);
@@ -196,11 +246,15 @@
       outline: none;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
+
     input[type="text"]:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(108,99,255,0.18);
+      box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.18);
     }
-    input[type="text"]::placeholder { color: var(--text-muted); }
+
+    input[type="text"]::placeholder {
+      color: var(--text-muted);
+    }
 
     /* ── Buttons ─────────────────────────────────────────────── */
     .btn {
@@ -217,31 +271,41 @@
       transition: all 0.2s ease;
       text-decoration: none;
     }
-    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
     .btn-primary {
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
       color: #fff;
-      box-shadow: 0 4px 20px rgba(108,99,255,0.35);
+      box-shadow: 0 4px 20px rgba(108, 99, 255, 0.35);
     }
+
     .btn-primary:not(:disabled):hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(108,99,255,0.5);
+      box-shadow: 0 8px 30px rgba(108, 99, 255, 0.5);
     }
+
     .btn-outline {
       background: transparent;
       color: var(--text);
       border: 1px solid var(--border);
     }
+
     .btn-outline:not(:disabled):hover {
       border-color: var(--accent);
       color: var(--accent);
-      background: rgba(108,99,255,0.08);
+      background: rgba(108, 99, 255, 0.08);
     }
+
     .btn-success {
       background: linear-gradient(135deg, #16a34a, #22c55e);
       color: #fff;
-      box-shadow: 0 4px 16px rgba(34,197,94,0.3);
+      box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
     }
+
     .btn-danger {
       background: linear-gradient(135deg, #b91c1c, #ef4444);
       color: #fff;
@@ -254,8 +318,11 @@
       gap: 1.5rem;
       width: 100%;
     }
+
     @media (max-width: 660px) {
-      .two-col { grid-template-columns: 1fr; }
+      .two-col {
+        grid-template-columns: 1fr;
+      }
     }
 
     /* ── Biometric Card ──────────────────────────────────────── */
@@ -269,8 +336,16 @@
       flex-direction: column;
       transition: border-color 0.3s;
     }
-    .bio-card.registered { border-color: var(--success); box-shadow: 0 0 30px rgba(34,197,94,0.12); }
-    .bio-card.capturing  { border-color: var(--accent);  box-shadow: var(--glow); }
+
+    .bio-card.registered {
+      border-color: var(--success);
+      box-shadow: 0 0 30px rgba(34, 197, 94, 0.12);
+    }
+
+    .bio-card.capturing {
+      border-color: var(--accent);
+      box-shadow: var(--glow);
+    }
 
     .bio-header {
       display: flex;
@@ -279,18 +354,31 @@
       padding: 1rem 1.25rem;
       border-bottom: 1px solid var(--border);
     }
+
     .bio-title {
-      display: flex; align-items: center; gap: 0.5rem;
-      font-weight: 700; font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      font-size: 0.95rem;
     }
+
     .bio-icon {
-      width: 32px; height: 32px;
+      width: 32px;
+      height: 32px;
       border-radius: 8px;
-      display: grid; place-items: center;
+      display: grid;
+      place-items: center;
       font-size: 1rem;
     }
-    .bio-icon.face  { background: rgba(108,99,255,0.2); }
-    .bio-icon.voice { background: rgba(167,139,250,0.2); }
+
+    .bio-icon.face {
+      background: rgba(108, 99, 255, 0.2);
+    }
+
+    .bio-icon.voice {
+      background: rgba(167, 139, 250, 0.2);
+    }
 
     .badge {
       display: inline-flex;
@@ -303,10 +391,26 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    .badge-pending  { background: rgba(255,255,255,0.06); color: var(--text-muted); }
-    .badge-active   { background: rgba(108,99,255,0.2);   color: var(--accent-2); }
-    .badge-done     { background: rgba(34,197,94,0.2);    color: var(--success); }
-    .badge-error    { background: rgba(239,68,68,0.2);    color: var(--danger); }
+
+    .badge-pending {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+    }
+
+    .badge-active {
+      background: rgba(108, 99, 255, 0.2);
+      color: var(--accent-2);
+    }
+
+    .badge-done {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--success);
+    }
+
+    .badge-error {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--danger);
+    }
 
     /* ── Camera / Visualizer Panels ──────────────────────────── */
     .media-panel {
@@ -318,6 +422,7 @@
       align-items: center;
       justify-content: center;
     }
+
     .media-panel video,
     .media-panel canvas.mirror {
       width: 100%;
@@ -325,6 +430,7 @@
       object-fit: cover;
       transform: scaleX(-1);
     }
+
     .media-panel canvas.overlay {
       position: absolute;
       inset: 0;
@@ -332,6 +438,7 @@
       height: 100%;
       transform: scaleX(-1);
     }
+
     .media-placeholder {
       display: flex;
       flex-direction: column;
@@ -339,8 +446,15 @@
       gap: 0.75rem;
       color: var(--text-muted);
     }
-    .media-placeholder .icon { font-size: 3rem; }
-    .media-placeholder p { font-size: 0.82rem; text-align: center; }
+
+    .media-placeholder .icon {
+      font-size: 3rem;
+    }
+
+    .media-placeholder p {
+      font-size: 0.82rem;
+      text-align: center;
+    }
 
     /* ── Waveform Canvas ─────────────────────────────────────── */
     #voiceCanvas {
@@ -356,6 +470,7 @@
       flex-direction: column;
       gap: 0.75rem;
     }
+
     .bio-status {
       font-size: 0.8rem;
       color: var(--text-muted);
@@ -364,41 +479,78 @@
       align-items: center;
       gap: 0.4rem;
     }
-    .bio-status.ok     { color: var(--success); }
-    .bio-status.warn   { color: var(--warning); }
-    .bio-status.err    { color: var(--danger); }
-    .bio-status.info   { color: var(--accent-2); }
 
-    .bio-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .bio-status.ok {
+      color: var(--success);
+    }
+
+    .bio-status.warn {
+      color: var(--warning);
+    }
+
+    .bio-status.err {
+      color: var(--danger);
+    }
+
+    .bio-status.info {
+      color: var(--accent-2);
+    }
+
+    .bio-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
 
     /* ── Scanning Overlay ──────────────────────────────────────── */
     .scan-line {
       position: absolute;
-      left: 0; right: 0;
+      left: 0;
+      right: 0;
       height: 2px;
       background: linear-gradient(90deg, transparent, var(--accent), transparent);
       animation: scan 2s linear infinite;
       display: none;
     }
-    .capturing .scan-line { display: block; }
+
+    .capturing .scan-line {
+      display: block;
+    }
+
     @keyframes scan {
-      0%   { top: 0%; }
-      100% { top: 100%; }
+      0% {
+        top: 0%;
+      }
+
+      100% {
+        top: 100%;
+      }
     }
 
     /* ── Corner Face Guides ──────────────────────────────────── */
     .face-guide {
       position: absolute;
       inset: 20%;
-      border: 2px solid rgba(108,99,255,0.5);
+      border: 2px solid rgba(108, 99, 255, 0.5);
       border-radius: 50%;
       display: none;
       animation: pulse-border 2s ease-in-out infinite;
     }
-    .capturing .face-guide { display: block; }
+
+    .capturing .face-guide {
+      display: block;
+    }
+
     @keyframes pulse-border {
-      0%, 100% { border-color: rgba(108,99,255,0.5); }
-      50%       { border-color: rgba(108,99,255,0.9); }
+
+      0%,
+      100% {
+        border-color: rgba(108, 99, 255, 0.5);
+      }
+
+      50% {
+        border-color: rgba(108, 99, 255, 0.9);
+      }
     }
 
     /* ── Voice Waveform ──────────────────────────────────────── */
@@ -407,17 +559,18 @@
       aspect-ratio: 4/3;
       display: flex;
       align-items: center;
-      justify-content:: center;
+      justify-content: center;
       overflow: hidden;
     }
 
     /* ── Progress Bar ─────────────────────────────────────────── */
     .progress-bar-wrap {
-      background: rgba(255,255,255,0.05);
+      background: rgba(255, 255, 255, 0.05);
       border-radius: 999px;
       overflow: hidden;
       height: 6px;
     }
+
     .progress-bar {
       height: 100%;
       border-radius: 999px;
@@ -438,32 +591,80 @@
       border: 1px solid;
       animation: fadeIn 0.4s ease;
     }
-    .result-banner.show { display: flex; }
-    .result-banner.success { background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.3); color: var(--success); }
-    .result-banner.error   { background: rgba(239,68,68,0.08);  border-color: rgba(239,68,68,0.3);  color: var(--danger); }
-    .result-banner .rb-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: -0.1rem; }
-    .result-banner .rb-body { flex: 1; }
-    .result-banner .rb-title { font-weight: 700; }
-    .result-banner .rb-detail { opacity: 0.8; margin-top: 0.2rem; font-size: 0.82rem; }
+
+    .result-banner.show {
+      display: flex;
+    }
+
+    .result-banner.success {
+      background: rgba(34, 197, 94, 0.08);
+      border-color: rgba(34, 197, 94, 0.3);
+      color: var(--success);
+    }
+
+    .result-banner.error {
+      background: rgba(239, 68, 68, 0.08);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: var(--danger);
+    }
+
+    .result-banner .rb-icon {
+      font-size: 1.4rem;
+      flex-shrink: 0;
+      margin-top: -0.1rem;
+    }
+
+    .result-banner .rb-body {
+      flex: 1;
+    }
+
+    .result-banner .rb-title {
+      font-weight: 700;
+    }
+
+    .result-banner .rb-detail {
+      opacity: 0.8;
+      margin-top: 0.2rem;
+      font-size: 0.82rem;
+    }
 
     /* ── Complete Section ────────────────────────────────────── */
     .complete-card {
       width: 100%;
-      background: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(108,99,255,0.08));
-      border: 1px solid rgba(34,197,94,0.3);
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(108, 99, 255, 0.08));
+      border: 1px solid rgba(34, 197, 94, 0.3);
       border-radius: var(--radius-lg);
       padding: 2.5rem;
       text-align: center;
       display: none;
       animation: fadeIn 0.5s ease;
     }
-    .complete-card.show { display: block; }
-    .complete-icon { font-size: 4rem; margin-bottom: 1rem; }
-    .complete-title { font-size: 1.6rem; font-weight: 800; color: var(--success); margin-bottom: 0.5rem; }
-    .complete-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+    .complete-card.show {
+      display: block;
+    }
+
+    .complete-icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+    }
+
+    .complete-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--success);
+      margin-bottom: 0.5rem;
+    }
+
+    .complete-subtitle {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+
     .session-pill {
       display: inline-block;
-      background: rgba(255,255,255,0.06);
+      background: rgba(255, 255, 255, 0.06);
       border: 1px solid var(--border);
       border-radius: 999px;
       padding: 0.4rem 1rem;
@@ -475,8 +676,8 @@
 
     /* ── Passphrase Bubble ───────────────────────────────────── */
     .passphrase-box {
-      background: rgba(108,99,255,0.08);
-      border: 1px solid rgba(108,99,255,0.2);
+      background: rgba(108, 99, 255, 0.08);
+      border: 1px solid rgba(108, 99, 255, 0.2);
       border-radius: var(--radius-md);
       padding: 0.85rem 1rem;
       font-size: 1rem;
@@ -486,29 +687,53 @@
       letter-spacing: 0.01em;
       margin-bottom: 0.5rem;
     }
-    .passphrase-hint { font-size: 0.75rem; color: var(--text-muted); text-align: center; }
+
+    .passphrase-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
 
     /* ── Spinner ─────────────────────────────────────────────── */
     .spinner {
-      width: 16px; height: 16px;
-      border: 2px solid rgba(255,255,255,0.2);
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
       border-top-color: #fff;
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       display: inline-block;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
 
     /* ── Countdown Ring ──────────────────────────────────────── */
     .countdown-ring {
-      width: 48px; height: 48px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
-      border: 3px solid rgba(108,99,255,0.2);
+      border: 3px solid rgba(108, 99, 255, 0.2);
       border-top-color: var(--accent);
       animation: spin 1s linear infinite;
       margin: 0 auto 0.5rem;
     }
+
     .countdown-text {
       text-align: center;
       font-size: 0.85rem;
@@ -517,799 +742,871 @@
     }
 
     /* ── Scrollbar ───────────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 999px;
+    }
   </style>
 </head>
 
 <body>
-<div class="page-wrap">
+  <div class="page-wrap">
 
-  <!-- ── Header ──────────────────────────────────────── -->
-  <header>
-    <a class="logo" href="#">
-      <span class="logo-icon">🛡</span>
-      SkillProof
-    </a>
-    <h1>Biometric Enrollment</h1>
-    <p class="subtitle">Secure your identity before the interview.<br>Register your face and voice — only you can prove your skills.</p>
-  </header>
+    <!-- ── Header ──────────────────────────────────────── -->
+    <header>
+      <a class="logo" href="#">
+        <span class="logo-icon">🛡</span>
+        SkillProof
+      </a>
+      <h1>Biometric Enrollment</h1>
+      <p class="subtitle">Secure your identity before the interview.<br>Register your face and voice — only you can
+        prove your skills.</p>
+    </header>
 
-  <!-- ── Step Indicator ────────────────────────────────── -->
-  <div class="steps" role="list">
-    <div class="step active" id="stepDot1" role="listitem">
-      <div class="step-dot">1</div>
-      <span class="step-label">Session</span>
-    </div>
-    <div class="step-line" id="stepLine1"></div>
-    <div class="step" id="stepDot2" role="listitem">
-      <div class="step-dot">2</div>
-      <span class="step-label">Face</span>
-    </div>
-    <div class="step-line" id="stepLine2"></div>
-    <div class="step" id="stepDot3" role="listitem">
-      <div class="step-dot">3</div>
-      <span class="step-label">Voice</span>
-    </div>
-    <div class="step-line" id="stepLine3"></div>
-    <div class="step" id="stepDot4" role="listitem">
-      <div class="step-dot">✓</div>
-      <span class="step-label">Done</span>
-    </div>
-  </div>
-
-  <!-- ── Step 1: Session Input ─────────────────────────── -->
-  <div class="card" id="sessionCard">
-    <div class="card-title">🔑 Enter Your Session ID</div>
-    <p class="card-desc">Paste the session UUID you received after uploading your certificate or declaring your skills.</p>
-    <label for="sessionInput">Session ID</label>
-    <input type="text" id="sessionInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off" spellcheck="false" />
-    <br/><br/>
-    <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
-      <button class="btn btn-primary" id="btnLoadSession" onclick="loadSession()">
-        <span id="loadSpinner" style="display:none" class="spinner"></span>
-        Continue →
-      </button>
-      <button class="btn btn-outline" onclick="document.getElementById('sessionInput').value=''">Clear</button>
-    </div>
-    <div id="sessionError" class="bio-status err" style="margin-top:1rem"></div>
-  </div>
-
-  <!-- ── Session Info Banner ───────────────────────────── -->
-  <div id="sessionBanner" style="display:none; width:100%;">
-    <div style="background:rgba(108,99,255,0.08); border:1px solid rgba(108,99,255,0.2); border-radius:var(--radius-md); padding:0.75rem 1.25rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
-      <div>
-        <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; font-weight:600;">Active Session</div>
-        <div id="sessionDisplay" style="font-family:monospace; font-size:0.85rem; color:var(--accent-2); margin-top:0.2rem;"></div>
+    <!-- ── Step Indicator ────────────────────────────────── -->
+    <div class="steps" role="list">
+      <div class="step active" id="stepDot1" role="listitem">
+        <div class="step-dot">1</div>
+        <span class="step-label">Session</span>
       </div>
-      <div id="bioBadges" style="display:flex; gap:0.5rem;"></div>
-    </div>
-  </div>
-
-  <!-- ── Step 2 & 3: Biometric Cards ───────────────────── -->
-  <div class="two-col" id="bioSection" style="display:none">
-
-    <!-- ── FACE CARD ─────────────────────── -->
-    <div class="bio-card" id="faceCard">
-      <div class="bio-header">
-        <div class="bio-title">
-          <div class="bio-icon face">👤</div>
-          Face Recognition
-        </div>
-        <span class="badge badge-pending" id="faceBadge">Pending</span>
+      <div class="step-line" id="stepLine1"></div>
+      <div class="step" id="stepDot2" role="listitem">
+        <div class="step-dot">2</div>
+        <span class="step-label">Face</span>
       </div>
-
-      <div class="media-panel" id="facePanel">
-        <div class="media-placeholder" id="facePlaceholder">
-          <div class="icon">📷</div>
-          <p>Camera will appear here.<br>Click Start to begin.</p>
-        </div>
-        <video id="faceVideo" autoplay playsinline muted style="display:none"></video>
-        <canvas id="faceOverlay" class="overlay" style="display:none"></canvas>
-        <div class="scan-line"></div>
-        <div class="face-guide"></div>
+      <div class="step-line" id="stepLine2"></div>
+      <div class="step" id="stepDot3" role="listitem">
+        <div class="step-dot">3</div>
+        <span class="step-label">Voice</span>
       </div>
-
-      <div class="bio-footer">
-        <div class="progress-bar-wrap"><div class="progress-bar" id="faceProgress"></div></div>
-        <div class="bio-status" id="faceStatus">Click "Start Camera" to begin face enrollment.</div>
-        <div class="bio-actions">
-          <button class="btn btn-primary" id="btnFaceStart" onclick="startFaceEnroll()">▶ Start Camera</button>
-          <button class="btn btn-success" id="btnFaceCapture" onclick="captureFace()" style="display:none">📸 Capture Face</button>
-          <button class="btn btn-outline"  id="btnFaceRetry"   onclick="retryFace()"    style="display:none">↺ Retry</button>
-        </div>
+      <div class="step-line" id="stepLine3"></div>
+      <div class="step" id="stepDot4" role="listitem">
+        <div class="step-dot">✓</div>
+        <span class="step-label">Done</span>
       </div>
     </div>
 
-    <!-- ── VOICE CARD ────────────────────── -->
-    <div class="bio-card" id="voiceCard">
-      <div class="bio-header">
-        <div class="bio-title">
-          <div class="bio-icon voice">🎙</div>
-          Voice Fingerprint
+    <!-- ── Step 1: Session Input ─────────────────────────── -->
+    <div class="card" id="sessionCard">
+      <div class="card-title">🔑 Enter Your Session ID</div>
+      <p class="card-desc">Paste the session UUID you received after uploading your certificate or declaring your
+        skills.</p>
+      <label for="sessionInput">Session ID</label>
+      <input type="text" id="sessionInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off"
+        spellcheck="false" />
+      <br /><br />
+      <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+        <button class="btn btn-primary" id="btnLoadSession" onclick="loadSession()">
+          <span id="loadSpinner" style="display:none" class="spinner"></span>
+          Continue →
+        </button>
+        <button class="btn btn-outline" onclick="document.getElementById('sessionInput').value=''">Clear</button>
+      </div>
+      <div id="sessionError" class="bio-status err" style="margin-top:1rem"></div>
+    </div>
+
+    <!-- ── Session Info Banner ───────────────────────────── -->
+    <div id="sessionBanner" style="display:none; width:100%;">
+      <div
+        style="background:rgba(108,99,255,0.08); border:1px solid rgba(108,99,255,0.2); border-radius:var(--radius-md); padding:0.75rem 1.25rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+        <div>
+          <div
+            style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; font-weight:600;">
+            Active Session</div>
+          <div id="sessionDisplay"
+            style="font-family:monospace; font-size:0.85rem; color:var(--accent-2); margin-top:0.2rem;"></div>
         </div>
-        <span class="badge badge-pending" id="voiceBadge">Pending</span>
+        <div id="bioBadges" style="display:flex; gap:0.5rem;"></div>
+      </div>
+    </div>
+
+    <!-- ── Step 2 & 3: Biometric Cards ───────────────────── -->
+    <div class="two-col" id="bioSection" style="display:none">
+
+      <!-- ── FACE CARD ─────────────────────── -->
+      <div class="bio-card" id="faceCard">
+        <div class="bio-header">
+          <div class="bio-title">
+            <div class="bio-icon face">👤</div>
+            Face Recognition
+          </div>
+          <span class="badge badge-pending" id="faceBadge">Pending</span>
+        </div>
+
+        <div class="media-panel" id="facePanel">
+          <div class="media-placeholder" id="facePlaceholder">
+            <div class="icon">📷</div>
+            <p>Camera will appear here.<br>Click Start to begin.</p>
+          </div>
+          <video id="faceVideo" autoplay playsinline muted style="display:none"></video>
+          <canvas id="faceOverlay" class="overlay" style="display:none"></canvas>
+          <div class="scan-line"></div>
+          <div class="face-guide"></div>
+        </div>
+
+        <div class="bio-footer">
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" id="faceProgress"></div>
+          </div>
+          <div class="bio-status" id="faceStatus">Click "Start Camera" to begin face enrollment.</div>
+          <div class="bio-actions">
+            <button class="btn btn-primary" id="btnFaceStart" onclick="startFaceEnroll()">▶ Start Camera</button>
+            <button class="btn btn-success" id="btnFaceCapture" onclick="captureFace()" style="display:none">📸 Capture
+              Face</button>
+            <button class="btn btn-outline" id="btnFaceRetry" onclick="retryFace()" style="display:none">↺
+              Retry</button>
+          </div>
+        </div>
       </div>
 
-      <div class="media-panel" id="voicePanel">
-        <div class="media-placeholder" id="voicePlaceholder">
-          <div class="icon">🎤</div>
-          <p>Microphone waveform<br>will appear here.</p>
+      <!-- ── VOICE CARD ────────────────────── -->
+      <div class="bio-card" id="voiceCard">
+        <div class="bio-header">
+          <div class="bio-title">
+            <div class="bio-icon voice">🎙</div>
+            Voice Fingerprint
+          </div>
+          <span class="badge badge-pending" id="voiceBadge">Pending</span>
         </div>
-        <canvas id="voiceCanvas" style="display:none"></canvas>
+
+        <div class="media-panel" id="voicePanel">
+          <div class="media-placeholder" id="voicePlaceholder">
+            <div class="icon">🎤</div>
+            <p>Microphone waveform<br>will appear here.</p>
+          </div>
+          <canvas id="voiceCanvas" style="display:none"></canvas>
+        </div>
+
+        <div class="bio-footer">
+          <div class="passphrase-box" id="passphraseBox" style="display:none">
+            "My voice is my unique identity and my password"
+          </div>
+          <p class="passphrase-hint" id="passphraseHint" style="display:none">Read the phrase above clearly into your
+            microphone.</p>
+          <div class="progress-bar-wrap" style="margin-top:0.5rem">
+            <div class="progress-bar" id="voiceProgress"></div>
+          </div>
+          <div class="bio-status" id="voiceStatus">Click "Start Recording" to begin voice enrollment.</div>
+          <div class="bio-actions">
+            <button class="btn btn-primary" id="btnVoiceStart" onclick="startVoiceEnroll()">🎙 Start Recording</button>
+            <button class="btn btn-danger" id="btnVoiceStop" onclick="stopVoiceEnroll()" style="display:none">⏹ Stop &
+              Save</button>
+            <button class="btn btn-outline" id="btnVoiceRetry" onclick="retryVoice()" style="display:none">↺
+              Retry</button>
+          </div>
+        </div>
       </div>
 
-      <div class="bio-footer">
-        <div class="passphrase-box" id="passphraseBox" style="display:none">
-          "My voice is my unique identity and my password"
-        </div>
-        <p class="passphrase-hint" id="passphraseHint" style="display:none">Read the phrase above clearly into your microphone.</p>
-        <div class="progress-bar-wrap" style="margin-top:0.5rem"><div class="progress-bar" id="voiceProgress"></div></div>
-        <div class="bio-status" id="voiceStatus">Click "Start Recording" to begin voice enrollment.</div>
-        <div class="bio-actions">
-          <button class="btn btn-primary" id="btnVoiceStart"  onclick="startVoiceEnroll()">🎙 Start Recording</button>
-          <button class="btn btn-danger"  id="btnVoiceStop"   onclick="stopVoiceEnroll()"  style="display:none">⏹ Stop & Save</button>
-          <button class="btn btn-outline" id="btnVoiceRetry"  onclick="retryVoice()"        style="display:none">↺ Retry</button>
-        </div>
+    </div>
+
+    <!-- ── API Result Banners ─────────────────────────────── -->
+    <div class="result-banner" id="bannerFace">
+      <div class="rb-icon">👤</div>
+      <div class="rb-body">
+        <div class="rb-title" id="bannerFaceTitle"></div>
+        <div class="rb-detail" id="bannerFaceDetail"></div>
       </div>
     </div>
 
-  </div>
-
-  <!-- ── API Result Banners ─────────────────────────────── -->
-  <div class="result-banner" id="bannerFace">
-    <div class="rb-icon">👤</div>
-    <div class="rb-body">
-      <div class="rb-title" id="bannerFaceTitle"></div>
-      <div class="rb-detail" id="bannerFaceDetail"></div>
+    <div class="result-banner" id="bannerVoice">
+      <div class="rb-icon">🎙</div>
+      <div class="rb-body">
+        <div class="rb-title" id="bannerVoiceTitle"></div>
+        <div class="rb-detail" id="bannerVoiceDetail"></div>
+      </div>
     </div>
-  </div>
 
-  <div class="result-banner" id="bannerVoice">
-    <div class="rb-icon">🎙</div>
-    <div class="rb-body">
-      <div class="rb-title" id="bannerVoiceTitle"></div>
-      <div class="rb-detail" id="bannerVoiceDetail"></div>
+    <!-- ── Completion Card ───────────────────────────────── -->
+    <div class="complete-card" id="completeCard">
+      <div class="complete-icon">🛡️</div>
+      <div class="complete-title">Biometrics Registered!</div>
+      <p class="complete-subtitle">Your face and voice have been securely stored.<br>You are now cleared for the
+        interview.</p>
+      <div class="session-pill" id="completePill"></div>
+      <br />
+      <div style="display:flex; justify-content:center; gap:0.75rem; flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="goToInterview()">Start Interview →</button>
+        <button class="btn btn-outline" onclick="checkStatus()">View Status</button>
+      </div>
     </div>
-  </div>
 
-  <!-- ── Completion Card ───────────────────────────────── -->
-  <div class="complete-card" id="completeCard">
-    <div class="complete-icon">🛡️</div>
-    <div class="complete-title">Biometrics Registered!</div>
-    <p class="complete-subtitle">Your face and voice have been securely stored.<br>You are now cleared for the interview.</p>
-    <div class="session-pill" id="completePill"></div>
-    <br/>
-    <div style="display:flex; justify-content:center; gap:0.75rem; flex-wrap:wrap;">
-      <button class="btn btn-primary" onclick="goToInterview()">Start Interview →</button>
-      <button class="btn btn-outline" onclick="checkStatus()">View Status</button>
-    </div>
-  </div>
+  </div><!-- /page-wrap -->
 
-</div><!-- /page-wrap -->
-
-<!-- ═══════════════════════════════════════════════════════════
+  <!-- ═══════════════════════════════════════════════════════════
      JAVASCRIPT
 ═══════════════════════════════════════════════════════════ -->
-<script>
-/* ────────────────────────────────────────────────
-   CONFIG — change BASE_URL if your backend moves
-──────────────────────────────────────────────── */
-const BASE_URL = 'http://127.0.0.1:8000';
+  <script>
+    /* ────────────────────────────────────────────────
+       CONFIG — change BASE_URL if your backend moves
+    ──────────────────────────────────────────────── */
+    const BASE_URL = window.location.origin;
 
-/* ── Global State ─────────────────────────────── */
-let currentSessionId = null;
-let faceStream        = null;
-let faceDescriptor    = null;
-let voiceStream       = null;
-let voiceMediaRec     = null;
-let voiceAudioChunks  = [];
-let voiceAnalyser     = null;
-let voiceAnimFrame    = null;
-let voiceAudioCtx     = null;
-let modelsLoaded      = false;
+    /* ── Global State ─────────────────────────────── */
+    let currentSessionId = null;
+    let faceStream = null;
+    let faceDescriptor = null;
+    let voiceStream = null;
+    let voiceMediaRec = null;
+    let voiceAudioChunks = [];
+    let voiceAnalyser = null;
+    let voiceAnimFrame = null;
+    let voiceAudioCtx = null;
+    let modelsLoaded = false;
 
-/* ── face-api.js models (tiny) ────────────────── */
-const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+    /* ── face-api.js models (tiny) ────────────────── */
+    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
 
-async function loadFaceModels() {
-  if (modelsLoaded) return;
-  setFaceStatus('Loading face-ai models…', 'info');
-  try {
-    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-    await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
-    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-    modelsLoaded = true;
-    setFaceStatus('Models ready. Camera starting…', 'info');
-  } catch(err) {
-    console.error('face-api model load error', err);
-    setFaceStatus('Failed to load AI models. Check console.', 'err');
-    throw err;
-  }
-}
-
-/* ════════════════════════════════════════════════
-   STEP 1 — SESSION
-════════════════════════════════════════════════ */
-async function loadSession() {
-  const raw = document.getElementById('sessionInput').value.trim();
-  const errEl = document.getElementById('sessionError');
-  errEl.textContent = '';
-
-  const uuidRx = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRx.test(raw)) {
-    errEl.textContent = '⚠ Please enter a valid UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).';
-    return;
-  }
-
-  const btn = document.getElementById('btnLoadSession');
-  const spin = document.getElementById('loadSpinner');
-  btn.disabled = true; spin.style.display = 'inline-block';
-
-  try {
-    const res = await fetch(`${BASE_URL}/api/v1/biometric/status/${raw}`);
-    if (!res.ok) throw new Error(`Server returned ${res.status}`);
-    const data = await res.json();
-
-    currentSessionId = raw;
-    document.getElementById('sessionCard').style.display   = 'none';
-    document.getElementById('sessionBanner').style.display = 'block';
-    document.getElementById('bioSection').style.display    = 'grid';
-    document.getElementById('sessionDisplay').textContent  = raw;
-
-    updateBioBadges(data.face_registered, data.voice_registered);
-    setStep(2);
-
-    // Pre-fill if already registered
-    if (data.face_registered) markFaceDone(true);
-    if (data.voice_registered) markVoiceDone(true);
-    if (data.face_registered && data.voice_registered) showComplete();
-
-  } catch(err) {
-    errEl.textContent = '⚠ Could not reach the backend: ' + err.message;
-  } finally {
-    btn.disabled = false; spin.style.display = 'none';
-  }
-}
-
-/* ════════════════════════════════════════════════
-   STEP 2 — FACE ENROLLMENT
-════════════════════════════════════════════════ */
-async function startFaceEnroll() {
-  document.getElementById('faceCard').classList.add('capturing');
-  document.getElementById('btnFaceStart').style.display = 'none';
-  setFaceStatus('Requesting camera permission…', 'info');
-  setFaceProgress(5);
-
-  try {
-    await loadFaceModels();
-    faceStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
-    const video = document.getElementById('faceVideo');
-    video.srcObject = faceStream;
-    await video.play();
-
-    document.getElementById('facePlaceholder').style.display = 'none';
-    video.style.display = 'block';
-
-    const overlay = document.getElementById('faceOverlay');
-    overlay.style.display = 'block';
-    overlay.width  = video.videoWidth  || 640;
-    overlay.height = video.videoHeight || 480;
-
-    setFaceProgress(30);
-    setFaceStatus('Camera active. Position your face in the oval and click "Capture Face".', 'info');
-    document.getElementById('btnFaceCapture').style.display = 'inline-flex';
-
-    // Live face detection loop
-    startFaceDetectionLoop(video, overlay);
-
-  } catch(err) {
-    setFaceStatus('Camera access denied: ' + err.message, 'err');
-    document.getElementById('faceCard').classList.remove('capturing');
-    document.getElementById('btnFaceStart').style.display = 'inline-flex';
-  }
-}
-
-let detectionLoopActive = false;
-function startFaceDetectionLoop(video, overlay) {
-  detectionLoopActive = true;
-  const ctx = overlay.getContext('2d');
-  async function loop() {
-    if (!detectionLoopActive) return;
-    ctx.clearRect(0, 0, overlay.width, overlay.height);
-    try {
-      const det = await faceapi
-        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
-        .withFaceLandmarks(true);
-      if (det) {
-        // Draw a green box around detected face
-        const box = det.detection.box;
-        ctx.strokeStyle = '#22c55e';
-        ctx.lineWidth   = 2;
-        ctx.strokeRect(box.x, box.y, box.width, box.height);
-        setFaceStatus('✓ Face detected! Click "Capture Face" to register.', 'ok');
-      } else {
-        setFaceStatus('No face detected — centre your face in the oval.', 'warn');
+    async function loadFaceModels() {
+      if (modelsLoaded) return;
+      setFaceStatus('Loading face-ai models…', 'info');
+      try {
+        await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+        modelsLoaded = true;
+        setFaceStatus('Models ready. Camera starting…', 'info');
+      } catch (err) {
+        console.error('face-api model load error', err);
+        setFaceStatus('Failed to load AI models. Check console.', 'err');
+        throw err;
       }
-    } catch(_) {}
-    if (detectionLoopActive) requestAnimationFrame(loop);
-  }
-  requestAnimationFrame(loop);
-}
-
-async function captureFace() {
-  const video   = document.getElementById('faceVideo');
-  const overlay = document.getElementById('faceOverlay');
-
-  setFaceStatus('Extracting face descriptor…', 'info');
-  setFaceProgress(60);
-  document.getElementById('btnFaceCapture').disabled = true;
-
-  try {
-    const result = await faceapi
-      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
-      .withFaceLandmarks(true)
-      .withFaceDescriptor();
-
-    if (!result) {
-      setFaceStatus('Could not extract descriptor. Ensure your face is clearly visible.', 'err');
-      document.getElementById('btnFaceCapture').disabled = false;
-      return;
     }
 
-    faceDescriptor = Array.from(result.descriptor);   // 128-dim float array
-    setFaceProgress(75);
-    setFaceStatus('Checking for duplicate registrations…', 'info');
+    /* ════════════════════════════════════════════════
+       STEP 1 — SESSION
+    ════════════════════════════════════════════════ */
+    async function loadSession() {
+      const raw = document.getElementById('sessionInput').value.trim();
+      const errEl = document.getElementById('sessionError');
+      errEl.textContent = '';
 
-    // ── Duplicate check before storing ──────────────────────────────────────
-    const dupResult = await checkDuplicate(faceDescriptor, null);
-    if (dupResult && dupResult.face_is_duplicate) {
-      stopFaceCamera();
-      setFaceStatus('Registration blocked: ' + dupResult.message, 'err');
-      showBanner('bannerFace', 'error', '✗ Duplicate Face Detected',
-        'This face is already registered under a different account. Proxy registration is not allowed.');
-      document.getElementById('faceBadge').textContent = 'Blocked';
-      document.getElementById('faceBadge').className   = 'badge badge-error';
+      const uuidRx = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRx.test(raw)) {
+        errEl.textContent = '⚠ Please enter a valid UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).';
+        return;
+      }
+
+      const btn = document.getElementById('btnLoadSession');
+      const spin = document.getElementById('loadSpinner');
+      btn.disabled = true; spin.style.display = 'inline-block';
+
+      try {
+        const res = await fetch(`${BASE_URL}/api/v1/biometric/status/${raw}`);
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        const data = await res.json();
+
+        currentSessionId = raw;
+        document.getElementById('sessionCard').style.display = 'none';
+        document.getElementById('sessionBanner').style.display = 'block';
+        document.getElementById('bioSection').style.display = 'grid';
+        document.getElementById('sessionDisplay').textContent = raw;
+
+        updateBioBadges(data.face_registered, data.voice_registered);
+        setStep(2);
+
+        // Pre-fill if already registered
+        if (data.face_registered) markFaceDone(true);
+        if (data.voice_registered) markVoiceDone(true);
+        if (data.face_registered && data.voice_registered) showComplete();
+
+      } catch (err) {
+        errEl.textContent = '⚠ Could not reach the backend: ' + err.message;
+      } finally {
+        btn.disabled = false; spin.style.display = 'none';
+      }
+    }
+
+    /* ════════════════════════════════════════════════
+       STEP 2 — FACE ENROLLMENT
+    ════════════════════════════════════════════════ */
+    async function startFaceEnroll() {
+      document.getElementById('faceCard').classList.add('capturing');
+      document.getElementById('btnFaceStart').style.display = 'none';
+      setFaceStatus('Requesting camera permission…', 'info');
+      setFaceProgress(5);
+
+      try {
+        await loadFaceModels();
+        faceStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
+        const video = document.getElementById('faceVideo');
+        video.srcObject = faceStream;
+        await video.play();
+
+        document.getElementById('facePlaceholder').style.display = 'none';
+        video.style.display = 'block';
+
+        const overlay = document.getElementById('faceOverlay');
+        overlay.style.display = 'block';
+        overlay.width = video.videoWidth || 640;
+        overlay.height = video.videoHeight || 480;
+
+        setFaceProgress(30);
+        setFaceStatus('Camera active. Position your face in the oval and click "Capture Face".', 'info');
+        document.getElementById('btnFaceCapture').style.display = 'inline-flex';
+
+        // Live face detection loop
+        startFaceDetectionLoop(video, overlay);
+
+      } catch (err) {
+        setFaceStatus('Camera access denied: ' + err.message, 'err');
+        document.getElementById('faceCard').classList.remove('capturing');
+        document.getElementById('btnFaceStart').style.display = 'inline-flex';
+      }
+    }
+
+    let detectionLoopActive = false;
+    function startFaceDetectionLoop(video, overlay) {
+      detectionLoopActive = true;
+      const ctx = overlay.getContext('2d');
+      async function loop() {
+        if (!detectionLoopActive) return;
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+        try {
+          const det = await faceapi
+            .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
+            .withFaceLandmarks(true);
+          if (det) {
+            // Draw a green box around detected face
+            const box = det.detection.box;
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+            setFaceStatus('✓ Face detected! Click "Capture Face" to register.', 'ok');
+          } else {
+            setFaceStatus('No face detected — centre your face in the oval.', 'warn');
+          }
+        } catch (err) {
+          console.error('[Face Detection Loop Error]', err);
+        }
+        if (detectionLoopActive) requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    }
+
+    async function captureFace() {
+      const video = document.getElementById('faceVideo');
+      const overlay = document.getElementById('faceOverlay');
+
+      setFaceStatus('Extracting face descriptor…', 'info');
+      setFaceProgress(60);
+      document.getElementById('btnFaceCapture').disabled = true;
+
+      try {
+        const result = await faceapi
+          .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
+          .withFaceLandmarks(true)
+          .withFaceDescriptor();
+
+        if (!result) {
+          setFaceStatus('Could not extract descriptor. Ensure your face is clearly visible.', 'err');
+          document.getElementById('btnFaceCapture').disabled = false;
+          return;
+        }
+
+        faceDescriptor = Array.from(result.descriptor);   // 128-dim float array
+        setFaceProgress(75);
+        setFaceStatus('Checking for duplicate registrations…', 'info');
+
+        // ── Duplicate check before storing ──────────────────────────────────────
+        const dupResult = await checkDuplicate(faceDescriptor, null);
+        if (dupResult && dupResult.face_is_duplicate) {
+          stopFaceCamera();
+          setFaceStatus('Registration blocked: ' + dupResult.message, 'err');
+          showBanner('bannerFace', 'error', '✗ Duplicate Face Detected',
+            'This face is already registered under a different account. Proxy registration is not allowed.');
+          document.getElementById('faceBadge').textContent = 'Blocked';
+          document.getElementById('faceBadge').className = 'badge badge-error';
+          document.getElementById('faceCard').classList.remove('capturing');
+          document.getElementById('btnFaceCapture').style.display = 'none';
+          document.getElementById('btnFaceRetry').style.display = 'inline-flex';
+          setFaceProgress(0);
+          return;
+        }
+
+        setFaceProgress(80);
+        setFaceStatus('Sending to server…', 'info');
+        await registerFace(faceDescriptor);
+
+      } catch (err) {
+        setFaceStatus('Error: ' + err.message, 'err');
+        document.getElementById('btnFaceCapture').disabled = false;
+      }
+    }
+
+    async function registerFace(embedding) {
+      try {
+        const res = await fetch(`${BASE_URL}/api/v1/biometric/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: currentSessionId, face_embedding: embedding })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Registration failed');
+
+        stopFaceCamera();
+        markFaceDone();
+        showBanner('bannerFace', 'success', '✓ Face Registered', `Session: ${data.session_id}`);
+        setFaceProgress(100);
+        updateBioBadges(data.face_registered, data.voice_registered);
+        checkBothDone(data);
+
+      } catch (err) {
+        console.error('[Biometric Registration Error]', err);
+        setFaceStatus('Server error: ' + err.message, 'err');
+        showBanner('bannerFace', 'error', '✗ Registration Failed', err.message);
+        document.getElementById('btnFaceCapture').disabled = false;
+      }
+    }
+
+    function stopFaceCamera() {
+      detectionLoopActive = false;
+      if (faceStream) { faceStream.getTracks().forEach(t => t.stop()); faceStream = null; }
+    }
+
+    function markFaceDone(preExisting = false) {
       document.getElementById('faceCard').classList.remove('capturing');
+      document.getElementById('faceCard').classList.add('registered');
+      document.getElementById('faceBadge').textContent = preExisting ? 'Already Done' : 'Registered';
+      document.getElementById('faceBadge').className = 'badge badge-done';
+      document.getElementById('facePanel').innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;color:#22c55e;"><div style="font-size:4rem">✅</div><p style="font-size:0.9rem;font-weight:600">${preExisting ? 'Already registered' : 'Face captured!'}</p></div>`;
+      document.getElementById('faceProgress').style.width = '100%';
+      document.getElementById('faceStatus').textContent = preExisting ? 'Face already enrolled for this session.' : 'Face descriptor saved securely.';
+      document.getElementById('faceStatus').className = 'bio-status ok';
+      document.getElementById('btnFaceStart').style.display = 'none';
       document.getElementById('btnFaceCapture').style.display = 'none';
-      document.getElementById('btnFaceRetry').style.display   = 'inline-flex';
-      setFaceProgress(0);
-      return;
+      document.getElementById('btnFaceRetry').style.display = 'none';
+      setStep(3);
     }
 
-    setFaceProgress(80);
-    setFaceStatus('Sending to server…', 'info');
-    await registerFace(faceDescriptor);
-
-  } catch(err) {
-    setFaceStatus('Error: ' + err.message, 'err');
-    document.getElementById('btnFaceCapture').disabled = false;
-  }
-}
-
-async function registerFace(embedding) {
-  try {
-    const res = await fetch(`${BASE_URL}/api/v1/biometric/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: currentSessionId, face_embedding: embedding })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Registration failed');
-
-    stopFaceCamera();
-    markFaceDone();
-    showBanner('bannerFace', 'success', '✓ Face Registered', `Session: ${data.session_id}`);
-    setFaceProgress(100);
-    updateBioBadges(data.face_registered, data.voice_registered);
-    checkBothDone(data);
-
-  } catch(err) {
-    setFaceStatus('Server error: ' + err.message, 'err');
-    showBanner('bannerFace', 'error', '✗ Registration Failed', err.message);
-    document.getElementById('btnFaceCapture').disabled = false;
-  }
-}
-
-function stopFaceCamera() {
-  detectionLoopActive = false;
-  if (faceStream) { faceStream.getTracks().forEach(t => t.stop()); faceStream = null; }
-}
-
-function markFaceDone(preExisting = false) {
-  document.getElementById('faceCard').classList.remove('capturing');
-  document.getElementById('faceCard').classList.add('registered');
-  document.getElementById('faceBadge').textContent = preExisting ? 'Already Done' : 'Registered';
-  document.getElementById('faceBadge').className   = 'badge badge-done';
-  document.getElementById('facePanel').innerHTML    = `<div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;color:#22c55e;"><div style="font-size:4rem">✅</div><p style="font-size:0.9rem;font-weight:600">${preExisting ? 'Already registered' : 'Face captured!'}</p></div>`;
-  document.getElementById('faceProgress').style.width = '100%';
-  document.getElementById('faceStatus').textContent    = preExisting ? 'Face already enrolled for this session.' : 'Face descriptor saved securely.';
-  document.getElementById('faceStatus').className      = 'bio-status ok';
-  document.getElementById('btnFaceStart').style.display   = 'none';
-  document.getElementById('btnFaceCapture').style.display = 'none';
-  document.getElementById('btnFaceRetry').style.display   = 'none';
-  setStep(3);
-}
-
-function retryFace() {
-  stopFaceCamera();
-  faceDescriptor = null;
-  document.getElementById('faceCard').classList.remove('capturing');
-  document.getElementById('facePanel').innerHTML = `
+    function retryFace() {
+      stopFaceCamera();
+      faceDescriptor = null;
+      document.getElementById('faceCard').classList.remove('capturing');
+      document.getElementById('facePanel').innerHTML = `
     <div class="media-placeholder" id="facePlaceholder"><div class="icon">📷</div><p>Camera will appear here.<br>Click Start to begin.</p></div>
     <video id="faceVideo" autoplay playsinline muted style="display:none"></video>
     <canvas id="faceOverlay" class="overlay" style="display:none"></canvas>
     <div class="scan-line"></div><div class="face-guide"></div>`;
-  document.getElementById('btnFaceStart').style.display   = 'inline-flex';
-  document.getElementById('btnFaceCapture').style.display = 'none';
-  document.getElementById('btnFaceRetry').style.display   = 'none';
-  setFaceProgress(0);
-  setFaceStatus('Click "Start Camera" to begin face enrollment.', '');
-}
-
-/* ════════════════════════════════════════════════
-   STEP 3 — VOICE ENROLLMENT
-════════════════════════════════════════════════ */
-async function startVoiceEnroll() {
-  document.getElementById('voiceCard').classList.add('capturing');
-  document.getElementById('btnVoiceStart').style.display = 'none';
-  setVoiceStatus('Requesting microphone permission…', 'info');
-  setVoiceProgress(10);
-
-  try {
-    voiceStream   = await navigator.mediaDevices.getUserMedia({ audio: true });
-    voiceAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const source  = voiceAudioCtx.createMediaStreamSource(voiceStream);
-    voiceAnalyser = voiceAudioCtx.createAnalyser();
-    voiceAnalyser.fftSize = 256;
-    source.connect(voiceAnalyser);
-
-    // Setup waveform canvas
-    const canvas = document.getElementById('voiceCanvas');
-    document.getElementById('voicePlaceholder').style.display = 'none';
-    canvas.style.display = 'block';
-    canvas.width  = canvas.offsetWidth  || 320;
-    canvas.height = canvas.offsetHeight || 240;
-    drawWaveform(canvas);
-
-    // MediaRecorder for saving audio data
-    voiceAudioChunks = [];
-    voiceMediaRec    = new MediaRecorder(voiceStream);
-    voiceMediaRec.ondataavailable = e => { if (e.data.size > 0) voiceAudioChunks.push(e.data); };
-    voiceMediaRec.start(100);
-
-    document.getElementById('passphraseBox').style.display  = 'block';
-    document.getElementById('passphraseHint').style.display = 'block';
-    document.getElementById('btnVoiceStop').style.display   = 'inline-flex';
-
-    setVoiceProgress(30);
-    setVoiceStatus('Recording… read the passphrase aloud then click Stop.', 'info');
-
-  } catch(err) {
-    setVoiceStatus('Microphone access denied: ' + err.message, 'err');
-    document.getElementById('voiceCard').classList.remove('capturing');
-    document.getElementById('btnVoiceStart').style.display = 'inline-flex';
-  }
-}
-
-function drawWaveform(canvas) {
-  const ctx  = canvas.getContext('2d');
-  const bufLen = voiceAnalyser.frequencyBinCount;
-  const data   = new Uint8Array(bufLen);
-
-  function render() {
-    voiceAnimFrame = requestAnimationFrame(render);
-    voiceAnalyser.getByteTimeDomainData(data);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Gradient waveform line
-    const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
-    grad.addColorStop(0,   '#6c63ff');
-    grad.addColorStop(0.5, '#a78bfa');
-    grad.addColorStop(1,   '#6c63ff');
-
-    ctx.lineWidth   = 2.5;
-    ctx.strokeStyle = grad;
-    ctx.beginPath();
-
-    const sliceW = canvas.width / bufLen;
-    let x = 0;
-    for (let i = 0; i < bufLen; i++) {
-      const v = data[i] / 128.0;
-      const y = (v / 2) * canvas.height;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      x += sliceW;
-    }
-    ctx.lineTo(canvas.width, canvas.height / 2);
-    ctx.stroke();
-
-    // Frequency bars at the bottom
-    const freqData = new Uint8Array(bufLen);
-    voiceAnalyser.getByteFrequencyData(freqData);
-    const barW = (canvas.width / bufLen) * 2.5;
-    let bx = 0;
-    for (let i = 0; i < bufLen; i++) {
-      const barH = (freqData[i] / 255) * (canvas.height * 0.3);
-      const alpha = 0.3 + (freqData[i] / 255) * 0.5;
-      ctx.fillStyle = `rgba(108,99,255,${alpha})`;
-      ctx.fillRect(bx, canvas.height - barH, barW, barH);
-      bx += barW + 1;
-    }
-  }
-  render();
-}
-
-async function stopVoiceEnroll() {
-  document.getElementById('btnVoiceStop').disabled = true;
-  setVoiceStatus('Processing voice fingerprint…', 'info');
-  setVoiceProgress(60);
-
-  if (voiceMediaRec && voiceMediaRec.state !== 'inactive') {
-    voiceMediaRec.stop();
-  }
-  if (voiceAnimFrame) cancelAnimationFrame(voiceAnimFrame);
-
-  await new Promise(r => setTimeout(r, 400)); // let last chunks arrive
-
-  // Extract MFCC-like embedding from the recorded audio chunks
-  try {
-    const embedding = await extractVoiceEmbedding(voiceAudioChunks);
-    if (!embedding || embedding.length === 0) throw new Error('Empty audio captured — please record longer.');
-
-    setVoiceProgress(70);
-    setVoiceStatus('Checking for duplicate voice registrations…', 'info');
-
-    // ── Duplicate check before storing ────────────────────────────────────
-    const dupResult = await checkDuplicate(null, embedding);
-    if (dupResult && dupResult.voice_is_duplicate) {
-      setVoiceStatus('Registration blocked: ' + dupResult.message, 'err');
-      showBanner('bannerVoice', 'error', '✗ Duplicate Voice Detected',
-        'This voice is already registered under a different account. Proxy registration is not allowed.');
-      document.getElementById('voiceBadge').textContent = 'Blocked';
-      document.getElementById('voiceBadge').className   = 'badge badge-error';
-      document.getElementById('voiceCard').classList.remove('capturing');
-      document.getElementById('btnVoiceStop').style.display  = 'none';
-      document.getElementById('btnVoiceRetry').style.display = 'inline-flex';
-      setVoiceProgress(0);
-      return;
+      document.getElementById('btnFaceStart').style.display = 'inline-flex';
+      document.getElementById('btnFaceCapture').style.display = 'none';
+      document.getElementById('btnFaceRetry').style.display = 'none';
+      setFaceProgress(0);
+      setFaceStatus('Click "Start Camera" to begin face enrollment.', '');
     }
 
-    setVoiceProgress(80);
-    setVoiceStatus('Sending voice fingerprint to server…', 'info');
-    await registerVoice(embedding);
-  } catch(err) {
-    setVoiceStatus('Error: ' + err.message, 'err');
-    document.getElementById('btnVoiceStop').disabled = false;
-  } finally {
-    stopVoiceMic();
-  }
-}
+    /* ════════════════════════════════════════════════
+       STEP 3 — VOICE ENROLLMENT
+    ════════════════════════════════════════════════ */
+    async function startVoiceEnroll() {
+      document.getElementById('voiceCard').classList.add('capturing');
+      document.getElementById('btnVoiceStart').style.display = 'none';
+      setVoiceStatus('Requesting microphone permission…', 'info');
+      setVoiceProgress(10);
 
-/**
- * Extract a voice embedding from recorded audio blobs.
- * Uses the Web Audio API OfflineAudioContext to decode, then computes
- * a simplified spectral feature vector (mean energy per 32 frequency band).
- * This acts as a voice fingerprint for comparing against future recordings.
- */
-async function extractVoiceEmbedding(chunks) {
-  const blob       = new Blob(chunks, { type: 'audio/webm' });
-  const arrayBuf   = await blob.arrayBuffer();
-  const tempCtx    = new (window.AudioContext || window.webkitAudioContext)();
-  const audioBuf   = await tempCtx.decodeAudioData(arrayBuf);
-  await tempCtx.close();
+      try {
+        voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        voiceAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = voiceAudioCtx.createMediaStreamSource(voiceStream);
+        voiceAnalyser = voiceAudioCtx.createAnalyser();
+        voiceAnalyser.fftSize = 256;
+        source.connect(voiceAnalyser);
 
-  const channelData = audioBuf.getChannelData(0);   // Float32Array
-  const sampleRate  = audioBuf.sampleRate;
-  const frameSize   = 512;
-  const hopSize     = 256;
-  const numBands    = 64;
-  const embedding   = new Array(numBands).fill(0);
-  let   frames      = 0;
+        // Setup waveform canvas
+        const canvas = document.getElementById('voiceCanvas');
+        document.getElementById('voicePlaceholder').style.display = 'none';
+        canvas.style.display = 'block';
+        canvas.width = canvas.offsetWidth || 320;
+        canvas.height = canvas.offsetHeight || 240;
+        drawWaveform(canvas);
 
-  // Simple spectral energy per band averaged across frames
-  for (let start = 0; start + frameSize < channelData.length; start += hopSize) {
-    const frame = channelData.slice(start, start + frameSize);
-    // Compute magnitude spectrum via DFT (simplified for browser)
-    const mag = simpleDFT(frame, frameSize);
-    const binPerBand = Math.floor((frameSize / 2) / numBands);
-    for (let b = 0; b < numBands; b++) {
-      let sum = 0;
-      for (let k = 0; k < binPerBand; k++) {
-        sum += mag[b * binPerBand + k];
+        // MediaRecorder for saving audio data
+        voiceAudioChunks = [];
+        voiceMediaRec = new MediaRecorder(voiceStream);
+        voiceMediaRec.ondataavailable = e => { if (e.data.size > 0) voiceAudioChunks.push(e.data); };
+        voiceMediaRec.start();
+
+        document.getElementById('passphraseBox').style.display = 'block';
+        document.getElementById('passphraseHint').style.display = 'block';
+        document.getElementById('btnVoiceStop').style.display = 'inline-flex';
+
+        setVoiceProgress(30);
+        setVoiceStatus('Recording… read the passphrase aloud then click Stop.', 'info');
+
+      } catch (err) {
+        setVoiceStatus('Microphone access denied: ' + err.message, 'err');
+        document.getElementById('voiceCard').classList.remove('capturing');
+        document.getElementById('btnVoiceStart').style.display = 'inline-flex';
       }
-      embedding[b] += sum / binPerBand;
     }
-    frames++;
-  }
 
-  if (frames === 0) return [];
-  // Normalize
-  const maxVal = Math.max(...embedding);
-  return embedding.map(v => frames > 0 ? (v / frames) / (maxVal || 1) : 0);
-}
+    function drawWaveform(canvas) {
+      const ctx = canvas.getContext('2d');
+      const bufLen = voiceAnalyser.frequencyBinCount;
+      const data = new Uint8Array(bufLen);
 
-/** Simplified DFT magnitude for a real signal frame */
-function simpleDFT(frame, N) {
-  const half = Math.floor(N / 2);
-  const mag  = new Float32Array(half);
-  for (let k = 0; k < half; k++) {
-    let re = 0, im = 0;
-    for (let n = 0; n < N; n++) {
-      const angle = (2 * Math.PI * k * n) / N;
-      re += frame[n] * Math.cos(angle);
-      im -= frame[n] * Math.sin(angle);
+      function render() {
+        voiceAnimFrame = requestAnimationFrame(render);
+        voiceAnalyser.getByteTimeDomainData(data);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Gradient waveform line
+        const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+        grad.addColorStop(0, '#6c63ff');
+        grad.addColorStop(0.5, '#a78bfa');
+        grad.addColorStop(1, '#6c63ff');
+
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = grad;
+        ctx.beginPath();
+
+        const sliceW = canvas.width / bufLen;
+        let x = 0;
+        for (let i = 0; i < bufLen; i++) {
+          const v = data[i] / 128.0;
+          const y = (v / 2) * canvas.height;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          x += sliceW;
+        }
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
+
+        // Frequency bars at the bottom
+        const freqData = new Uint8Array(bufLen);
+        voiceAnalyser.getByteFrequencyData(freqData);
+        const barW = (canvas.width / bufLen) * 2.5;
+        let bx = 0;
+        for (let i = 0; i < bufLen; i++) {
+          const barH = (freqData[i] / 255) * (canvas.height * 0.3);
+          const alpha = 0.3 + (freqData[i] / 255) * 0.5;
+          ctx.fillStyle = `rgba(108,99,255,${alpha})`;
+          ctx.fillRect(bx, canvas.height - barH, barW, barH);
+          bx += barW + 1;
+        }
+      }
+      render();
     }
-    mag[k] = Math.sqrt(re * re + im * im) / N;
-  }
-  return mag;
-}
 
-/**
- * Call the backend duplicate-check endpoint before registering.
- * face_embedding and/or voice_embedding can be null.
- * Returns the API response object or null on network error.
- */
-async function checkDuplicate(faceEmbedding, voiceEmbedding) {
-  try {
-    const body = { session_id: currentSessionId };
-    if (faceEmbedding)  body.face_embedding  = faceEmbedding;
-    if (voiceEmbedding) body.voice_embedding = voiceEmbedding;
+    async function stopVoiceEnroll() {
+      document.getElementById('btnVoiceStop').disabled = true;
+      setVoiceStatus('Processing voice fingerprint…', 'info');
+      setVoiceProgress(60);
 
-    const res  = await fetch(`${BASE_URL}/api/v1/biometric/check-duplicate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    return await res.json();
-  } catch (err) {
-    console.warn('Duplicate check failed (non-blocking):', err.message);
-    return null;   // network error → allow registration to proceed
-  }
-}
+      if (voiceMediaRec && voiceMediaRec.state !== 'inactive') {
+        voiceMediaRec.stop();
+      }
+      if (voiceAnimFrame) cancelAnimationFrame(voiceAnimFrame);
 
-async function registerVoice(embedding) {
-  try {
-    const res = await fetch(`${BASE_URL}/api/v1/biometric/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: currentSessionId, voice_embedding: embedding })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Registration failed');
+      await new Promise(r => setTimeout(r, 400)); // let last chunks arrive
 
-    markVoiceDone();
-    showBanner('bannerVoice', 'success', '✓ Voice Registered', `Fingerprint dimensions: ${embedding.length}`);
-    setVoiceProgress(100);
-    updateBioBadges(data.face_registered, data.voice_registered);
-    checkBothDone(data);
+      // Extract MFCC-like embedding from the recorded audio chunks
+      try {
+        const embedding = await extractVoiceEmbedding(voiceAudioChunks);
+        if (!embedding || embedding.length === 0) throw new Error('Empty audio captured — please record longer.');
 
-  } catch(err) {
-    setVoiceStatus('Server error: ' + err.message, 'err');
-    showBanner('bannerVoice', 'error', '✗ Registration Failed', err.message);
-  }
-}
+        setVoiceProgress(70);
+        setVoiceStatus('Checking for duplicate voice registrations…', 'info');
 
-function stopVoiceMic() {
-  if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
-  if (voiceAudioCtx) { voiceAudioCtx.close().catch(()=>{}); voiceAudioCtx = null; }
-}
+        // ── Duplicate check before storing ────────────────────────────────────
+        const dupResult = await checkDuplicate(null, embedding);
+        if (dupResult && dupResult.voice_is_duplicate) {
+          setVoiceStatus('Registration blocked: ' + dupResult.message, 'err');
+          showBanner('bannerVoice', 'error', '✗ Duplicate Voice Detected',
+            'This voice is already registered under a different account. Proxy registration is not allowed.');
+          document.getElementById('voiceBadge').textContent = 'Blocked';
+          document.getElementById('voiceBadge').className = 'badge badge-error';
+          document.getElementById('voiceCard').classList.remove('capturing');
+          document.getElementById('btnVoiceStop').style.display = 'none';
+          document.getElementById('btnVoiceRetry').style.display = 'inline-flex';
+          setVoiceProgress(0);
+          return;
+        }
 
-function markVoiceDone(preExisting = false) {
-  document.getElementById('voiceCard').classList.remove('capturing');
-  document.getElementById('voiceCard').classList.add('registered');
-  document.getElementById('voiceBadge').textContent = preExisting ? 'Already Done' : 'Registered';
-  document.getElementById('voiceBadge').className   = 'badge badge-done';
-  document.getElementById('voicePanel').innerHTML    = `<div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;color:#22c55e;"><div style="font-size:4rem">✅</div><p style="font-size:0.9rem;font-weight:600">${preExisting ? 'Already registered' : 'Voice captured!'}</p></div>`;
-  document.getElementById('voiceProgress').style.width = '100%';
-  document.getElementById('voiceStatus').textContent   = preExisting ? 'Voice already enrolled for this session.' : 'Voice fingerprint saved securely.';
-  document.getElementById('voiceStatus').className     = 'bio-status ok';
-  document.getElementById('passphraseBox').style.display  = 'none';
-  document.getElementById('passphraseHint').style.display = 'none';
-  document.getElementById('btnVoiceStart').style.display  = 'none';
-  document.getElementById('btnVoiceStop').style.display   = 'none';
-  document.getElementById('btnVoiceRetry').style.display  = 'none';
-  setStep(4);
-}
+        setVoiceProgress(80);
+        setVoiceStatus('Sending voice fingerprint to server…', 'info');
+        await registerVoice(embedding);
+      } catch (err) {
+        setVoiceStatus('Error: ' + err.message, 'err');
+        document.getElementById('btnVoiceStop').disabled = false;
+      } finally {
+        stopVoiceMic();
+      }
+    }
 
-function retryVoice() {
-  stopVoiceMic();
-  if (voiceAnimFrame) cancelAnimationFrame(voiceAnimFrame);
-  voiceAudioChunks = [];
-  document.getElementById('voiceCard').classList.remove('capturing');
-  document.getElementById('voicePanel').innerHTML = `
+    /**
+     * Extract a voice embedding from recorded audio blobs.
+     * Uses the Web Audio API OfflineAudioContext to decode, then computes
+     * a simplified spectral feature vector (mean energy per 32 frequency band).
+     * This acts as a voice fingerprint for comparing against future recordings.
+     */
+    async function extractVoiceEmbedding(chunks) {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const arrayBuf = await blob.arrayBuffer();
+      const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioBuf = await tempCtx.decodeAudioData(arrayBuf);
+      await tempCtx.close();
+
+      const channelData = audioBuf.getChannelData(0);   // Float32Array
+      const sampleRate = audioBuf.sampleRate;
+      const frameSize = 512;
+      const hopSize = 256;
+      const numBands = 64;
+      const embedding = new Array(numBands).fill(0);
+      let frames = 0;
+
+      // Simple spectral energy per band averaged across frames
+      for (let start = 0; start + frameSize < channelData.length; start += hopSize) {
+        const frame = channelData.slice(start, start + frameSize);
+        const mag = getFFTMagnitude(frame, frameSize);
+        const binPerBand = Math.floor((frameSize / 2) / numBands);
+        for (let b = 0; b < numBands; b++) {
+          let sum = 0;
+          for (let k = 0; k < binPerBand; k++) {
+            sum += mag[b * binPerBand + k];
+          }
+          embedding[b] += sum / binPerBand;
+        }
+        frames++;
+      }
+
+      if (frames === 0) return [];
+      // Normalize
+      const avgEmbedding = embedding.map(v => v / frames);
+      const maxVal = Math.max(...avgEmbedding);
+      return avgEmbedding.map(v => maxVal > 0 ? v / maxVal : 0);
+    }
+
+    function bitReverse(n, bits) {
+      let reversed = 0;
+      for (let i = 0; i < bits; i++) {
+        if ((n & (1 << i)) !== 0) {
+          reversed |= (1 << (bits - 1 - i));
+        }
+      }
+      return reversed;
+    }
+
+    function fft(re, im) {
+      const n = re.length;
+      const bits = Math.round(Math.log2(n));
+      for (let i = 0; i < n; i++) {
+        const j = bitReverse(i, bits);
+        if (i < j) {
+          let temp = re[i]; re[i] = re[j]; re[j] = temp;
+          temp = im[i]; im[i] = im[j]; im[j] = temp;
+        }
+      }
+      for (let len = 2; len <= n; len <<= 1) {
+        const angle = -2 * Math.PI / len;
+        const wlenRe = Math.cos(angle);
+        const wlenIm = Math.sin(angle);
+        for (let i = 0; i < n; i += len) {
+          let wRe = 1, wIm = 0;
+          for (let j = 0; j < len / 2; j++) {
+            const uRe = re[i + j];
+            const uIm = im[i + j];
+            const vRe = re[i + j + len / 2] * wRe - im[i + j + len / 2] * wIm;
+            const vIm = re[i + j + len / 2] * wIm + im[i + j + len / 2] * wRe;
+            re[i + j] = uRe + vRe;
+            im[i + j] = uIm + vIm;
+            re[i + j + len / 2] = uRe - vRe;
+            im[i + j + len / 2] = uIm - vIm;
+            const nextWRe = wRe * wlenRe - wIm * wlenIm;
+            wIm = wRe * wlenIm + wIm * wlenRe;
+            wRe = nextWRe;
+          }
+        }
+      }
+    }
+
+    function getFFTMagnitude(frame, N) {
+      const re = new Float32Array(N);
+      const im = new Float32Array(N);
+      re.set(frame);
+      fft(re, im);
+      const half = N / 2;
+      const mag = new Float32Array(half);
+      for (let k = 0; k < half; k++) {
+        mag[k] = Math.sqrt(re[k] * re[k] + im[k] * im[k]) / N;
+      }
+      return mag;
+    }
+
+    /**
+     * Call the backend duplicate-check endpoint before registering.
+     * face_embedding and/or voice_embedding can be null.
+     * Returns the API response object or null on network error.
+     */
+    async function checkDuplicate(faceEmbedding, voiceEmbedding) {
+      try {
+        const body = { session_id: currentSessionId };
+        if (faceEmbedding) body.face_embedding = faceEmbedding;
+        if (voiceEmbedding) body.voice_embedding = voiceEmbedding;
+
+        const res = await fetch(`${BASE_URL}/api/v1/biometric/check-duplicate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        return await res.json();
+      } catch (err) {
+        console.warn('Duplicate check failed (non-blocking):', err.message);
+        return null;   // network error → allow registration to proceed
+      }
+    }
+
+    async function registerVoice(embedding) {
+      try {
+        const res = await fetch(`${BASE_URL}/api/v1/biometric/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: currentSessionId, voice_embedding: embedding })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Registration failed');
+
+        markVoiceDone();
+        showBanner('bannerVoice', 'success', '✓ Voice Registered', `Fingerprint dimensions: ${embedding.length}`);
+        setVoiceProgress(100);
+        updateBioBadges(data.face_registered, data.voice_registered);
+        checkBothDone(data);
+
+      } catch (err) {
+        setVoiceStatus('Server error: ' + err.message, 'err');
+        showBanner('bannerVoice', 'error', '✗ Registration Failed', err.message);
+      }
+    }
+
+    function stopVoiceMic() {
+      if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
+      if (voiceAudioCtx) { voiceAudioCtx.close().catch(() => { }); voiceAudioCtx = null; }
+    }
+
+    function markVoiceDone(preExisting = false) {
+      document.getElementById('voiceCard').classList.remove('capturing');
+      document.getElementById('voiceCard').classList.add('registered');
+      document.getElementById('voiceBadge').textContent = preExisting ? 'Already Done' : 'Registered';
+      document.getElementById('voiceBadge').className = 'badge badge-done';
+      document.getElementById('voicePanel').innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;color:#22c55e;"><div style="font-size:4rem">✅</div><p style="font-size:0.9rem;font-weight:600">${preExisting ? 'Already registered' : 'Voice captured!'}</p></div>`;
+      document.getElementById('voiceProgress').style.width = '100%';
+      document.getElementById('voiceStatus').textContent = preExisting ? 'Voice already enrolled for this session.' : 'Voice fingerprint saved securely.';
+      document.getElementById('voiceStatus').className = 'bio-status ok';
+      document.getElementById('passphraseBox').style.display = 'none';
+      document.getElementById('passphraseHint').style.display = 'none';
+      document.getElementById('btnVoiceStart').style.display = 'none';
+      document.getElementById('btnVoiceStop').style.display = 'none';
+      document.getElementById('btnVoiceRetry').style.display = 'none';
+      setStep(4);
+    }
+
+    function retryVoice() {
+      stopVoiceMic();
+      if (voiceAnimFrame) cancelAnimationFrame(voiceAnimFrame);
+      voiceAudioChunks = [];
+      document.getElementById('voiceCard').classList.remove('capturing');
+      document.getElementById('voicePanel').innerHTML = `
     <div class="media-placeholder" id="voicePlaceholder"><div class="icon">🎤</div><p>Microphone waveform<br>will appear here.</p></div>
     <canvas id="voiceCanvas" style="display:none"></canvas>`;
-  document.getElementById('passphraseBox').style.display  = 'none';
-  document.getElementById('passphraseHint').style.display = 'none';
-  document.getElementById('btnVoiceStart').style.display  = 'inline-flex';
-  document.getElementById('btnVoiceStop').style.display   = 'none';
-  document.getElementById('btnVoiceRetry').style.display  = 'none';
-  setVoiceProgress(0);
-  setVoiceStatus('Click "Start Recording" to begin voice enrollment.', '');
-}
-
-/* ════════════════════════════════════════════════
-   STATUS CHECK
-════════════════════════════════════════════════ */
-async function checkStatus() {
-  if (!currentSessionId) return;
-  const res  = await fetch(`${BASE_URL}/api/v1/biometric/status/${currentSessionId}`);
-  const data = await res.json();
-  alert(`Session: ${data.session_id}\nFace: ${data.face_registered ? 'Registered' : 'Not registered'}\nVoice: ${data.voice_registered ? 'Registered' : 'Not registered'}\nFraud Flags: ${data.fraud_flags}\nStatus: ${data.fraud_status}`);
-}
-
-function checkBothDone(data) {
-  if (data.face_registered && data.voice_registered) {
-    showComplete();
-  }
-}
-
-function showComplete() {
-  document.getElementById('completeCard').classList.add('show');
-  document.getElementById('completePill').textContent = 'Session: ' + currentSessionId;
-  setStep(4, true);
-}
-
-function goToInterview() {
-  window.location.href = `/interview-room?session=${currentSessionId}`;
-}
-
-/* ════════════════════════════════════════════════
-   UI HELPERS
-════════════════════════════════════════════════ */
-function setStep(n, done = false) {
-  for (let i = 1; i <= 4; i++) {
-    const dot  = document.getElementById(`stepDot${i}`);
-    const line = document.getElementById(`stepLine${i}`);
-    if (!dot) continue;
-    dot.classList.remove('active', 'done');
-    if (i < n || (i === n && done)) dot.classList.add('done');
-    else if (i === n) dot.classList.add('active');
-    if (line) {
-      line.classList.toggle('done', i < n || (i === n && done));
+      document.getElementById('passphraseBox').style.display = 'none';
+      document.getElementById('passphraseHint').style.display = 'none';
+      document.getElementById('btnVoiceStart').style.display = 'inline-flex';
+      document.getElementById('btnVoiceStop').style.display = 'none';
+      document.getElementById('btnVoiceRetry').style.display = 'none';
+      setVoiceProgress(0);
+      setVoiceStatus('Click "Start Recording" to begin voice enrollment.', '');
     }
-  }
-}
 
-function updateBioBadges(face, voice) {
-  const el = document.getElementById('bioBadges');
-  el.innerHTML = '';
-  el.innerHTML += `<span class="badge ${face  ? 'badge-done' : 'badge-pending'}">${face  ? '✓ Face'  : '⏳ Face'}</span>`;
-  el.innerHTML += `<span class="badge ${voice ? 'badge-done' : 'badge-pending'}">${voice ? '✓ Voice' : '⏳ Voice'}</span>`;
-}
+    /* ════════════════════════════════════════════════
+       STATUS CHECK
+    ════════════════════════════════════════════════ */
+    async function checkStatus() {
+      if (!currentSessionId) return;
+      const res = await fetch(`${BASE_URL}/api/v1/biometric/status/${currentSessionId}`);
+      const data = await res.json();
+      alert(`Session: ${data.session_id}\nFace: ${data.face_registered ? 'Registered' : 'Not registered'}\nVoice: ${data.voice_registered ? 'Registered' : 'Not registered'}\nFraud Flags: ${data.fraud_flags}\nStatus: ${data.fraud_status}`);
+    }
 
-function showBanner(id, type, title, detail) {
-  const el = document.getElementById(id);
-  el.className = `result-banner show ${type}`;
-  document.getElementById(id + 'Title').textContent  = title;
-  document.getElementById(id + 'Detail').textContent = detail;
-}
+    function checkBothDone(data) {
+      if (data.face_registered && data.voice_registered) {
+        showComplete();
+      }
+    }
 
-function setFaceStatus(msg, cls) {
-  const el = document.getElementById('faceStatus');
-  el.textContent = msg;
-  el.className   = 'bio-status' + (cls ? ' ' + cls : '');
-}
-function setFaceProgress(pct) {
-  document.getElementById('faceProgress').style.width = pct + '%';
-}
-function setVoiceStatus(msg, cls) {
-  const el = document.getElementById('voiceStatus');
-  el.textContent = msg;
-  el.className   = 'bio-status' + (cls ? ' ' + cls : '');
-}
-function setVoiceProgress(pct) {
-  document.getElementById('voiceProgress').style.width = pct + '%';
-}
+    function showComplete() {
+      document.getElementById('completeCard').classList.add('show');
+      document.getElementById('completePill').textContent = 'Session: ' + currentSessionId;
+      setStep(4, true);
+    }
 
-// Allow pressing Enter in the session input
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('sessionInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') loadSession();
-  });
-});
-</script>
+    function goToInterview() {
+      window.location.href = `/interview-room?session=${currentSessionId}`;
+    }
+
+    /* ════════════════════════════════════════════════
+       UI HELPERS
+    ════════════════════════════════════════════════ */
+    function setStep(n, done = false) {
+      for (let i = 1; i <= 4; i++) {
+        const dot = document.getElementById(`stepDot${i}`);
+        const line = document.getElementById(`stepLine${i}`);
+        if (!dot) continue;
+        dot.classList.remove('active', 'done');
+        if (i < n || (i === n && done)) dot.classList.add('done');
+        else if (i === n) dot.classList.add('active');
+        if (line) {
+          line.classList.toggle('done', i < n || (i === n && done));
+        }
+      }
+    }
+
+    function updateBioBadges(face, voice) {
+      const el = document.getElementById('bioBadges');
+      el.innerHTML = '';
+      el.innerHTML += `<span class="badge ${face ? 'badge-done' : 'badge-pending'}">${face ? '✓ Face' : '⏳ Face'}</span>`;
+      el.innerHTML += `<span class="badge ${voice ? 'badge-done' : 'badge-pending'}">${voice ? '✓ Voice' : '⏳ Voice'}</span>`;
+    }
+
+    function showBanner(id, type, title, detail) {
+      const el = document.getElementById(id);
+      el.className = `result-banner show ${type}`;
+      document.getElementById(id + 'Title').textContent = title;
+      document.getElementById(id + 'Detail').textContent = detail;
+    }
+
+    function setFaceStatus(msg, cls) {
+      const el = document.getElementById('faceStatus');
+      el.textContent = msg;
+      el.className = 'bio-status' + (cls ? ' ' + cls : '');
+    }
+    function setFaceProgress(pct) {
+      document.getElementById('faceProgress').style.width = pct + '%';
+    }
+    function setVoiceStatus(msg, cls) {
+      const el = document.getElementById('voiceStatus');
+      el.textContent = msg;
+      el.className = 'bio-status' + (cls ? ' ' + cls : '');
+    }
+    function setVoiceProgress(pct) {
+      document.getElementById('voiceProgress').style.width = pct + '%';
+    }
+
+    // Allow pressing Enter in the session input
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('sessionInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') loadSession();
+      });
+    });
+  </script>
 </body>
+
 </html>

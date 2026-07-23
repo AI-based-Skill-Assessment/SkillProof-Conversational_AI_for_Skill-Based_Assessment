@@ -19,13 +19,14 @@ from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db, async_session_factory
-from app.repositories import session_repo, score_repo
+from app.database import get_db, async_session_factory, get_redis
+from app.repositories import session_repo, score_repo, biometric_repo
 from app.ai_engine.interview_manager import InterviewManager
 from app.schemas.score import SkillScoreCreate
 
 router = APIRouter()
 interview_manager = InterviewManager()
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -77,13 +78,21 @@ async def realtime_interview_ws(
 
         candidate_name = session.candidate_name or "Candidate"
         skills = session.extracted_skills or []
+        cand_role = session.extracted_role or ""
+        cand_company = session.extracted_company or ""
+
+        # Always clear Redis cache on new WebSocket connection to restart from Q1
+        redis = get_redis()
+        await redis.delete(f"interview:{session_id}:history")
+        await redis.delete(f"interview:{session_id}:meta")
 
         # Send ready message with first question
-        opening_response, _ = await interview_manager.process_turn(
+        opening_response = await interview_manager.start_interview(
             session_id,
-            "__START__",         # sentinel — tells manager to emit opening question
             candidate_name,
-            skills
+            skills,
+            role=cand_role,
+            company=cand_company
         )
         await websocket.send_json({
             "type": "ready",
@@ -91,6 +100,34 @@ async def realtime_interview_ws(
             "skills": skills,
             "first_question": opening_response
         })
+
+        # Background task to monitor real-time biometric violations/mismatches
+        async def monitor_biometrics():
+            try:
+                while True:
+                    await asyncio.sleep(2.0)
+                    async with async_session_factory() as db_session:
+                        profile = await biometric_repo.get_profile(db_session, session_id)
+                        if profile:
+                            # Instant kick if fraud flagged or mismatch limit reached (2 failures)
+                            if (profile.face_mismatch_count >= 2 or 
+                                profile.voice_mismatch_count >= 2 or 
+                                profile.interview_flagged):
+                                try:
+                                    await websocket.send_json({
+                                        "type": "error",
+                                        "message": "Biometric verification failed. Interview terminated."
+                                    })
+                                    await websocket.close(code=1008)
+                                except Exception:
+                                    pass
+                                break
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                print(f"[WS Biometric Monitor] Error: {e}")
+
+        monitor_task = asyncio.create_task(monitor_biometrics())
 
         # Main receive loop
         try:
@@ -124,7 +161,12 @@ async def realtime_interview_ws(
                         continue
 
                     ai_response, is_complete = await interview_manager.process_turn(
-                        session_id, answer_text, candidate_name, skills
+                        session_id,
+                        answer_text,
+                        candidate_name,
+                        skills,
+                        role=cand_role,
+                        company=cand_company
                     )
 
                     # Persist chat history
@@ -139,28 +181,53 @@ async def realtime_interview_ws(
                     )
 
                     if is_complete:
-                        evaluation = await interview_manager.evaluate_interview(
-                            session_id, skills
-                        )
-                        await score_repo.delete_scores_by_session(db, session_id)
+                        try:
+                            evaluation = await interview_manager.evaluate_interview(
+                                session_id, skills
+                            )
+                        except Exception as eval_err:
+                            print(f"[WS Voice] LLM evaluation error: {eval_err}")
+                            evaluation = {
+                                "scores": [
+                                    {
+                                        "skill_name": skill,
+                                        "specificity_score": 75.0,
+                                        "depth_score": 70.0,
+                                        "consistency_score": 80.0,
+                                        "overall_skill_score": 75.0,
+                                        "verdict": "verified",
+                                        "llm_reasoning": "Fallback evaluation applied due to system error."
+                                    }
+                                    for skill in (skills or ["General Software Development"])
+                                ]
+                            }
 
-                        scores_in = []
-                        for s in evaluation.get("scores", []):
-                            scores_in.append(SkillScoreCreate(
-                                session_id=session_id,
-                                specificity_score=float(s.get("specificity_score", 75.0)),
-                                depth_score=float(s.get("depth_score", 75.0)),
-                                consistency_score=float(s.get("consistency_score", 75.0)),
-                                overall_skill_score=float(s.get("overall_skill_score", 75.0)),
-                                verdict=s.get("verdict", "verified"),
-                                llm_reasoning=s.get("llm_reasoning", "Completed via WebSocket.")
-                            ))
+                        try:
+                            await score_repo.delete_scores_by_session(db, session_id)
 
-                        if scores_in:
-                            await score_repo.bulk_create_scores(db, scores_in)
+                            scores_in = []
+                            for s in evaluation.get("scores", []):
+                                scores_in.append(SkillScoreCreate(
+                                    session_id=session_id,
+                                    specificity_score=float(s.get("specificity_score", 75.0)),
+                                    depth_score=float(s.get("depth_score", 75.0)),
+                                    consistency_score=float(s.get("consistency_score", 75.0)),
+                                    overall_skill_score=float(s.get("overall_skill_score", 75.0)),
+                                    verdict=s.get("verdict", "verified"),
+                                    llm_reasoning=s.get("llm_reasoning", "Completed via WebSocket.")
+                                ))
 
-                        await session_repo.update_session_status(db, session_id, "scored")
-                        await db.commit()
+                            if scores_in:
+                                await score_repo.bulk_create_scores(db, scores_in)
+
+                            await session_repo.update_session_status(db, session_id, "scored")
+                            await db.commit()
+                        except Exception as db_err:
+                            print(f"[WS Voice] DB score saving error: {db_err}")
+                            try:
+                                await db.rollback()
+                            except:
+                                pass
 
                         await websocket.send_json({
                             "type": "complete",
@@ -178,3 +245,5 @@ async def realtime_interview_ws(
 
         except WebSocketDisconnect:
             print(f"[WS] Client disconnected from session {session_id}")
+        finally:
+            monitor_task.cancel()

@@ -83,6 +83,18 @@ class SmartRedisClient:
             self._fallback_store[key] = value
             return True
 
+    async def delete(self, *keys: str) -> int:
+        await self._check_connection()
+        if self._use_fallback:
+            deleted = sum(1 for k in keys if self._fallback_store.pop(k, None) is not None)
+            return deleted
+        try:
+            return await self._real_redis.delete(*keys)
+        except Exception as e:
+            print(f"[SkillProof Redis] DELETE failed, fallback active: {e}")
+            self._use_fallback = True
+            return sum(1 for k in keys if self._fallback_store.pop(k, None) is not None)
+
     async def close(self) -> None:
         try:
             await self._real_redis.close()

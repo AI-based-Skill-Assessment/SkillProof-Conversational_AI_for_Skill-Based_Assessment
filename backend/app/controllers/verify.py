@@ -79,12 +79,14 @@ async def run_document_verification(
     verify_url_str: Optional[str] = session.extracted_verify_url
     company_name: Optional[str]   = session.extracted_company
     candidate_name: Optional[str] = session.candidate_name
+    raw_ocr_text: str             = session.raw_ocr_text or ""
 
     # 2. Run the verification engine
     result = await run_verification(
         verify_url_str=verify_url_str,
         company_name=company_name,
         candidate_name=candidate_name,
+        raw_ocr_text=raw_ocr_text,
         redis=redis
     )
 

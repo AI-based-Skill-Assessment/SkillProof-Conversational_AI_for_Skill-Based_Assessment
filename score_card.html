@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillProof — Full Scorecard</title>
+  <meta name="description" content="Technical evaluation scorecard, detailed metrics, and integrity report." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #09090f;
+      --bg-card: #12121c;
+      --bg-glass: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #6c63ff;
+      --accent-2: #a78bfa;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #38bdf8;
+      --text: #f1f1f5;
+      --text-muted: #8b8ba7;
+      --radius-lg: 1.25rem;
+      --radius-md: 0.75rem;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header / Topbar ── */
+    .topbar {
+      height: 70px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 2.5rem;
+      flex-shrink: 0;
+      justify-content: space-between;
+    }
+
+    .tb-logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      letter-spacing: -0.01em;
+    }
+
+    .tb-logo-icon {
+      color: var(--accent);
+      font-size: 1.5rem;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      border: none;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-outline:hover {
+      background: var(--bg-glass);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* ── Main Layout ── */
+    .container {
+      max-width: 1000px;
+      margin: 2.5rem auto;
+      padding: 0 2rem;
+      width: 100%;
+      flex-grow: 1;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+
+    /* ── Banner / Verdict ── */
+    .verdict-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 2rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    .candidate-info h1 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+    }
+
+    .candidate-info p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .verdict-badge {
+      padding: 0.5rem 1.25rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .verdict-fully_verified {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .verdict-partially_verified {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .verdict-failed_skill_verification,
+    .verdict-failed_document_verification {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .verdict-pending_interview {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    /* ── Score Ring & Grid ── */
+    .metrics-section {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 3rem;
+      margin-bottom: 2.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 768px) {
+      .metrics-section {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+    }
+
+    .score-ring-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .ring-svg-container {
+      position: relative;
+      width: 180px;
+      height: 180px;
+    }
+
+    .ring-bg {
+      fill: none;
+      stroke: var(--border);
+      stroke-width: 12;
+    }
+
+    .ring-fill {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 12;
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      transition: stroke-dashoffset 0.8s ease-in-out;
+    }
+
+    .ring-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ring-score-val {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .ring-score-lbl {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .skills-breakdown {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .metric-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .metric-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .metric-label {
+      color: var(--text-muted);
+    }
+
+    .metric-value {
+      font-weight: 700;
+    }
+
+    .progress-track {
+      height: 8px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      width: 0%;
+      transition: width 0.8s ease-in-out;
+    }
+
+    /* ── Details / Info Box ── */
+    .details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-bottom: 2.5rem;
+    }
+
+    @media (max-width: 600px) {
+      .details-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .info-card {
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+    }
+
+    .info-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .info-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-lbl {
+      color: var(--text-muted);
+    }
+
+    .info-val {
+      font-weight: 600;
+      text-align: right;
+    }
+
+    /* ── AI Reasoning Box ── */
+    .reasoning-section {
+      background: rgba(108, 99, 255, 0.05);
+      border: 1px solid rgba(108, 99, 255, 0.15);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .reasoning-section h3 {
+      color: var(--accent-2);
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+
+    .reasoning-text {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--text);
+      white-space: pre-line;
+    }
+
+    /* ── Overlay Error Loading ── */
+    .error-overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-card);
+      z-index: 10;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 2rem;
+      text-align: center;
+      border-radius: var(--radius-lg);
+    }
+
+    .error-overlay.show {
+      display: flex;
+    }
+
+    .error-icon {
+      font-size: 3rem;
+      color: var(--danger);
+    }
+
+    .error-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="tb-logo">
+      <div class="tb-logo-icon">🛡</div> SkillProof
+    </div>
+    <button class="btn btn-outline" onclick="goToRoom()">↩ Return to Interview Room</button>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <div class="error-overlay" id="errorOverlay">
+        <div class="error-icon">⚠️</div>
+        <div class="error-title" id="errorTitle">Scorecard Not Found</div>
+        <p style="color: var(--text-muted);" id="errorDesc">No score information could be retrieved for this session.</p>
+      </div>
+
+      <div class="verdict-header">
+        <div class="candidate-info">
+          <h1 id="candidateName">Loading Candidate…</h1>
+          <p id="candidateEmail">Please wait while scorecard is retrieved.</p>
+        </div>
+        <div id="verdictWrap">
+          <span class="verdict-badge verdict-pending_interview" id="verdictBadge">Pending</span>
+        </div>
+      </div>
+
+      <div class="metrics-section">
+        <div class="score-ring-wrap">
+          <div class="ring-svg-container">
+            <svg width="180" height="180" viewBox="0 0 180 180">
+              <circle class="ring-bg" cx="90" cy="90" r="75" />
+              <circle class="ring-fill" id="ringFill" cx="90" cy="90" r="75" stroke-dasharray="471.24" stroke-dashoffset="471.24" />
+            </svg>
+            <div class="ring-text">
+              <div class="ring-score-val" id="avgScoreVal">0.0</div>
+              <div class="ring-score-lbl">Avg Score</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="skills-breakdown">
+          <div class="metric-row">
+            <div class="metric-header">
+              <span class="metric-label">Specificity Score</span>
+              <span class="metric-value" id="specVal">0.0</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-bar" id="specBar"></div>
+            </div>
+          </div>
+
+          <div class="metric-row">
+            <div class="metric-header">
+              <span class="metric-label">Depth Score</span>
+              <span class="metric-value" id="depthVal">0.0</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-bar" id="depthBar"></div>
+            </div>
+          </div>
+
+          <div class="metric-row">
+            <div class="metric-header">
+              <span class="metric-label">Consistency Score</span>
+              <span class="metric-value" id="consVal">0.0</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-bar" id="consBar"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="reasoning-section" id="reasoningBox" style="display:none">
+        <h3>AI Evaluation Commentary</h3>
+        <div class="reasoning-text" id="reasoningText"></div>
+      </div>
+
+      <div class="details-grid">
+        <div class="info-card">
+          <h3>Session Parameters</h3>
+          <div class="info-item">
+            <span class="info-lbl">Session ID</span>
+            <span class="info-val" id="sessionUuid">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-lbl">Verification Mode</span>
+            <span class="info-val" id="intakeMode">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-lbl">Document Status</span>
+            <span class="info-val" id="docVerified">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-lbl">Verdict Explanation</span>
+            <span class="info-val" id="verdictDesc">—</span>
+          </div>
+        </div>
+
+        <div class="info-card" id="integrityCard">
+          <h3>Integrity Overview</h3>
+          <div class="info-item">
+            <span class="info-lbl">Gaze Violations</span>
+            <span class="info-val" id="gazeViolations">0</span>
+          </div>
+          <div class="info-item">
+            <span class="info-lbl">Camera Interruptions</span>
+            <span class="info-val" id="cameraViolations">0</span>
+          </div>
+          <div class="info-item">
+            <span class="info-lbl">Biometric Mismatches</span>
+            <span class="info-val" id="bioMismatches">0</span>
+          </div>
+          <div class="info-item">
+            <span class="info-lbl">Integrity Flag Status</span>
+            <span class="info-val" id="integrityFlagStatus">CLEAN</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BASE_URL = window.location.origin;
+    let sessionId = null;
+
+    function getSessionParam() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('session');
+    }
+
+    function goToRoom() {
+      if (sessionId) {
+        window.location.href = `/interview-room?session=${sessionId}`;
+      } else {
+        window.location.href = '/enroll';
+      }
+    }
+
+    async function loadScorecard() {
+      sessionId = getSessionParam();
+      if (!sessionId) {
+        showError('Missing Session ID', 'Please make sure ?session=<uuid> is present in the URL.');
+        return;
+      }
+
+      document.getElementById('sessionUuid').textContent = sessionId;
+
+      try {
+        const response = await fetch(`${BASE_URL}/api/v1/score/${sessionId}`);
+        if (!response.ok) {
+          throw new Error('Retrieved status not OK');
+        }
+        const data = await response.json();
+        renderScorecard(data);
+      } catch (err) {
+        showError('Scorecard Not Found', 'The technical evaluation is either pending or does not exist for this session.');
+      }
+    }
+
+    function showError(title, desc) {
+      document.getElementById('errorTitle').textContent = title;
+      document.getElementById('errorDesc').textContent = desc;
+      document.getElementById('errorOverlay').classList.add('show');
+    }
+
+    async function fetchBiometrics() {
+      if (!sessionId) return null;
+      try {
+        const r = await fetch(`${BASE_URL}/api/v1/biometric/status/${sessionId}`);
+        if (r.ok) return await r.json();
+      } catch (_) {}
+      return null;
+    }
+
+    async function renderScorecard(data) {
+      document.getElementById('candidateName').textContent = data.candidate_name || 'Candidate';
+      document.getElementById('candidateEmail').textContent = data.candidate_email || '';
+      document.getElementById('intakeMode').textContent = (data.intake_mode || '—').toUpperCase();
+      document.getElementById('docVerified').textContent = data.metrics.document_verified ? 'VERIFIED' : 'UNVERIFIED';
+      document.getElementById('verdictDesc').textContent = data.explanation || '—';
+
+      // Verdict badge
+      const verdict = data.verdict || 'PENDING_INTERVIEW';
+      const badge = document.getElementById('verdictBadge');
+      badge.className = `verdict-badge verdict-${verdict.toLowerCase()}`;
+      badge.textContent = verdict.replace(/_/g, ' ');
+
+      // Average score ring
+      const avgScore = data.metrics.average_skill_score || 0.0;
+      document.getElementById('avgScoreVal').textContent = avgScore.toFixed(1);
+      
+      // Animate stroke dashoffset (circumference is 2 * PI * r = 2 * 3.14159 * 75 = 471.24)
+      const ringFill = document.getElementById('ringFill');
+      const circumference = 471.24;
+      const offset = circumference - (avgScore / 100) * circumference;
+      ringFill.style.strokeDashoffset = offset;
+
+      // Score breakdown (from detailed_scores list)
+      if (data.detailed_scores && data.detailed_scores.length > 0) {
+        const ds = data.detailed_scores[0]; // Take overall score details
+        
+        const spec = ds.specificity_score || 0.0;
+        document.getElementById('specVal').textContent = spec.toFixed(1);
+        document.getElementById('specBar').style.width = spec + '%';
+
+        const depth = ds.depth_score || 0.0;
+        document.getElementById('depthVal').textContent = depth.toFixed(1);
+        document.getElementById('depthBar').style.width = depth + '%';
+
+        const cons = ds.consistency_score || 0.0;
+        document.getElementById('consVal').textContent = cons.toFixed(1);
+        document.getElementById('consBar').style.width = cons + '%';
+
+        if (ds.llm_reasoning) {
+          document.getElementById('reasoningBox').style.display = 'block';
+          document.getElementById('reasoningText').textContent = ds.llm_reasoning;
+        }
+      }
+
+      // Fetch biometrics details
+      const bioData = await fetchBiometrics();
+      if (bioData) {
+        document.getElementById('gazeViolations').textContent = bioData.gaze_violations ?? 0;
+        document.getElementById('cameraViolations').textContent = bioData.camera_interruptions ?? 0;
+        document.getElementById('bioMismatches').textContent = (bioData.face_mismatch_count ?? 0) + (bioData.voice_mismatch_count ?? 0);
+        
+        const flagStatus = document.getElementById('integrityFlagStatus');
+        if (bioData.interview_flagged) {
+          flagStatus.textContent = 'FLAGGED';
+          flagStatus.style.color = 'var(--danger)';
+        } else if (bioData.fraud_flags > 0) {
+          flagStatus.textContent = `WARN (${bioData.fraud_flags} FLAGS)`;
+          flagStatus.style.color = 'var(--warning)';
+        } else {
+          flagStatus.textContent = 'CLEAN';
+          flagStatus.style.color = 'var(--success)';
+        }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadScorecard);
+  </script>
+</body>
+
+</html>

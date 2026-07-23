@@ -15,6 +15,7 @@ from app.core.skills_vocab import extract_skills_from_text, normalize_skill
 from app.repositories import session_repo, document_repo
 from app.schemas.session import VerificationSessionUpdate
 from app.schemas.document import DocumentVerificationResultCreate
+from app.core.verification_engine import run_verification
 
 # Optional third-party libraries for OCR & QR decoding
 try:
@@ -110,6 +111,14 @@ class IngestionService:
         skills = extract_skills_from_text(raw_text)
         verify_url = qr_url or self._extract_url(raw_text)
 
+        # 3b. If primary regex failed, run fallback company extractors
+        if not company:
+            company = self._extract_company_fallback(raw_text)
+
+        # company_for_verify: the best name we have to verify against MCA21
+        # This is always non-None if we got ANY company signal from OCR.
+        company_for_verify = company if company else None
+
         # 4. Save metadata to VerificationSession
         update_data = VerificationSessionUpdate(
             extracted_company=company or "Unknown Company",
@@ -120,36 +129,51 @@ class IngestionService:
         )
         await session_repo.update_session_metadata(db, session_id, update_data)
 
-        # 5. Determine intake mode and verify path
-        has_url = bool(verify_url)
-        verification_path = "url_fetch" if has_url else "none"
-        fetch_status = "verified" if has_url else "unverifiable"
-        doc_score = 90.0 if has_url else 50.0
+        # 5. Run Verification Engine immediately to see if we can verify the company or URL
+        session_obj = await session_repo.get_session(db, session_id)
+        candidate_name = session_obj.candidate_name if session_obj else None
+        
+        try:
+            redis = get_redis()
+        except Exception:
+            redis = None
+
+        result = await run_verification(
+            verify_url_str=verify_url or None,
+            company_name=company_for_verify,  # always use extracted name, not None fallback
+            candidate_name=candidate_name,
+            raw_ocr_text=raw_text,
+            redis=redis
+        )
+
+        verification_path = result["verification_path"]
+        fetch_status = result["fetch_status"]
+        doc_score = result["document_score"]
 
         # Create Document Verification Result entry
         doc_in = DocumentVerificationResultCreate(
             session_id=session_id,
             verification_path=verification_path,
             fetch_status=fetch_status,
-            fetched_content_snippet=raw_text[:200] if raw_text else None,
+            fetched_content_snippet=result.get("fetched_content_snippet") or (raw_text[:200] if raw_text else None),
             document_score=doc_score
         )
         await document_repo.create_document_result(db, doc_in)
 
         # 6. Cache details in Redis for the interview router
-        redis = get_redis()
         cache_data = {
             "session_id": str(session_id),
             "detected_skills": skills,
             "verification_url": verify_url,
             "company": company,
             "role": role,
-            "is_valid": has_url
+            "is_valid": fetch_status == "verified"
         }
-        await redis.setex(f"session:{session_id}:metadata", 3600, json.dumps(cache_data))
+        if redis:
+            await redis.setex(f"session:{session_id}:metadata", 3600, json.dumps(cache_data))
 
-        # 7. Update status to ocr_done / verified
-        next_status = "verified" if has_url else "ocr_done"
+        # 7. Update status to verified or ocr_done
+        next_status = "verified" if fetch_status == "verified" else "ocr_done"
         await session_repo.update_session_status(db, session_id, next_status)
 
         return {
@@ -197,16 +221,21 @@ class IngestionService:
         await document_repo.create_document_result(db, doc_in)
 
         # Cache details in Redis
-        redis = get_redis()
-        cache_data = {
-            "session_id": str(session_id),
-            "detected_skills": skills,
-            "verification_url": None,
-            "company": "Self-Declared",
-            "role": role,
-            "is_valid": False
-        }
-        await redis.setex(f"session:{session_id}:metadata", 3600, json.dumps(cache_data))
+        try:
+            redis = get_redis()
+        except Exception:
+            redis = None
+
+        if redis:
+            cache_data = {
+                "session_id": str(session_id),
+                "detected_skills": skills,
+                "verification_url": None,
+                "company": "Self-Declared",
+                "role": role,
+                "is_valid": False
+            }
+            await redis.setex(f"session:{session_id}:metadata", 3600, json.dumps(cache_data))
 
         return {
             "session_id": session_id,
@@ -297,30 +326,107 @@ class IngestionService:
             print(f"[Ingestion QR] QR decoding failed: {e}")
         return ""
 
-    def _extract_company(self, text: str) -> str:
-        """Regex to find company names."""
+    def _extract_company_fallback(self, text: str) -> str:
+        """
+        Fallback company extractor used when the primary regex fails.
+        Tries three sub-strategies in order:
+          1. Scan for any line containing a Pvt Ltd / Limited / LLP suffix.
+          2. Scan for keyword phrases: 'with <Anything> Pvt', 'at <Anything> Pvt'.
+          3. Look for the company name printed as a standalone header (ALL-CAPS or title-case line).
+        """
         if not text:
             return ""
-        # Common patterns: "internship at [Company]", "completed internship in ... at [Company]"
-        patterns = [
-            r"completed\s+internship\s+at\s+([A-Za-z0-9\s,\.]+?)(?=\s+from|\s+on|\s+during|\.|,)",
-            r"internship\s+in\s+([A-Za-z0-9\s,\.]+?)\s+at\s+([A-Za-z0-9\s,\.]+?)(?=\s+from|\.|,)",
-            r"internship\s+at\s+([A-Za-z0-9\s,\.]+?)(?=\s+from|\s+on|\.|,)",
-            r"certify\s+that\s+.*?\s+has\s+done\s+.*?\s+at\s+([A-Za-z0-9\s,\.]+?)(?=\s+from|\s+on|\.|,)"
-        ]
-        
-        for pat in patterns:
-            match = re.search(pat, text, re.IGNORECASE)
-            if match:
-                # If there are multiple groups, pick the last one (usually the company)
-                val = match.groups()[-1].strip()
-                # Clean clean
-                val = re.sub(r"\s+", " ", val)
+
+        # Sub-strategy 1: any line ending with Pvt Ltd / Limited / LLP suffix
+        suffix_line_re = re.compile(
+            r'^\s*([A-Z][A-Za-z0-9\s&\.\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP|Inc\.?))\s*$',
+            re.MULTILINE
+        )
+        for m in suffix_line_re.finditer(text):
+            val = m.group(1).strip()
+            if 3 < len(val) < 80:
                 return val
-                
-        # Heuristic fallback: check if known names exist in text
-        if "savic technologies" in text.lower():
-            return "SAVIC Technologies"
+
+        # Sub-strategy 2: flexible 'with|at COMPANY Pvt|Ltd' anywhere
+        flex_re = re.compile(
+            r'(?:with|at)\s+([A-Z][A-Za-z0-9\s&\.\-]{2,60}?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP))'
+            r'(?=[\s\.,\n]|$)',
+            re.IGNORECASE
+        )
+        m = flex_re.search(text)
+        if m:
+            val = m.group(1).strip()
+            if len(val) > 3:
+                return val
+
+        # Sub-strategy 3: Title-case or ALL-CAPS standalone line (likely company letterhead)
+        # Looks for short lines (5-60 chars) that are all caps or title-case with no verb words
+        skip_words = {"to", "whom", "it", "may", "concern", "date", "dear", "sir", "madam",
+                      "this", "letter", "certify", "certificate", "internship", "regards"}
+        for line in text.splitlines():
+            line = line.strip()
+            if 5 < len(line) < 70:
+                words = line.split()
+                if not words:
+                    continue
+                lower_words = {w.lower() for w in words}
+                if lower_words & skip_words:
+                    continue
+                # Must look like a company name: starts with capital, no lowercase-only words
+                if all(w[0].isupper() for w in words if w.isalpha()):
+                    # Has a company-like word
+                    company_words = {"technologies", "tech", "solutions", "services", "systems",
+                                     "pvt", "ltd", "limited", "llp", "inc", "corp", "labs",
+                                     "codeclause", "software", "consulting", "group", "ventures"}
+                    if lower_words & company_words:
+                        cleaned_line = re.sub(r'^(?:CEO|Director|HR|Manager|Founder|President|Secretary|Sincerely|Regards)\b\s*[\s,:\-]*', '', line, flags=re.IGNORECASE)
+                        return cleaned_line.strip()
+
+        return ""
+
+    def _extract_company(self, text: str) -> str:
+        """Regex to find company names. Fully dynamic — no hardcoded company names."""
+        if not text:
+            return ""
+
+        # Ordered from most-specific to least-specific.
+        # Each pattern captures the company name in the LAST group.
+        patterns = [
+            # "internship program with Sudaku CodeClause Pvt Ltd" (CodeClause format)
+            r"internship\s+program\s+with\s+([A-Za-z0-9\s,\.&'\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP|Inc\.?|Corp\.?))",
+            # "internship at [Company Pvt Ltd]"
+            r"internship\s+at\s+([A-Za-z0-9\s,\.&'\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP|Inc\.?|Corp\.?))",
+            # "completed internship at [Company]"
+            r"completed\s+internship\s+at\s+([A-Za-z0-9\s,\.&'\-]+?)(?=\s+from|\s+on|\s+during|\.|,|$)",
+            # "internship in [Role] at [Company]"
+            r"internship\s+in\s+[A-Za-z0-9\s\-\/]+?\s+at\s+([A-Za-z0-9\s,\.&'\-]+?)(?=\s+from|\.|,|$)",
+            # "certify that ... has done ... at [Company]"
+            r"certify\s+that\s+.{0,100}?\s+at\s+([A-Za-z0-9\s,\.&'\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP))(?=\s+from|\.|,|$)",
+            # "has successfully completed his internship ... with [Company]"
+            r"internship\s+(?:program\s+)?with\s+([A-Za-z0-9\s,\.&'\-]+?)(?=\.|,|\n|$)",
+            # Generic: "at [Company Pvt Ltd]" anywhere in text
+            r"\bat\s+([A-Za-z][A-Za-z0-9\s,\.&'\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP))(?=\s|\.|,|$)",
+        ]
+
+        for pat in patterns:
+            match = re.search(pat, text, re.IGNORECASE | re.DOTALL)
+            if match:
+                val = match.groups()[-1].strip()
+                val = re.sub(r"\s+", " ", val)
+                # Reject overly short or clearly wrong captures
+                if len(val) > 3 and val.lower() not in ("the", "his", "her", "a", "an"):
+                    cleaned_val = re.sub(r'^(?:CEO|Director|HR|Manager|Founder|President|Secretary|Sincerely|Regards)\b\s*[\s,:\-]*', '', val, flags=re.IGNORECASE)
+                    return cleaned_val.strip()
+
+        # Last resort: look for lines in the OCR that contain common company suffixes
+        suffix_re = re.compile(
+            r'^([A-Z][A-Za-z0-9\s&\.\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP|Inc\.?))',
+            re.MULTILINE
+        )
+        found = suffix_re.findall(text)
+        if found:
+            return found[0].strip()
+
         return ""
 
     def _extract_role(self, text: str) -> str:
