@@ -13,17 +13,30 @@ from app.controllers.interview import router as interview_router
 from app.controllers.score import router as score_router
 from app.controllers.voice_interview import router as voice_router
 from app.controllers.biometric import router as biometric_router
+from app.controllers.auth import router as auth_router
+from app.controllers.admin_mgmt import router as admin_mgmt_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup logic
+    # ── Startup ──────────────────────────────────────────────────────────────
     print(f"Starting {settings.APP_NAME} in environment: {settings.APP_ENV}")
     await init_redis()
-    
+
+    # Seed default admin account (no-op if already exists)
+    try:
+        from app.database import async_session_factory
+        from app.repositories.admin_repo import ensure_default_admin
+        async with async_session_factory() as db:
+            await ensure_default_admin(db)
+            await db.commit()
+        print(f"[Auth] Admin account ready: {settings.ADMIN_EMAIL}")
+    except Exception as e:
+        print(f"[Auth] Admin seed skipped (tables may not exist yet): {e}")
+
     yield
-    
-    # Shutdown logic
+
+    # ── Shutdown ─────────────────────────────────────────────────────────────
     print("Shutting down resources...")
     await close_redis()
 
@@ -31,30 +44,35 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     description=(
-        "Conversational AI system for certificate and skill verification.\n\n"
-        "**Real-Time Interview**: Connect via WebSocket at `/api/v1/interview/{session_id}/ws` "
-        "or use the terminal CLI: `python voice_cli.py --session <UUID>`"
+        "SkillProof — Conversational AI for Skill-Based Assessment.\n\n"
+        "**Real-Time Interview**: Connect via WebSocket at `/api/v1/interview/{session_id}/ws`\n\n"
+        "**Auth**: Use `/api/v1/auth/user/login`, `/api/v1/auth/org/login`, or `/api/v1/auth/admin/login`"
     ),
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan
 )
 
-# CORS middleware configuration
+# ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust in production
+    allow_origins=["*"],   # Restrict in production to frontend origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API controllers / routers
-app.include_router(ingest_router, prefix="/api/v1", tags=["Ingest"])
-app.include_router(verify_router, prefix="/api/v1", tags=["Verification"])
-app.include_router(interview_router, prefix="/api/v1", tags=["Interview"])
-app.include_router(score_router, prefix="/api/v1", tags=["Scores"])
-app.include_router(voice_router, prefix="/api/v1", tags=["Voice Interview"])
-app.include_router(biometric_router, prefix="/api/v1", tags=["Biometrics"])
+# ── API Routers ───────────────────────────────────────────────────────────────
+# Auth
+app.include_router(auth_router,       prefix="/api/v1", tags=["Authentication"])
+app.include_router(admin_mgmt_router, prefix="/api/v1", tags=["Admin Management"])
+
+# Assessment pipeline (existing)
+app.include_router(ingest_router,     prefix="/api/v1", tags=["Ingest"])
+app.include_router(verify_router,     prefix="/api/v1", tags=["Verification"])
+app.include_router(interview_router,  prefix="/api/v1", tags=["Interview"])
+app.include_router(score_router,      prefix="/api/v1", tags=["Scores"])
+app.include_router(voice_router,      prefix="/api/v1", tags=["Voice Interview"])
+app.include_router(biometric_router,  prefix="/api/v1", tags=["Biometrics"])
 
 
 @app.get("/health", tags=["Health"])
@@ -62,32 +80,28 @@ async def health_check():
     return {
         "status": "healthy",
         "app_name": settings.APP_NAME,
-        "environment": settings.APP_ENV
+        "version": "2.0.0",
+        "environment": settings.APP_ENV,
+        "auth": "JWT (Bearer)",
     }
 
 
-# ── Serve biometric enrollment HTML page ──
-# __file__ is backend/app/main.py. Go up three levels to reach skillproof/ root (where HTML files live)
+# ── Serve legacy HTML pages ────────────────────────────────────────────────────
 _UI_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 @app.get("/enroll", include_in_schema=False)
 async def serve_enroll_page():
-    """Serve the biometric enrollment UI page."""
     html_path = os.path.join(_UI_DIR, "biometric_enroll.html")
     return FileResponse(html_path, media_type="text/html")
 
 
 @app.get("/score-card", include_in_schema=False)
-async def serve_score_card():
-    """Serve the visual scorecard UI page."""
+async def serve_score_card_page():
     html_path = os.path.join(_UI_DIR, "score_card.html")
     return FileResponse(html_path, media_type="text/html")
-# Reload statement cache
 
 
-@app.get("/interview-room", include_in_schema=False)
-async def serve_interview_room():
-    """Serve the live camera+mic interview room UI page."""
+@app.get("/interview", include_in_schema=False)
+async def serve_interview_page():
     html_path = os.path.join(_UI_DIR, "interview_room.html")
     return FileResponse(html_path, media_type="text/html")
-

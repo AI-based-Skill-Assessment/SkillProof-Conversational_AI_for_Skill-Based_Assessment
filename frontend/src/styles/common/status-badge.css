@@ -1,0 +1,50 @@
+/* styles/common/status-badge.css */
+
+.common-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.common-status-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.common-status-badge--success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.common-status-badge--success .common-status-badge__dot { background: var(--success); }
+
+.common-status-badge--warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.common-status-badge--warning .common-status-badge__dot { background: var(--warning); }
+
+.common-status-badge--error {
+  background: var(--error-bg);
+  color: var(--error);
+}
+.common-status-badge--error .common-status-badge__dot { background: var(--error); }
+
+.common-status-badge--info {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.common-status-badge--info .common-status-badge__dot { background: var(--info); }
+
+.common-status-badge--neutral {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+.common-status-badge--neutral .common-status-badge__dot { background: var(--text-secondary); }

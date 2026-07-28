@@ -1,0 +1,95 @@
+/* styles/common/modal.css */
+
+.common-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  animation: fadeIn 150ms ease;
+}
+
+.common-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: scaleIn 200ms ease;
+}
+
+.common-modal--sm  { max-width: 380px; }
+.common-modal--lg  { max-width: 720px; }
+.common-modal--xl  { max-width: 960px; }
+
+.common-modal__header {
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+.common-modal__title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+
+.common-modal__close {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 150ms, color 150ms;
+  flex-shrink: 0;
+}
+
+.common-modal__close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.common-modal__body {
+  padding: var(--space-6);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.common-modal__footer {
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .common-modal-backdrop { align-items: flex-end; padding: 0; }
+  .common-modal {
+    max-width: 100%;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    max-height: 92vh;
+    animation: slideDown 250ms ease;
+  }
+}

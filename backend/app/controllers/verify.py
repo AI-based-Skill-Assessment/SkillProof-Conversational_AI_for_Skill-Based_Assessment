@@ -19,7 +19,28 @@ from app.repositories import session_repo, document_repo
 from app.schemas.document import DocumentVerificationResultCreate
 from app.core.verification_engine import run_verification
 
+from app.security.deps import get_current_user
+from app.models.user import User
+from typing import List
+
 router = APIRouter()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET  /api/v1/sessions
+# ─────────────────────────────────────────────────────────────────────────────
+@router.get(
+    "/sessions",
+    response_model=List[VerificationSessionResponse],
+    summary="List Candidate Sessions",
+    description="List all verification sessions belonging to the authenticated candidate."
+)
+async def list_candidate_sessions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    sessions = await session_repo.list_user_sessions(db, current_user.id)
+    return sessions
 
 
 # ─────────────────────────────────────────────────────────────────────────────

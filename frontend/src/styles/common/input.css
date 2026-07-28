@@ -1,0 +1,124 @@
+/* styles/common/input.css */
+
+.common-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.common-input__label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+}
+
+.common-input__label--required::after {
+  content: ' *';
+  color: var(--error);
+}
+
+.common-input__field-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.common-input__field {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--space-4);
+  background: var(--input-bg);
+  border: 1.5px solid var(--input-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.common-input__field::placeholder {
+  color: var(--input-placeholder);
+}
+
+.common-input__field:focus {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px rgba(31, 122, 107, 0.12);
+  outline: none;
+}
+
+[data-theme="dark"] .common-input__field:focus {
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.12);
+}
+
+.common-input__field--error {
+  border-color: var(--error);
+}
+
+.common-input__field--error:focus {
+  box-shadow: 0 0 0 3px rgba(212, 72, 60, 0.12);
+}
+
+.common-input__field:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: var(--disabled-cursor);
+}
+
+/* Icon slots */
+.common-input__icon-left,
+.common-input__icon-right {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.common-input__icon-left  { left: var(--space-3); }
+.common-input__icon-right { right: var(--space-3); pointer-events: all; cursor: pointer; }
+
+.common-input__field--has-left  { padding-left: var(--space-8); }
+.common-input__field--has-right { padding-right: var(--space-8); }
+
+/* Error message */
+.common-input__error {
+  font-size: var(--text-xs);
+  color: var(--error);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Helper text */
+.common-input__helper {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+/* Textarea variant */
+.common-input__field--textarea {
+  height: auto;
+  min-height: 100px;
+  padding: var(--space-3) var(--space-4);
+  resize: vertical;
+}
+
+/* Password strength bar */
+.common-input__strength {
+  display: flex;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.common-input__strength-bar {
+  height: 3px;
+  flex: 1;
+  border-radius: var(--radius-full);
+  background: var(--border);
+  transition: background 250ms ease;
+}
+
+.common-input__strength-bar--weak    { background: var(--error); }
+.common-input__strength-bar--medium  { background: var(--warning); }
+.common-input__strength-bar--strong  { background: var(--success); }

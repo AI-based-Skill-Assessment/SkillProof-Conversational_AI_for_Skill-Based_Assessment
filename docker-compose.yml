@@ -1,26 +1,30 @@
-version: '3.8'
-
 services:
-  postgres:
+  # ── 1. PostgreSQL Database Service ──────────────────────────────────────────
+  db:
     image: postgres:15-alpine
-    container_name: skillproof-db
-    ports:
-      - "5432:5432"
+    container_name: skillproof_db
+    restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: postgres123
       POSTGRES_DB: skillproof
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d skillproof"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - skillproof_network
 
+  # ── 2. Redis Cache Service ──────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: skillproof-redis
+    container_name: skillproof_redis
+    restart: always
     ports:
       - "6379:6379"
     volumes:
@@ -30,22 +34,36 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - skillproof_network
 
-  web:
-    build: .
-    container_name: skillproof-web
+  # ── 3. SkillProof FastAPI Backend Service ──────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: skillproof_api
+    restart: always
+    env_file:
+      - ./backend/.env.docker
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/skillproof
-      - REDIS_URL=redis://redis:6379/0
-      - APP_ENV=production
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - skillproof_network
 
+# ── Persistent Storage Volumes ────────────────────────────────────────────────
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
+
+# ── Isolated Internal Network ─────────────────────────────────────────────────
+networks:
+  skillproof_network:
+    driver: bridge

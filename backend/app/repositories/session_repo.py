@@ -32,7 +32,11 @@ async def get_session_by_email(db: AsyncSession, email: str) -> Optional[Verific
 
 
 
-async def create_session(db: AsyncSession, session_in: VerificationSessionCreate) -> VerificationSession:
+async def create_session(
+    db: AsyncSession,
+    session_in: VerificationSessionCreate,
+    owner_id: Optional[UUID] = None
+) -> VerificationSession:
     """Create a new verification session in the database."""
     # Resolve intake mode enum
     mode = IntakeMode.certificate
@@ -40,6 +44,7 @@ async def create_session(db: AsyncSession, session_in: VerificationSessionCreate
         mode = IntakeMode.skill_only
 
     session = VerificationSession(
+        owner_id=owner_id,
         intake_mode=mode,
         candidate_name=session_in.candidate_name,
         candidate_email=session_in.candidate_email,
@@ -124,6 +129,24 @@ async def list_sessions(db: AsyncSession, skip: int = 0, limit: int = 100) -> Li
             selectinload(VerificationSession.interview),
             selectinload(VerificationSession.scores)
         )
+        .offset(skip)
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def list_user_sessions(db: AsyncSession, owner_id: UUID, skip: int = 0, limit: int = 100) -> List[VerificationSession]:
+    """List all sessions belonging to a specific user (candidate)."""
+    stmt = (
+        select(VerificationSession)
+        .where(VerificationSession.owner_id == owner_id)
+        .options(
+            selectinload(VerificationSession.document),
+            selectinload(VerificationSession.interview),
+            selectinload(VerificationSession.scores)
+        )
+        .order_by(VerificationSession.created_at.desc())
         .offset(skip)
         .limit(limit)
     )

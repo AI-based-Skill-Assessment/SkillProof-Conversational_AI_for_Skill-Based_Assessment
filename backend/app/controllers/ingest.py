@@ -11,6 +11,9 @@ router = APIRouter()
 ingest_service = IngestionService()
 
 
+from app.security.deps import get_current_user_optional
+from app.models.user import User
+
 @router.post(
     "/ingest",
     response_model=VerificationSessionResponse,
@@ -23,13 +26,14 @@ ingest_service = IngestionService()
     )
 )
 async def ingest_credentials(
-    candidate_name: str = Form(..., description="Full name of the candidate"),
-    candidate_email: str = Form(..., description="Email address of the candidate"),
+    candidate_name: Optional[str] = Form(None, description="Full name of the candidate"),
+    candidate_email: Optional[str] = Form(None, description="Email address of the candidate"),
     # ── Path A: Certificate upload ──────────────────────────────────
     file: UploadFile = File(None, description="Certificate PDF, JPG, or PNG (Path A — leave blank for Path B)"),
     # ── Path B: Skill-only declaration ──────────────────────────────
     skill_text: Optional[str] = Form(None, description="Comma-separated skill declaration e.g. 'React, Python, Docker' (Path B only)"),
     role: Optional[str] = Form(None, description="Target role/designation e.g. 'Frontend Developer' (required for Path B)"),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -37,18 +41,21 @@ async def ingest_credentials(
     - Send `file` for certificate-based verification (PDF/JPG/PNG accepted).
     - Send `skill_text` + `role` for skill-only verification (no file needed).
     """
+    # Pre-fill from current user if authenticated
+    actual_name = candidate_name or (current_user.full_name if current_user else "Anonymous Candidate")
+    actual_email = candidate_email or (current_user.email if current_user else "anonymous@example.com")
+
     # 0. Check for duplicate session with same email
-    existing_session = await session_repo.get_session_by_email(db, candidate_email)
+    existing_session = await session_repo.get_session_by_email(db, actual_email)
     if existing_session:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"A verification session for candidate email '{candidate_email}' already exists. Duplicate sessions are not allowed."
+            detail=f"A verification session for candidate email '{actual_email}' already exists. Duplicate sessions are not allowed."
         )
 
     # 1. Determine intake mode
     has_file = file is not None and file.filename not in (None, "", "string")
     has_skills = skill_text and skill_text.strip()
-
 
     if has_file:
         intake_mode = "certificate"
@@ -77,11 +84,11 @@ async def ingest_credentials(
     # 2. Create the Verification Session
     session_in = VerificationSessionCreate(
         intake_mode=intake_mode,
-        candidate_name=candidate_name,
-        candidate_email=candidate_email,
+        candidate_name=actual_name,
+        candidate_email=actual_email,
         certificate_filename=file.filename if has_file else None
     )
-    session = await session_repo.create_session(db, session_in)
+    session = await session_repo.create_session(db, session_in, owner_id=current_user.id if current_user else None)
 
     # 3. Run ingestion service
     try:

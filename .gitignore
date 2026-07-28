@@ -119,3 +119,12 @@ venv.bak/
 # OS files
 .DS_Store
 Thumbs.db
+
+# ── Frontend (Node / Vite) ────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+
+# ── Backend scratch / dev-only scripts ────────────────────────────────────────
+backend/scratch/

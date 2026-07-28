@@ -38,3 +38,11 @@ playwright>=1.44.0          # optional: JS-rendered page fallback (run: playwrig
 sounddevice>=0.4.7          # microphone recording
 scipy>=1.13.0               # audio processing
 pyttsx3>=2.90               # offline text-to-speech (no API key)
+
+# ── Authentication & Security ──────────────────────────────────────────────────
+python-jose[cryptography]>=3.3.0   # JWT token creation and verification
+passlib[bcrypt]>=1.7.4             # Password hashing (bcrypt)
+bcrypt==4.0.1                      # Pin bcrypt version to prevent passlib incompatibility
+pyotp>=2.9.0                       # TOTP 2FA for admin portal
+email-validator>=2.1.0             # Email validation in Pydantic schemas
+google-auth>=2.20.0                 # Verify Google ID tokens

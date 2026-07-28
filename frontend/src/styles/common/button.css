@@ -1,0 +1,141 @@
+/* styles/common/button.css */
+/* All classes prefixed with .common-button */
+
+.common-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-5);
+  height: 42px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  line-height: 1;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: background 180ms ease, border-color 180ms ease,
+              color 180ms ease, box-shadow 180ms ease, transform 100ms ease;
+  white-space: nowrap;
+  user-select: none;
+  text-decoration: none;
+}
+
+.common-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* ── Primary ── */
+.common-button--primary {
+  background: var(--primary);
+  color: var(--background);
+  border-color: var(--primary);
+}
+
+.common-button--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Secondary ── */
+.common-button--secondary {
+  background: var(--surface);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.common-button--secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+}
+
+/* ── Ghost ── */
+.common-button--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+
+.common-button--ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+/* ── Outline ── */
+.common-button--outline {
+  background: transparent;
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.common-button--outline:hover:not(:disabled) {
+  background: var(--nav-active-bg);
+}
+
+/* ── Danger ── */
+.common-button--danger {
+  background: var(--error);
+  color: #fff;
+  border-color: var(--error);
+}
+
+.common-button--danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 4px 12px rgba(212, 72, 60, 0.30);
+}
+
+/* ── Icon-only ── */
+.common-button--icon {
+  padding: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
+}
+
+/* ── Sizes ── */
+.common-button--sm {
+  height: 34px;
+  padding: 0 var(--space-4);
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+}
+
+.common-button--sm.common-button--icon {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+.common-button--lg {
+  height: 52px;
+  padding: 0 var(--space-6);
+  font-size: var(--text-base);
+  border-radius: var(--radius-md);
+}
+
+/* ── Full width ── */
+.common-button--full {
+  width: 100%;
+}
+
+/* ── Loading state ── */
+.common-button--loading {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.common-button__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── Disabled ── */
+.common-button:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: var(--disabled-cursor);
+}

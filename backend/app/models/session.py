@@ -1,5 +1,10 @@
+"""
+app/models/session.py
+VerificationSession — core assessment pipeline record.
+Now includes owner_id FK pointing to the authenticated User.
+"""
 import uuid
-from sqlalchemy import Column, String, DateTime, Text, JSON, Enum, func
+from sqlalchemy import Column, String, DateTime, Text, JSON, Enum, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -18,7 +23,7 @@ class SessionStatus(str, enum.Enum):
     verified = "verified"
     interview_done = "interview_done"
     scored = "scored"
-    # Legacy/transitional statuses kept for compatibility
+    # Legacy/transitional
     verifying = "verifying"
     interviewing = "interviewing"
     completed = "completed"
@@ -29,6 +34,15 @@ class VerificationSession(Base):
     __tablename__ = "verification_sessions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # ── Owner (authenticated user) — nullable for backwards-compat ────────────
+    owner_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
@@ -66,6 +80,7 @@ class VerificationSession(Base):
     )
 
     # Relationships
+    owner = relationship("User", back_populates="sessions")
     document = relationship(
         "DocumentVerificationResult",
         back_populates="session",

@@ -1,0 +1,123 @@
+/* ============================================================
+   core/theme.css
+   Color design tokens for both themes.
+   Mint Breeze (light, default) + Aurora Night (dark).
+   ============================================================ */
+
+/* ── MINT BREEZE (Light Theme, Default) ── */
+:root {
+  /* Core brand */
+  --background:        #EEF7F2;
+  --primary:           #1F7A6B;
+  --accent:            #3E5C76;
+  --text-primary:      #142A24;
+  --text-secondary:    #3C5548;
+  --glass:             rgba(0, 0, 0, 0.02);
+  --border:            rgba(0, 0, 0, 0.08);
+
+  /* Surfaces */
+  --surface:           #FFFFFF;
+  --surface-elevated:  #F7FAF9;
+  --surface-hover:     #EDF3F1;
+  --surface-active:    #E2EDE9;
+
+  /* Navigation */
+  --sidebar-bg:        #FFFFFF;
+  --sidebar-border:    rgba(0, 0, 0, 0.06);
+  --topbar-bg:         rgba(255, 255, 255, 0.95);
+  --nav-active-bg:     rgba(31, 122, 107, 0.10);
+  --nav-active-text:   #1F7A6B;
+
+  /* Input */
+  --input-bg:          #FFFFFF;
+  --input-border:      rgba(0, 0, 0, 0.15);
+  --input-focus:       #1F7A6B;
+  --input-placeholder: #8FA89E;
+
+  /* Semantic status */
+  --success:           #1F9D6C;
+  --success-bg:        rgba(31, 157, 108, 0.08);
+  --warning:           #C98A1E;
+  --warning-bg:        rgba(201, 138, 30, 0.08);
+  --error:             #D4483C;
+  --error-bg:          rgba(212, 72, 60, 0.08);
+  --info:              #3E7CB1;
+  --info-bg:           rgba(62, 124, 177, 0.08);
+
+  /* Shadows */
+  --shadow-xs:   0 1px 2px rgba(20, 42, 36, 0.04);
+  --shadow-sm:   0 1px 3px rgba(20, 42, 36, 0.06), 0 1px 2px rgba(20, 42, 36, 0.04);
+  --shadow-md:   0 4px 12px rgba(20, 42, 36, 0.08), 0 2px 4px rgba(20, 42, 36, 0.04);
+  --shadow-lg:   0 10px 30px rgba(20, 42, 36, 0.10), 0 4px 8px rgba(20, 42, 36, 0.06);
+  --shadow-xl:   0 20px 60px rgba(20, 42, 36, 0.12);
+
+  /* 3D / glow (restrained for non-signature screens) */
+  --glow-primary:    0 0 20px rgba(31, 122, 107, 0.15);
+  --glow-accent:     0 0 20px rgba(62, 92, 118, 0.15);
+
+  /* Chart / data colors */
+  --chart-1: #1F7A6B;
+  --chart-2: #3E5C76;
+  --chart-3: #1F9D6C;
+  --chart-4: #C98A1E;
+  --chart-5: #D4483C;
+}
+
+/* ── AURORA NIGHT (Dark Theme) ── */
+[data-theme="dark"] {
+  /* Core brand */
+  --background:        #0D1B2A;
+  --primary:           #4CC9F0;
+  --accent:            #7209B7;
+  --text-primary:      #F0F8FF;
+  --text-secondary:    #A0C4E8;
+  --glass:             rgba(255, 255, 255, 0.04);
+  --border:            rgba(255, 255, 255, 0.08);
+
+  /* Surfaces */
+  --surface:           #10223A;
+  --surface-elevated:  #142A45;
+  --surface-hover:     #16304F;
+  --surface-active:    #1A3A5C;
+
+  /* Navigation */
+  --sidebar-bg:        #0B1929;
+  --sidebar-border:    rgba(255, 255, 255, 0.06);
+  --topbar-bg:         rgba(13, 27, 42, 0.95);
+  --nav-active-bg:     rgba(76, 201, 240, 0.10);
+  --nav-active-text:   #4CC9F0;
+
+  /* Input */
+  --input-bg:          rgba(255, 255, 255, 0.05);
+  --input-border:      rgba(255, 255, 255, 0.12);
+  --input-focus:       #4CC9F0;
+  --input-placeholder: #5A7A99;
+
+  /* Semantic status */
+  --success:           #34D399;
+  --success-bg:        rgba(52, 211, 153, 0.10);
+  --warning:           #FBBF24;
+  --warning-bg:        rgba(251, 191, 36, 0.10);
+  --error:             #F87171;
+  --error-bg:          rgba(248, 113, 113, 0.10);
+  --info:              #4CC9F0;
+  --info-bg:           rgba(76, 201, 240, 0.10);
+
+  /* Shadows */
+  --shadow-xs:   0 1px 2px rgba(0, 0, 0, 0.20);
+  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.30), 0 1px 2px rgba(0, 0, 0, 0.20);
+  --shadow-md:   0 4px 16px rgba(0, 0, 0, 0.40), 0 2px 4px rgba(0, 0, 0, 0.20);
+  --shadow-lg:   0 10px 40px rgba(0, 0, 0, 0.50), 0 4px 8px rgba(0, 0, 0, 0.30);
+  --shadow-xl:   0 20px 60px rgba(0, 0, 0, 0.60);
+
+  /* 3D / glow (cyan-violet AI accents) */
+  --glow-primary:    0 0 24px rgba(76, 201, 240, 0.25), 0 0 48px rgba(76, 201, 240, 0.10);
+  --glow-accent:     0 0 24px rgba(114, 9, 183, 0.30), 0 0 48px rgba(114, 9, 183, 0.12);
+
+  /* Chart / data colors */
+  --chart-1: #4CC9F0;
+  --chart-2: #7209B7;
+  --chart-3: #34D399;
+  --chart-4: #FBBF24;
+  --chart-5: #F87171;
+}

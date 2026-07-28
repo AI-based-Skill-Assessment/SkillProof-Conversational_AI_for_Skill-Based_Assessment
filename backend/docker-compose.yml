@@ -1,0 +1,69 @@
+services:
+  # ── 1. PostgreSQL Database Service ──────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: skillproof_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: skillproof
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d skillproof"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skillproof_network
+
+  # ── 2. Redis Cache Service ──────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: skillproof_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skillproof_network
+
+  # ── 3. SkillProof FastAPI Backend Service ──────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: skillproof_api
+    restart: always
+    env_file:
+      - .env.docker
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - skillproof_network
+
+# ── Persistent Storage Volumes ────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# ── Isolated Internal Network ─────────────────────────────────────────────────
+networks:
+  skillproof_network:
+    driver: bridge

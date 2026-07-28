@@ -1,0 +1,127 @@
+/* ============================================================
+   core/responsive.css
+   Shared breakpoint utilities and responsive helpers.
+   Breakpoints: sm=640, md=768, lg=1024, xl=1280, 2xl=1440
+   ============================================================ */
+
+/* ── Show/Hide helpers ── */
+.hide-mobile  { display: block; }
+.show-mobile  { display: none; }
+
+@media (max-width: 767px) {
+  .hide-mobile  { display: none !important; }
+  .show-mobile  { display: block !important; }
+  .show-mobile-flex { display: flex !important; }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hide-tablet  { display: none !important; }
+  .show-tablet  { display: block !important; }
+}
+
+@media (max-width: 1023px) {
+  .hide-desktop { display: block; }
+  .show-desktop { display: none; }
+}
+
+@media (min-width: 1024px) {
+  .hide-desktop { display: none !important; }
+  .show-desktop { display: block !important; }
+  .show-desktop-flex { display: flex !important; }
+}
+
+/* ── Layout helpers ── */
+.container {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--space-5);
+}
+
+@media (max-width: 767px) {
+  .container { padding: 0 var(--space-4); }
+}
+
+/* ── Responsive grid ── */
+.grid-auto {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.grid-2 {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 1fr 1fr;
+}
+
+.grid-3 {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-4 {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 1023px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 767px) {
+  .grid-4, .grid-3, .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Text truncation ── */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Flex utilities ── */
+.flex          { display: flex; }
+.flex-col      { display: flex; flex-direction: column; }
+.flex-center   { display: flex; align-items: center; justify-content: center; }
+.flex-between  { display: flex; align-items: center; justify-content: space-between; }
+.flex-gap-2    { gap: var(--space-2); }
+.flex-gap-3    { gap: var(--space-3); }
+.flex-gap-4    { gap: var(--space-4); }
+.flex-gap-5    { gap: var(--space-5); }
+.flex-wrap     { flex-wrap: wrap; }
+.items-center  { align-items: center; }
+.items-start   { align-items: flex-start; }
+.justify-end   { justify-content: flex-end; }
+
+/* ── Spacing utilities ── */
+.mt-auto { margin-top: auto; }
+.ml-auto { margin-left: auto; }
+.mr-auto { margin-right: auto; }
+.w-full  { width: 100%; }
+.h-full  { height: 100%; }
+
+/* ── Visually hidden (a11y) ── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

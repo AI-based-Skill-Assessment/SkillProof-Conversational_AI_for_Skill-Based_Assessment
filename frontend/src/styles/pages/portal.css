@@ -1,0 +1,169 @@
+/* styles/pages/portal.css */
+
+/* Auth card layouts */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--background);
+  padding: var(--space-6);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-7);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.auth-card__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  justify-content: center;
+  font-weight: var(--font-bold);
+  font-size: var(--text-xl);
+  color: var(--text-primary);
+}
+
+.auth-card__header {
+  text-align: center;
+}
+
+.auth-card__title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+}
+
+.auth-card__subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+}
+
+/* Dashboard layouts */
+.dashboard-grid {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: var(--space-7);
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+
+.dashboard-section {
+  margin-bottom: var(--space-8);
+}
+
+.dashboard-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+/* Assessment flow */
+.intake-selector {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 640px) {
+  .intake-selector { grid-template-columns: 1fr; }
+}
+
+.intake-card {
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  cursor: pointer;
+  transition: all 180ms ease;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.intake-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.intake-card--selected {
+  border-color: var(--primary);
+  background: var(--nav-active-bg);
+  box-shadow: var(--glow-primary);
+}
+
+.intake-card__icon {
+  font-size: 32px;
+  margin-bottom: var(--space-2);
+}
+
+/* Biometric profiles */
+.biometric-enrollment-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* Report Detail Sheets */
+.report-grid {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: 2fr 1fr;
+}
+
+@media (max-width: 1024px) {
+  .report-grid { grid-template-columns: 1fr; }
+}
+
+.score-display-ring {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 8px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--space-4);
+}
+
+.score-display-ring__val {
+  font-size: var(--text-3xl);
+  font-weight: var(--font-extrabold);
+  color: var(--text-primary);
+}
+
+.score-display-ring__label {
+  position: absolute;
+  bottom: 24px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
