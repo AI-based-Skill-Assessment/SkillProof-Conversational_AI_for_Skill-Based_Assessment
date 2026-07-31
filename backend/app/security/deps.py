@@ -94,6 +94,23 @@ async def get_current_org(
     return org
 
 
+async def get_current_org_any_status(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer_required),
+    db: AsyncSession = Depends(get_db),
+) -> Organisation:
+    """Require a valid organisation JWT. Returns the Organisation ORM object regardless of status."""
+    from sqlalchemy import select
+    payload = _get_payload(credentials)
+    if payload.get("role") != "org":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not an org token.")
+    org_id = UUID(payload["sub"])
+    result = await db.execute(select(Organisation).where(Organisation.id == org_id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Organisation not found.")
+    return org
+
+
 # ── Admin dependency ───────────────────────────────────────────────────────────
 
 async def get_current_admin(

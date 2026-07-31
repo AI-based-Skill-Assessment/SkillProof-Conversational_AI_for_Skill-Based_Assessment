@@ -29,7 +29,7 @@ from app.repositories import user_repo, org_repo, admin_repo
 from app.security.jwt import (
     create_access_token, create_refresh_token, verify_refresh_token, verify_access_token
 )
-from app.security.deps import get_current_user, get_current_org, get_current_admin
+from app.security.deps import get_current_user, get_current_org, get_current_admin, get_current_org_any_status
 from app.security.google_verify import verify_google_token
 from app.models.user import User
 from app.models.organisation import Organisation
@@ -345,7 +345,7 @@ async def org_google_verify(payload: OrgGoogleVerifyRequest, db: AsyncSession = 
 @router.put("/org/google/onboard", summary="Complete Google Organisation Onboarding")
 async def org_google_onboard(
     payload: OrgGoogleOnboardRequest,
-    current_org: Organisation = Depends(get_current_org),
+    current_org: Organisation = Depends(get_current_org_any_status),
     db: AsyncSession = Depends(get_db)
 ) -> OrgProfileResponse:
     """Update new Google Organisation fields to complete onboarding registration."""
@@ -374,7 +374,7 @@ async def org_google_onboard(
 
 
 @router.get("/org/me", summary="Get Organisation Profile")
-async def get_org_me(current_org: Organisation = Depends(get_current_org)) -> OrgProfileResponse:
+async def get_org_me(current_org: Organisation = Depends(get_current_org_any_status)) -> OrgProfileResponse:
     return OrgProfileResponse.model_validate(current_org)
 
 
