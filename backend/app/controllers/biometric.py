@@ -43,8 +43,8 @@ def _extract_face_embedding_if_present(face_image: Optional[str], fallback_emb: 
     return fallback_emb
 
 
-FACE_DIST_THRESHOLD  = 0.60   # for register-time manual verify
-VOICE_SIM_THRESHOLD  = 0.80
+FACE_DIST_THRESHOLD  = 0.50   # Strict Euclidean distance threshold (face-api.js) — rejects different individuals strictly
+VOICE_SIM_THRESHOLD  = 0.70   # Pearson similarity threshold for matching live candidate voice to registered voice
 
 
 
@@ -337,13 +337,14 @@ async def verify_biometrics(
             dist = biometric_repo.euclidean_distance(
                 face_emb, profile.face_embedding
             )
+            print(f"[DEBUG] Pre-interview face verification distance: {dist:.4f} (Threshold: {FACE_DIST_THRESHOLD})")
             face_conf  = max(0.0, round(1.0 - dist / FACE_DIST_THRESHOLD, 4))
             face_match = dist < FACE_DIST_THRESHOLD
         if not face_match:
             mismatch = True
 
     if payload.voice_embedding and profile.voice_embedding:
-        sim = biometric_repo.cosine_similarity(
+        sim = biometric_repo.voice_similarity(
             payload.voice_embedding, profile.voice_embedding
         )
         voice_conf  = max(0.0, round(sim, 4))

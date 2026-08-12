@@ -98,6 +98,10 @@ export default function InterviewCheck() {
     }
   }
 
+  // Face detection loop reference
+  const loopActiveRef = useRef(false);
+  const [faceDetected, setFaceDetected] = useState(false);
+
   async function startFaceCamera() {
     try {
       await loadFaceModels();
@@ -108,8 +112,8 @@ export default function InterviewCheck() {
       const videoStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'user',
-          width: { ideal: 1280, min: 320 },
-          height: { ideal: 720, min: 240 },
+          width: { ideal: 640, min: 320 },
+          height: { ideal: 480, min: 240 },
           frameRate: { ideal: 30, max: 60 }
         }
       });
@@ -117,8 +121,9 @@ export default function InterviewCheck() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = videoStream;
-        videoRef.current.play();
-        setFaceStatus('Look directly at the camera and click Capture Face below.');
+        await videoRef.current.play();
+        setFaceStatus('Looking for face... position your face in the oval.');
+        startFaceDetectionLoop();
       }
     } catch (err) {
       console.error(err);
@@ -129,21 +134,98 @@ export default function InterviewCheck() {
     }
   }
 
+  const faceCanvasRef = useRef(null);
+
+  function startFaceDetectionLoop() {
+    loopActiveRef.current = true;
+
+    async function loop() {
+      if (!loopActiveRef.current || !videoRef.current) return;
+      const video = videoRef.current;
+      const canvas = faceCanvasRef.current;
+
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        if (loopActiveRef.current) requestAnimationFrame(loop);
+        return;
+      }
+
+      if (canvas && (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight)) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
+
+      const ctx = canvas?.getContext('2d');
+      if (ctx && canvas) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
+      try {
+        const options = new window.faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.25 });
+        const det = await window.faceapi.detectSingleFace(video, options);
+
+        if (det) {
+          setFaceDetected(true);
+          setFaceStatus('✓ Face detected! Click "Capture & Verify Face" to proceed.');
+          setFaceStatusClass('success');
+
+          if (ctx) {
+            const box = det.box;
+            // Draw neon green face bounding box with corner brackets
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+            // Draw glowing box corners
+            const cornerLen = 16;
+            ctx.strokeStyle = '#4ade80';
+            ctx.lineWidth = 4;
+            // Top-left
+            ctx.beginPath(); ctx.moveTo(box.x, box.y + cornerLen); ctx.lineTo(box.x, box.y); ctx.lineTo(box.x + cornerLen, box.y); ctx.stroke();
+            // Top-right
+            ctx.beginPath(); ctx.moveTo(box.x + box.width - cornerLen, box.y); ctx.lineTo(box.x + box.width, box.y); ctx.lineTo(box.x + box.width, box.y + cornerLen); ctx.stroke();
+            // Bottom-left
+            ctx.beginPath(); ctx.moveTo(box.x, box.y + box.height - cornerLen); ctx.lineTo(box.x, box.y + box.height); ctx.lineTo(box.x + cornerLen, box.y + box.height); ctx.stroke();
+            // Bottom-right
+            ctx.beginPath(); ctx.moveTo(box.x + box.width - cornerLen, box.y + box.height); ctx.lineTo(box.x + box.width, box.y + box.height); ctx.lineTo(box.x + box.width, box.y + box.height - cornerLen); ctx.stroke();
+          }
+        } else {
+          setFaceDetected(false);
+          setFaceStatus('No face detected — centre your face in the frame.');
+          setFaceStatusClass('info');
+        }
+      } catch (err) {
+        console.error('[Face detection loop error]', err);
+      }
+
+      if (loopActiveRef.current) {
+        requestAnimationFrame(loop);
+      }
+    }
+
+    requestAnimationFrame(loop);
+  }
+
   async function captureAndVerifyFace() {
     if (!videoRef.current) return;
+    loopActiveRef.current = false;
     setCapturingFace(true);
-    setFaceStatus('Capturing face image...');
+    setFaceStatus('Capturing face image & extracting biometric footprint...');
     setFaceStatusClass('info');
 
     try {
-      const options = new window.faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.35 });
-      const result = await window.faceapi
-        .detectSingleFace(videoRef.current, options)
-        .withFaceLandmarks(true)
-        .withFaceDescriptor();
+      // Try inputSizes from fast to standard if detection fails
+      let result = null;
+      for (const inputSize of [224, 320, 160, 416]) {
+        const options = new window.faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold: 0.20 });
+        result = await window.faceapi
+          .detectSingleFace(videoRef.current, options)
+          .withFaceLandmarks(true)
+          .withFaceDescriptor();
+        if (result) break;
+      }
 
       if (!result) {
-        throw new Error('No face detected. Please ensure your face is fully visible inside the camera frame.');
+        throw new Error('No face detected during capture. Please ensure good lighting and face directly forward.');
       }
 
       setFaceStatus('Comparing face credentials with server database...');
@@ -164,19 +246,22 @@ export default function InterviewCheck() {
         setVoiceStatus('Click "Start Voice Verification" and read the text.');
       } else {
         setFaceStatusClass('err');
-        throw new Error('Face ID mismatch. Ensure you match the registered profile.');
+        throw new Error('Face ID mismatch. Ensure you match the registered candidate profile.');
       }
     } catch (err) {
       console.error(err);
       setFaceStatus(err.message || 'Face verification failed. Please try again.');
       setFaceStatusClass('err');
       toast.error('Face ID Check Failed', err.message || 'Please look directly at the camera.');
+      startFaceDetectionLoop();
     } finally {
       setCapturingFace(false);
     }
   }
 
   function stopCamera() {
+    loopActiveRef.current = false;
+    setFaceDetected(false);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -239,7 +324,7 @@ export default function InterviewCheck() {
       mediaRec.start(250);
 
       // Start 3-second recording countdown
-      setVoiceStatus('Speak: "I verify my identity to proceed with SkillProof verification."');
+      setVoiceStatus('Read aloud: "My voice is my unique identity and my password"');
       let sec = 0;
       setRecordingSeconds(0);
       const timer = setInterval(() => {
@@ -333,12 +418,23 @@ export default function InterviewCheck() {
       throw new Error(`Voice capture too short (${duration.toFixed(1)}s). Speak the full sentence.`);
     }
 
-    let sumSquares = 0;
-    for (let i = 0; i < channelData.length; i++) {
-      sumSquares += channelData[i] * channelData[i];
+    const sampleRate = audioBuf.sampleRate;
+    const rc = 1.0 / (2 * Math.PI * 150); // 150Hz cutoff frequency
+    const dt = 1.0 / sampleRate;
+    const alpha = rc / (rc + dt);
+
+    const filteredData = new Float32Array(channelData.length);
+    filteredData[0] = channelData[0];
+    for (let i = 1; i < channelData.length; i++) {
+      filteredData[i] = alpha * (filteredData[i - 1] + channelData[i] - channelData[i - 1]);
     }
-    const rms = Math.sqrt(sumSquares / channelData.length);
-    if (rms < 0.02) {
+
+    let sumSquares = 0;
+    for (let i = 0; i < filteredData.length; i++) {
+      sumSquares += filteredData[i] * filteredData[i];
+    }
+    const rms = Math.sqrt(sumSquares / filteredData.length);
+    if (rms < 0.005) {
       throw new Error("No voice detected. Please speak clearly into your mic.");
     }
 
@@ -348,8 +444,8 @@ export default function InterviewCheck() {
     const embedding = new Array(numBands).fill(0);
     let frames = 0;
 
-    for (let start = 0; start + frameSize < channelData.length; start += hopSize) {
-      const frame = channelData.slice(start, start + frameSize);
+    for (let start = 0; start + frameSize < filteredData.length; start += hopSize) {
+      const frame = filteredData.slice(start, start + frameSize);
       const mag = getFFTMagnitude(frame, frameSize);
       const binPerBand = Math.floor((frameSize / 2) / numBands);
       for (let b = 0; b < numBands; b++) {
@@ -469,6 +565,18 @@ export default function InterviewCheck() {
                   muted
                   playsInline
                 />
+                <canvas
+                  ref={faceCanvasRef}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    transform: 'scaleX(-1)',
+                    pointerEvents: 'none'
+                  }}
+                />
                 <div style={{
                   position: 'absolute',
                   top: '50%',
@@ -476,10 +584,11 @@ export default function InterviewCheck() {
                   transform: 'translate(-50%, -50%)',
                   width: '60%',
                   height: '70%',
-                  border: '2px dashed var(--primary)',
+                  border: `2px dashed ${faceDetected ? '#22c55e' : 'var(--primary)'}`,
                   borderRadius: '50%',
                   boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
-                  pointerEvents: 'none'
+                  pointerEvents: 'none',
+                  transition: 'border-color 0.3s ease'
                 }} />
               </>
             ) : (
@@ -507,8 +616,8 @@ export default function InterviewCheck() {
           </div>
 
           {!faceVerified && faceChecking && (
-            <Button onClick={captureAndVerifyFace} loading={capturingFace} fullWidth>
-              Capture & Verify Face
+            <Button onClick={captureAndVerifyFace} loading={capturingFace} disabled={!faceDetected && !capturingFace} fullWidth>
+              {faceDetected ? 'Capture & Verify Face' : 'Detecting Face...'}
             </Button>
           )}
 
@@ -576,6 +685,22 @@ export default function InterviewCheck() {
               </div>
             )}
           </div>
+
+          {(voiceChecking || voiceVerified) && (
+            <div style={{
+              background: 'var(--surface-hover)',
+              padding: '14px 18px',
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: 600,
+              textAlign: 'center',
+              color: 'var(--primary)',
+              border: '1px solid var(--border)',
+              lineHeight: '1.4'
+            }}>
+              "My voice is my unique identity and my password"
+            </div>
+          )}
 
           <div style={{
             fontSize: 13,
