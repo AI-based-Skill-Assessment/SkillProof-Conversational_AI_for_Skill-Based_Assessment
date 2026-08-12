@@ -26,7 +26,8 @@ from app.schemas.auth import (
     OrgGoogleVerifyRequest, OrgGoogleOnboardRequest,
     UserFaceRegisterRequest, UserVoiceRegisterRequest,
 )
-from app.repositories import user_repo, org_repo, admin_repo
+from app.repositories import user_repo, org_repo, admin_repo, biometric_repo
+from sqlalchemy import select
 from app.security.jwt import (
     create_access_token, create_refresh_token, verify_refresh_token, verify_access_token
 )
@@ -215,6 +216,31 @@ async def register_my_voice(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UserProfileResponse:
+    # ── Double check voice uniqueness across registered users and biometric profiles
+    if payload.voice_embedding:
+        # Check against existing users
+        stmt = select(User).where(User.voice_registered == True).where(User.id != current_user.id)
+        res = await db.execute(stmt)
+        other_users = res.scalars().all()
+        for u in other_users:
+            if u.voice_embedding and len(u.voice_embedding) > 0:
+                sim = biometric_repo.voice_similarity(payload.voice_embedding, u.voice_embedding)
+                if sim >= biometric_repo.VOICE_DUPLICATE_THRESHOLD:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Duplicate voice detected: This voice pattern is already registered under another account."
+                    )
+        
+        # Check against session biometric profiles
+        voice_dup = await biometric_repo.find_voice_duplicate(
+            db, current_user.id, payload.voice_embedding
+        )
+        if voice_dup:
+            raise HTTPException(
+                status_code=400,
+                detail="Duplicate voice detected: This voice pattern matches an existing registered profile."
+            )
+
     updated = await user_repo.set_biometric_flags(
         db, current_user, voice_registered=True, voice_embedding=payload.voice_embedding
     )

@@ -224,7 +224,7 @@ async def check_duplicate(
             res = await db.execute(stmt)
             all_users = res.scalars().all()
             for u in all_users:
-                if u.voice_embedding and len(u.voice_embedding) == len(payload.voice_embedding):
+                if u.voice_embedding and len(u.voice_embedding) > 0:
                     sim = biometric_repo.voice_similarity(payload.voice_embedding, u.voice_embedding)
                     print(f"[DEBUG] Voice duplicate check similarity: {sim:.4f} (threshold: {biometric_repo.VOICE_DUPLICATE_THRESHOLD})")
                     if sim >= biometric_repo.VOICE_DUPLICATE_THRESHOLD:

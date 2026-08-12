@@ -61,17 +61,21 @@ SkillProof enables organisations (colleges, companies, placement cells) to verif
 
 ---
 
-## Tech Stack
+## Tech Stack & AI/ML Models
 
-| Layer      | Technology                                                  |
-| ---------- | ----------------------------------------------------------- |
-| Frontend   | React 18, Vite, React Router v6, Axios, Vanilla CSS        |
-| Backend    | Python 3.10+, FastAPI, SQLAlchemy 2.0 (async), Pydantic v2 |
-| Database   | PostgreSQL 15 (via asyncpg)                                 |
-| Cache      | Redis 7                                                     |
-| AI/ML      | Groq (LLM), DeepFace (face), SpeechBrain (voice), MediaPipe |
-| Auth       | JWT (python-jose), bcrypt (passlib), Google OAuth, TOTP 2FA |
-| Infra      | Docker, Docker Compose                                      |
+| Layer | Technology / Model | Details |
+|---|---|---|
+| **Frontend** | React 18, Vite, React Router v6 | Vanilla CSS design system, Axios HTTP client, Web Audio API (FFT waveform rendering & spectral feature extraction) |
+| **Backend** | Python 3.10+, FastAPI, SQLAlchemy 2.0 | Async ORM (asyncpg), Pydantic v2 validation, WebSockets |
+| **Database** | PostgreSQL 15 | Relational storage for user profiles, biometric embeddings, and interview verification logs |
+| **Cache & Queue** | Redis 7 | Caching, session management, and real-time state |
+| **Conversational AI / LLM** | **Groq API** (`llama-3.3-70b-versatile` / `llama-3.1-8b-instant`) | Ultra-fast inference engine for dynamic skill probing, follow-up generation, and answer scoring |
+| **Face Biometrics** | **DeepFace** (`ArcFace` 512-dim embedding) / `face-api.js` | Facial embedding extraction, 128/512-dim descriptor matching (Euclidean distance & Cosine similarity) |
+| **Voice Biometrics** | **SpeechBrain** (`spkrec-ecapa-voxceleb` ECAPA-TDNN 192-dim model) | Deep neural network speaker recognition with fallback to 64-band spectral formant feature extraction & Pearson correlation matching |
+| **Vision & Proctoring** | **MediaPipe** (Face Mesh & Gaze Tracking) | Real-time candidate gaze direction tracking, head pose estimation, and camera violation detection |
+| **Document OCR** | Tesseract OCR / EasyOCR | Certificate text extraction and verification against issuer web sources |
+| **Authentication** | JWT, bcrypt, Google OAuth 2.0, TOTP 2FA | Secure access tokens, refresh tokens, Google Sign-In, multi-factor authentication |
+| **Infrastructure** | Docker, Docker Compose, Uvicorn | Containerized development and production deployment |
 
 ---
 

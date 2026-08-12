@@ -112,7 +112,7 @@ async def mark_duplicate(
 # ─────────────────────────────────────────────────────────────────────────────
 
 FACE_DUPLICATE_THRESHOLD  = 0.50   # Euclidean — strict for duplicate detection
-VOICE_DUPLICATE_THRESHOLD = 0.78   # Cosine/Pearson similarity threshold — calibrated to 0.78 for optimal speaker differentiation
+VOICE_DUPLICATE_THRESHOLD = 0.55   # Pearson correlation / similarity threshold — calibrated to 0.55 for strict duplicate voice detection
 
 
 async def find_face_duplicate(
@@ -144,7 +144,7 @@ async def find_voice_duplicate(
     """
     all_profiles = await get_all_registered_voice_profiles_except(db, session_id)
     for profile in all_profiles:
-        if profile.voice_embedding and len(profile.voice_embedding) == len(voice_embedding):
+        if profile.voice_embedding and len(profile.voice_embedding) > 0:
             sim = voice_similarity(voice_embedding, profile.voice_embedding)
             if sim >= VOICE_DUPLICATE_THRESHOLD:
                 return profile
@@ -297,46 +297,12 @@ def _update_fraud_status(profile: BiometricProfile) -> None:
 
 def voice_similarity(vec_a: List[float], vec_b: List[float]) -> float:
     """
-    Pearson Correlation Coefficient (mean-centered cosine similarity)
-    applied to smoothed log-differenced spectral formants to remove text-dependence
-    while preserving speaker-specific vocal tract envelopes.
+    Computes speaker similarity between two voice embeddings.
+    Supports both 192-dim SpeechBrain ECAPA-TDNN deep embeddings and 64-band spectral formants.
     """
-    if not vec_a or not vec_b or len(vec_a) != len(vec_b):
-        return 0.0
-        
-    epsilon = 1e-8
-    log_a = [math.log(x + epsilon) for x in vec_a]
-    log_b = [math.log(x + epsilon) for x in vec_b]
-    
-    formants_a = [log_a[i+1] - log_a[i] for i in range(len(log_a) - 1)]
-    formants_b = [log_b[i+1] - log_b[i] for i in range(len(log_b) - 1)]
-    
-    # Smooth vectors with a moving average window to extract vocal envelope
-    def smooth(vec: List[float], window: int = 7) -> List[float]:
-        half = window // 2
-        res = []
-        for i in range(len(vec)):
-            start = max(0, i - half)
-            end = min(len(vec), i + half + 1)
-            res.append(sum(vec[start:end]) / (end - start))
-        return res
-        
-    smoothed_a = smooth(formants_a, window=7)
-    smoothed_b = smooth(formants_b, window=7)
-    
-    n     = len(smoothed_a)
-    mu_a  = sum(smoothed_a) / n
-    mu_b  = sum(smoothed_b) / n
-    ca    = [a - mu_a for a in smoothed_a]
-    cb    = [b - mu_b for b in smoothed_b]
-    dot   = sum(a * b for a, b in zip(ca, cb))
-    mag_a = math.sqrt(sum(a * a for a in ca))
-    mag_b = math.sqrt(sum(b * b for b in cb))
-    if mag_a == 0 or mag_b == 0:
-        return 0.0
-    sim = dot / (mag_a * mag_b)
-    print(f"[DEBUG] voice comparison: max_a={max(vec_a):.4f}, max_b={max(vec_b):.4f}, similarity={sim:.4f} (threshold={VOICE_MATCH_THRESHOLD})")
-    return sim
+    from app.core.voice_verifier import BackendVoiceVerifier
+    verifier = BackendVoiceVerifier()
+    return verifier.compute_voice_similarity(vec_a, vec_b)
 
 
 def cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:

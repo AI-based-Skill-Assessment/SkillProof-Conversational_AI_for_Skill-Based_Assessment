@@ -296,10 +296,15 @@ export default function VoiceRegistration() {
     }
 
     if (frames === 0) return [];
-    // Average and Normalize vector
+    // Average feature values across frames
     const avgEmbedding = embedding.map(v => v / frames);
-    const maxVal = Math.max(...avgEmbedding);
-    return avgEmbedding.map(v => maxVal > 0 ? v / maxVal : 0);
+
+    // Mean-center and Z-score normalize so speaker-specific dynamic range is preserved
+    const mean = avgEmbedding.reduce((a, b) => a + b, 0) / avgEmbedding.length;
+    const variance = avgEmbedding.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / avgEmbedding.length;
+    const std = Math.sqrt(variance) || 1e-6;
+
+    return avgEmbedding.map(v => (v - mean) / std);
   }
 
   function bitReverse(n, bits) {

@@ -1,195 +1,156 @@
-# =============================================================================
-# app/core/voice_verifier.py
-# Voice Pattern Analyzer for SkillProof
-#
-# diagnose_voice_pattern() examines per-segment speaker-similarity scores
-# in ORDER and returns a pattern label with fraud signal assessment.
-#
-# Called after the speaker-verification pipeline produces segment scores.
-# The pattern label goes into the notes field of SkillScore and is displayed
-# in the final report card.
-# =============================================================================
+"""
+app/core/voice_verifier.py
+Backend Voice Verification Engine using SpeechBrain (ECAPA-TDNNVoxCeleb)
+with fallback to spectral formant feature extraction if ML libraries are unavailable.
+"""
 
-from typing import List, Tuple
+import io
+import math
+import numpy as np
+from typing import List, Optional, Dict, Any, Tuple
 
 
-# ── Thresholds ────────────────────────────────────────────────────────────────
-HIGH_THRESHOLD = 0.82     # above → confirmed same speaker
-LOW_THRESHOLD  = 0.62     # below → likely different speaker / noise
-VOLATILITY_STD = 0.08     # std deviation → "volatile" if above this
-MIN_SEGMENTS   = 3        # minimum segments for trend analysis
+class BackendVoiceVerifier:
+    def __init__(self) -> None:
+        self._classifier = None
+        self._ml_available = False
+        self._init_speechbrain()
 
+    def _init_speechbrain(self) -> None:
+        """Initialize SpeechBrain pretrained ECAPA-TDNN speaker recognition model."""
+        try:
+            from speechbrain.inference.speaker import EncoderClassifier
+            # Load pretrained ECAPA-TDNN VoxCeleb model
+            self._classifier = EncoderClassifier.from_hparams(
+                source="speechbrain/spkrec-ecapa-voxceleb",
+                savedir="scratch/pretrained_models/spkrec-ecapa-voxceleb"
+            )
+            self._ml_available = True
+            print("[BackendVoiceVerifier] SpeechBrain ECAPA-TDNN ML model loaded successfully!")
+        except Exception as e:
+            print(f"[BackendVoiceVerifier] SpeechBrain ML model unavailable ({e}). Using robust spectral formant fallback.")
+            self._ml_available = False
 
-def _std_dev(values: List[float]) -> float:
-    """Compute population standard deviation."""
-    if len(values) < 2:
-        return 0.0
-    mean = sum(values) / len(values)
-    variance = sum((x - mean) ** 2 for x in values) / len(values)
-    return variance ** 0.5
+    def extract_voice_embedding(self, audio_bytes: bytes) -> List[float]:
+        """
+        Extract speaker embedding from raw audio bytes (WAV / WebM).
+        Uses SpeechBrain ECAPA-TDNN (192-dim) if available,
+        otherwise falls back to 64-band spectral formant vector.
+        """
+        if self._ml_available and self._classifier is not None:
+            try:
+                import torch
+                import torchaudio
 
+                # Load audio from bytes stream
+                signal, fs = torchaudio.load(io.BytesIO(audio_bytes))
 
-def _is_declining(scores: List[float]) -> bool:
-    """Return True if scores have a consistent downward trend."""
-    if len(scores) < MIN_SEGMENTS:
-        return False
-    # Count pairs where next < prev
-    declines = sum(1 for i in range(1, len(scores)) if scores[i] < scores[i - 1])
-    return declines >= (len(scores) - 1) * 0.7   # 70 %+ of pairs declining
+                # Resample to 16kHz if needed
+                if fs != 16000:
+                    resampler = torchaudio.transforms.Resample(orig_freq=fs, new_freq=16000)
+                    signal = resampler(signal)
 
+                # Extract 192-dim ECAPA-TDNN embedding tensor
+                embeddings = self._classifier.encode_batch(signal)
+                emb_vector = embeddings.squeeze().detach().cpu().numpy().tolist()
+                return [float(x) for x in emb_vector]
+            except Exception as err:
+                print(f"[BackendVoiceVerifier] SpeechBrain extraction error: {err}. Falling back to spectral formants.")
 
-def _is_improving(scores: List[float]) -> bool:
-    """Return True if scores have a consistent upward trend."""
-    if len(scores) < MIN_SEGMENTS:
-        return False
-    improvements = sum(1 for i in range(1, len(scores)) if scores[i] > scores[i - 1])
-    return improvements >= (len(scores) - 1) * 0.7
+        # Fallback: Extract spectral vector from raw float PCM samples
+        return self._fallback_spectral_extraction(audio_bytes)
 
+    def _fallback_spectral_extraction(self, audio_bytes: bytes) -> List[float]:
+        """High-precision 64-band spectral formant feature vector fallback."""
+        try:
+            # Try decoding raw float32 / pcm16 PCM bytes
+            audio_arr = np.frombuffer(audio_bytes, dtype=np.float32)
+            if len(audio_arr) < 512:
+                audio_arr = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
-def _is_proxy_switch(scores: List[float]) -> bool:
-    """
-    Proxy switch: first half averages HIGH, second half averages LOW.
-    Someone else joined mid-interview.
-    """
-    if len(scores) < MIN_SEGMENTS:
-        return False
-    mid = len(scores) // 2
-    first_half  = scores[:mid]
-    second_half = scores[mid:]
-    first_avg   = sum(first_half)  / len(first_half)
-    second_avg  = sum(second_half) / len(second_half)
-    return first_avg > HIGH_THRESHOLD and second_avg < LOW_THRESHOLD
+            if len(audio_arr) < 512:
+                return []
 
+            # 64-band log FFT power spectrum
+            num_bands = 64
+            frame_size = 512
+            hop_size = 256
+            bands = np.zeros(num_bands)
+            count = 0
 
-def diagnose_voice_pattern(
-    segment_scores: List[float]
-) -> Tuple[str, bool, str]:
-    """
-    Analyze per-segment speaker-similarity scores (in order) and return:
-        (pattern_label, voice_fraud_signal, human_readable_note)
+            for start in range(0, len(audio_arr) - frame_size, hop_size):
+                frame = audio_arr[start:start + frame_size]
+                fft_mag = np.abs(np.fft.rfft(frame))
+                bins_per_band = len(fft_mag) // num_bands
+                for b in range(num_bands):
+                    band_sum = np.sum(fft_mag[b * bins_per_band:(b + 1) * bins_per_band])
+                    bands[b] += band_sum / max(1, bins_per_band)
+                count += 1
 
-    Pattern labels
-    ──────────────
-    "stable_confirmed"   → all scores > 0.82      (clean, same speaker throughout)
-    "stable_uncertain"   → all in 0.62–0.82       (possibly ill voice, still likely same person)
-    "stable_mismatch"    → all scores < 0.62       (strong proxy signal)
-    "declining"          → scores drop progressively (fatigue or proxy took over)
-    "improving"          → scores rise progressively (nerves at start → settled)
-    "volatile"           → high std deviation       (bad audio / unstable connection)
-    "proxy_switch"       → confirmed early, mismatch late (HIGHEST RISK — different person joined)
+            if count == 0:
+                return []
 
-    Returns
-    ───────
-    pattern_label      : str
-    voice_fraud_signal : bool  ("proxy_switch" or "stable_mismatch" force this True)
-    note               : str   human-readable explanation for report card
-    """
-    if not segment_scores:
-        return "no_data", False, "No voice segments were recorded."
+            avg_bands = bands / count
+            max_val = np.max(avg_bands)
+            if max_val > 0:
+                avg_bands = avg_bands / max_val
+            return avg_bands.tolist()
+        except Exception as e:
+            print(f"[BackendVoiceVerifier] Fallback extraction error: {e}")
+            return []
 
-    n = len(segment_scores)
+    def compute_voice_similarity(self, vec_a: List[float], vec_b: List[float]) -> float:
+        """
+        Calculates speaker similarity score.
+        Uses Pearson correlation on log formants for spectral vectors (len 64)
+        or Cosine similarity for ECAPA-TDNN vectors (len 192).
+        """
+        if not vec_a or not vec_b:
+            return 0.0
 
-    # ── Single-segment shortcut ──────────────────────────────────────────────
-    if n == 1:
-        s = segment_scores[0]
-        if s > HIGH_THRESHOLD:
-            return "stable_confirmed", False, f"Single segment score {s:.2f} — confirmed match."
-        elif s >= LOW_THRESHOLD:
-            return "stable_uncertain", False, f"Single segment score {s:.2f} — uncertain match."
-        else:
-            return "stable_mismatch", True, f"Single segment score {s:.2f} — voice mismatch detected."
+        # If vector dimensions differ (e.g. 64-dim vs 192-dim), resample to matching size
+        if len(vec_a) != len(vec_b):
+            target_len = max(len(vec_a), len(vec_b))
+            vec_a = np.interp(np.linspace(0, 1, target_len), np.linspace(0, 1, len(vec_a)), vec_a).tolist()
+            vec_b = np.interp(np.linspace(0, 1, target_len), np.linspace(0, 1, len(vec_b)), vec_b).tolist()
 
-    avg   = sum(segment_scores) / n
-    stdev = _std_dev(segment_scores)
+        if len(vec_a) == 192:
+            # Cosine similarity for ECAPA-TDNN deep embeddings
+            dot = sum(a * b for a, b in zip(vec_a, vec_b))
+            mag_a = math.sqrt(sum(a * a for a in vec_a))
+            mag_b = math.sqrt(sum(b * b for b in vec_b))
+            if mag_a == 0 or mag_b == 0:
+                return 0.0
+            return dot / (mag_a * mag_b)
 
-    # ── PROXY SWITCH (check first — highest priority) ────────────────────────
-    if _is_proxy_switch(segment_scores):
-        note = (
-            f"⚠️ PROXY SWITCH DETECTED — Speaker confirmed in early segments "
-            f"(first-half avg {sum(segment_scores[:n//2])/(n//2):.2f}) but voice "
-            f"changed in later segments (second-half avg "
-            f"{sum(segment_scores[n//2:])/(n-n//2):.2f}). "
-            f"Different person likely joined mid-interview."
-        )
-        return "proxy_switch", True, note
+        # Pearson correlation for spectral formant vectors
+        epsilon = 1e-8
+        log_a = [math.log(max(0.0, float(x)) + epsilon) for x in vec_a]
+        log_b = [math.log(max(0.0, float(x)) + epsilon) for x in vec_b]
 
-    # ── STABLE CONFIRMED ─────────────────────────────────────────────────────
-    if all(s > HIGH_THRESHOLD for s in segment_scores):
-        note = (
-            f"✅ Speaker consistently verified across all {n} segments "
-            f"(avg {avg:.2f}, σ={stdev:.2f})."
-        )
-        return "stable_confirmed", False, note
+        formants_a = [log_a[i+1] - log_a[i] for i in range(len(log_a) - 1)]
+        formants_b = [log_b[i+1] - log_b[i] for i in range(len(log_b) - 1)]
 
-    # ── IMPROVING ────────────────────────────────────────────────────────────
-    if _is_improving(segment_scores):
-        note = (
-            f"📈 Scores improved progressively ({segment_scores[0]:.2f} → "
-            f"{segment_scores[-1]:.2f}) — candidate likely nervous at start, "
-            f"then settled. Normal behaviour. avg={avg:.2f}."
-        )
-        return "improving", False, note
+        def smooth(vec: List[float], window: int = 7) -> List[float]:
+            half = window // 2
+            res = []
+            for i in range(len(vec)):
+                start = max(0, i - half)
+                end = min(len(vec), i + half + 1)
+                res.append(sum(vec[start:end]) / (end - start))
+            return res
 
-    # ── DECLINING ────────────────────────────────────────────────────────────
-    if _is_declining(segment_scores):
-        fraud = avg < LOW_THRESHOLD   # declining AND low average → suspicious
-        note = (
-            f"📉 Scores declined progressively ({segment_scores[0]:.2f} → "
-            f"{segment_scores[-1]:.2f}). "
-            f"{'Possible proxy takeover mid-interview.' if fraud else 'Could be fatigue or audio degradation.'} "
-            f"avg={avg:.2f}."
-        )
-        return "declining", fraud, note
+        smoothed_a = smooth(formants_a, window=7)
+        smoothed_b = smooth(formants_b, window=7)
 
-    # ── STABLE MISMATCH ──────────────────────────────────────────────────────
-    if all(s < LOW_THRESHOLD for s in segment_scores):
-        note = (
-            f"🚫 Voice mismatch across ALL {n} segments "
-            f"(avg {avg:.2f}, σ={stdev:.2f}). Strong proxy signal."
-        )
-        return "stable_mismatch", True, note
-
-    # ── STABLE UNCERTAIN ─────────────────────────────────────────────────────
-    if all(LOW_THRESHOLD <= s <= HIGH_THRESHOLD for s in segment_scores):
-        note = (
-            f"⚠️ All {n} segments in the uncertain band (avg {avg:.2f}, σ={stdev:.2f}). "
-            f"Possible illness, bad microphone, or accent variation. "
-            f"Manual review recommended."
-        )
-        return "stable_uncertain", False, note
-
-    # ── VOLATILE ─────────────────────────────────────────────────────────────
-    if stdev > VOLATILITY_STD:
-        note = (
-            f"🔄 High volatility (σ={stdev:.2f}) across {n} segments. "
-            f"Likely unstable audio connection or background noise. "
-            f"avg={avg:.2f}."
-        )
-        return "volatile", False, note
-
-
-    # ── DEFAULT FALLBACK ─────────────────────────────────────────────────────
-    fraud = avg < LOW_THRESHOLD
-    note = (
-        f"Mixed voice pattern across {n} segments (avg={avg:.2f}, σ={stdev:.2f}). "
-        f"{'Low average — review recommended.' if fraud else 'Within acceptable range.'}"
-    )
-    return "stable_uncertain", fraud, note
-
-
-# ── Convenience wrapper ───────────────────────────────────────────────────────
-
-def voice_verdict_summary(segment_scores: List[float]) -> dict:
-    """
-    Returns a complete dict ready to merge into the score/report model.
-    """
-    label, fraud_signal, note = diagnose_voice_pattern(segment_scores)
-    avg = sum(segment_scores) / len(segment_scores) if segment_scores else 0.0
-
-    return {
-        "voice_pattern":      label,
-        "voice_fraud_signal": fraud_signal,
-        "voice_avg_score":    round(avg, 4),
-        "voice_notes":        note,
-        "segment_count":      len(segment_scores),
-    }
+        n = len(smoothed_a)
+        mu_a = sum(smoothed_a) / n
+        mu_b = sum(smoothed_b) / n
+        ca = [a - mu_a for a in smoothed_a]
+        cb = [b - mu_b for b in smoothed_b]
+        dot = sum(a * b for a, b in zip(ca, cb))
+        mag_a = math.sqrt(sum(a * a for a in ca))
+        mag_b = math.sqrt(sum(b * b for b in cb))
+        sim = dot / (mag_a * mag_b)
+        print(f"[DEBUG] Speaker comparison similarity: {sim:.4f}")
+        return sim
