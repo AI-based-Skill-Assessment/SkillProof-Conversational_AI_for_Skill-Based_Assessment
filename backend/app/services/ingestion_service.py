@@ -2,6 +2,8 @@ import io
 import re
 import os
 import json
+import zipfile
+import xml.etree.ElementTree as ET
 from datetime import date
 from uuid import UUID
 from typing import List, Dict, Any, Tuple
@@ -16,6 +18,7 @@ from app.repositories import session_repo, document_repo
 from app.schemas.session import VerificationSessionUpdate
 from app.schemas.document import DocumentVerificationResultCreate
 from app.core.verification_engine import run_verification
+from app.ai_engine.groq_client import GroqClient
 
 # Optional third-party libraries for OCR & QR decoding
 try:
@@ -62,6 +65,21 @@ except Exception as e:
 
 
 class IngestionService:
+    def _extract_text_from_docx(self, file_bytes: bytes) -> str:
+        try:
+            with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
+                xml_content = z.read('word/document.xml')
+                root = ET.fromstring(xml_content)
+                texts = []
+                for elem in root.iter():
+                    if elem.tag.endswith('}t'):
+                        if elem.text:
+                            texts.append(elem.text)
+                return " ".join(texts)
+        except Exception as e:
+            print(f"[Ingestion OCR] docx text extraction failed: {e}")
+            return ""
+
     async def ingest_certificate(
         self, 
         db: AsyncSession, 
@@ -98,6 +116,8 @@ class IngestionService:
                 qr_url = self._decode_qr_from_image(pil_img)
             except Exception as e:
                 print(f"[Ingestion OCR] PIL Image QR decode failed: {e}")
+        elif file_ext == "docx":
+            raw_text = self._extract_text_from_docx(file_bytes)
         else:
             # Fallback to plain text read for demo/txt files
             try:
@@ -105,15 +125,65 @@ class IngestionService:
             except Exception:
                 raw_text = ""
 
+        # Clean raw text by collapsing newlines and multiple spaces to prevent regex matching breaks from line wraps
+        clean_text = " ".join(raw_text.split())
+
+        # Try AI-assisted extraction via Groq LLM if enabled
+        ai_company, ai_role, ai_skills = None, None, None
+        try:
+            client_ai = GroqClient()
+            if client_ai.enabled:
+                prompt_messages = [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a precise certificate metadata extractor. Analyze the certificate text "
+                            "and extract the following fields in JSON format:\n"
+                            "{\n"
+                            "  \"company\": \"Company name, course platform, or issuing organization (e.g. SAVIC Technologies Pvt Ltd, Coursera, Infosys Springboard, Udemy)\",\n"
+                            "  \"role\": \"Internship role, designation, or course completed (e.g. AI Developer, Website Development Process Intern, Computer Science & Engineering)\",\n"
+                            "  \"skills\": [\"List of technical skills/technologies mentioned in the certificate (e.g. ['WordPress', 'Python', 'React', 'HTML5'])]\n"
+                            "}\n"
+                            "Return ONLY the raw JSON block without markdown formatting."
+                        )
+                    },
+                    {"role": "user", "content": f"Certificate Text:\n{clean_text}"}
+                ]
+                response = await client_ai.chat_completion(prompt_messages)
+                clean_json = response.strip()
+                if "```json" in clean_json:
+                    clean_json = clean_json.split("```json")[1].split("```")[0].strip()
+                elif "```" in clean_json:
+                    clean_json = clean_json.split("```")[1].split("```")[0].strip()
+                
+                ai_data = json.loads(clean_json)
+                if isinstance(ai_data, dict):
+                    ai_company = ai_data.get("company", "").strip()
+                    ai_role = ai_data.get("role", "").strip()
+                    ai_skills = ai_data.get("skills", [])
+                    print(f"[Ingestion AI] Extracted metadata: company='{ai_company}', role='{ai_role}', skills={ai_skills}")
+        except Exception as e:
+            print(f"[Ingestion AI] AI-assisted metadata extraction failed: {e}")
+
         # 3. Use heuristics/regex to extract metadata from OCR text
-        company = self._extract_company(raw_text)
-        role = self._extract_role(raw_text)
-        skills = extract_skills_from_text(raw_text)
-        verify_url = qr_url or self._extract_url(raw_text)
+        company = ai_company or self._extract_company(clean_text)
+        role = ai_role or self._extract_role(clean_text)
+        skills = ai_skills if ai_skills is not None else extract_skills_from_text(clean_text)
+        verify_url = qr_url or self._extract_url(clean_text)
 
         # 3b. If primary regex failed, run fallback company extractors
+        if not company or company == "Certificate Issuer":
+            fallback_company = self._extract_company_fallback(raw_text)
+            if fallback_company:
+                company = fallback_company
+
+        # Apply generic defaults for non-internship/course certificates
         if not company:
-            company = self._extract_company_fallback(raw_text)
+            company = "Certificate Issuer"
+        if not role:
+            role = "Certificate Course"
+        if not skills or len(skills) == 0:
+            skills = ["General Competencies", "Verified Skills"]
 
         # company_for_verify: the best name we have to verify against MCA21
         # This is always non-None if we got ANY company signal from OCR.
@@ -389,23 +459,44 @@ class IngestionService:
         if not text:
             return ""
 
+        # Check common course platform keywords in text
+        lower_text = text.lower()
+        if "coursera" in lower_text:
+            return "Coursera"
+        if "springboard" in lower_text or "infosys" in lower_text:
+            return "Infosys Springboard"
+        if "udemy" in lower_text:
+            return "Udemy"
+        if "nptel" in lower_text:
+            return "NPTEL"
+        if "simplilearn" in lower_text:
+            return "Simplilearn"
+        if "great learning" in lower_text:
+            return "Great Learning"
+        if "linkedin learning" in lower_text:
+            return "LinkedIn Learning"
+        if "google" in lower_text:
+            return "Google"
+        if "microsoft" in lower_text:
+            return "Microsoft"
+
         # Ordered from most-specific to least-specific.
         # Each pattern captures the company name in the LAST group.
         patterns = [
             # "internship program with Sudaku CodeClause Pvt Ltd" (CodeClause format)
-            r"internship\s+program\s+with\s+([A-Za-z0-9\s,\.&'\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP|Inc\.?|Corp\.?))",
+            r"internship\s+program\s+with\s+([A-Za-z0-9\s,\.&'\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP|Inc\.?|Corp\.?|Technologies|Systems|Solutions))",
             # "internship at [Company Pvt Ltd]"
-            r"internship\s+at\s+([A-Za-z0-9\s,\.&'\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP|Inc\.?|Corp\.?))",
+            r"internship\s+at\s+([A-Za-z0-9\s,\.&'\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP|Inc\.?|Corp\.?|Technologies|Systems|Solutions))",
             # "completed internship at [Company]"
             r"completed\s+internship\s+at\s+([A-Za-z0-9\s,\.&'\-]+?)(?=\s+from|\s+on|\s+during|\.|,|$)",
             # "internship in [Role] at [Company]"
             r"internship\s+in\s+[A-Za-z0-9\s\-\/]+?\s+at\s+([A-Za-z0-9\s,\.&'\-]+?)(?=\s+from|\.|,|$)",
             # "certify that ... has done ... at [Company]"
-            r"certify\s+that\s+.{0,100}?\s+at\s+([A-Za-z0-9\s,\.&'\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP))(?=\s+from|\.|,|$)",
+            r"certify\s+that\s+.{0,100}?\s+at\s+([A-Za-z0-9\s,\.&'\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP|Technologies|Systems|Solutions))(?=\s+from|\.|,|$)",
             # "has successfully completed his internship ... with [Company]"
             r"internship\s+(?:program\s+)?with\s+([A-Za-z0-9\s,\.&'\-]+?)(?=\.|,|\n|$)",
             # Generic: "at [Company Pvt Ltd]" anywhere in text
-            r"\bat\s+([A-Za-z][A-Za-z0-9\s,\.&'\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP))(?=\s|\.|,|$)",
+            r"\bat\s+([A-Za-z][A-Za-z0-9\s,\.&'\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP|Technologies|Systems|Solutions))(?=\s|\.|,|$)",
         ]
 
         for pat in patterns:
@@ -420,7 +511,7 @@ class IngestionService:
 
         # Last resort: look for lines in the OCR that contain common company suffixes
         suffix_re = re.compile(
-            r'^([A-Z][A-Za-z0-9\s&\.\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP|Inc\.?))',
+            r'^([A-Z][A-Za-z0-9\s&\.\-]+?(?:Pvt\.?\s*Ltd\.?|Private\s+Limited|Ltd\.?|Limited|LLP|Inc\.?|Technologies|Systems|Solutions))',
             re.MULTILINE
         )
         found = suffix_re.findall(text)
@@ -437,7 +528,10 @@ class IngestionService:
         patterns = [
             r"internship\s+in\s+([A-Za-z0-9\s\-\/]+?)\s+at",
             r"as\s+a\s+([A-Za-z0-9\s\-\/]+?)(?=\s+at|\s+in|\.|,)",
-            r"involved\s+in\s+all\s+the\s+([A-Za-z0-9\s\-\/]+?)(?=\s+of|\s+at|\.|,)"
+            r"involved\s+in\s+all\s+the\s+([A-Za-z0-9\s\-\/]+?)(?=\s+of|\s+at|\.|,)",
+            r"certificate\s+of\s+completion\s+in\s+([A-Za-z0-9\s\-\/]{3,60}?)",
+            r"successfully\s+completed\s+([A-Za-z0-9\s\-\/:\(\)]{3,60}?)(?:\s+course|\s+on|\s+during|\.|\,|\n)",
+            r"course\s+on\s+([A-Za-z0-9\s\-\/]{3,60}?)"
         ]
         
         for pat in patterns:
@@ -445,7 +539,8 @@ class IngestionService:
             if match:
                 val = match.group(1).strip()
                 val = re.sub(r"\s+", " ", val)
-                return val
+                if val.lower() not in ("a", "an", "the", "this", "some"):
+                    return val
                 
         if "frontend development" in text.lower():
             return "Frontend Developer"

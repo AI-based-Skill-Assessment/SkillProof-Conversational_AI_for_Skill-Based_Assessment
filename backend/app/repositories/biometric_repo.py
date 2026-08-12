@@ -112,7 +112,7 @@ async def mark_duplicate(
 # ─────────────────────────────────────────────────────────────────────────────
 
 FACE_DUPLICATE_THRESHOLD  = 0.50   # Euclidean — strict for duplicate detection
-VOICE_DUPLICATE_THRESHOLD = 0.88   # Cosine similarity — high for duplicate detection
+VOICE_DUPLICATE_THRESHOLD = 0.78   # Cosine/Pearson similarity threshold — calibrated to 0.78 for optimal speaker differentiation
 
 
 async def find_face_duplicate(

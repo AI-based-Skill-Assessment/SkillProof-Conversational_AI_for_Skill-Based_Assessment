@@ -3,7 +3,7 @@ app/models/user.py
 Candidate / User account model.
 """
 import uuid
-from sqlalchemy import Column, String, Boolean, DateTime, Enum, Text, func
+from sqlalchemy import Column, String, Boolean, DateTime, Enum, Text, JSON, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -35,7 +35,9 @@ class User(Base):
 
     # Biometric registration status (mirrors BiometricProfile convenience flags)
     face_registered = Column(Boolean, nullable=False, default=False)
+    face_embedding = Column(JSON, nullable=True)
     voice_registered = Column(Boolean, nullable=False, default=False)
+    voice_embedding = Column(JSON, nullable=True)
 
     # Profile
     account_type = Column(

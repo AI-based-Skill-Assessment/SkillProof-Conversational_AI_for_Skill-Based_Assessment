@@ -208,3 +208,24 @@ async def update_interview_session(
         await db.flush()
         await db.refresh(interview)
     return interview
+
+
+async def delete_session(db: AsyncSession, session_id: UUID) -> bool:
+    """Delete a verification session and cascading children manually if needed."""
+    session = await get_session(db, session_id)
+    if session:
+        from app.models.biometric import BiometricProfile
+        from app.models.document import DocumentVerificationResult
+        from app.models.interview import InterviewSession
+        from app.models.score import SkillScoreResult
+        from sqlalchemy import delete
+        
+        await db.execute(delete(BiometricProfile).where(BiometricProfile.session_id == session_id))
+        await db.execute(delete(DocumentVerificationResult).where(DocumentVerificationResult.session_id == session_id))
+        await db.execute(delete(InterviewSession).where(InterviewSession.session_id == session_id))
+        await db.execute(delete(SkillScoreResult).where(SkillScoreResult.session_id == session_id))
+        
+        await db.delete(session)
+        await db.flush()
+        return True
+    return False

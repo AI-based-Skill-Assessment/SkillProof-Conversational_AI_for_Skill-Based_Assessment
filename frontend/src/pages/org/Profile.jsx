@@ -32,21 +32,25 @@ export default function Profile() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16, borderTop: '1px solid var(--border)', paddingTop: 20, fontSize: 14 }}>
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Organization Type:</div>
-            <div style={{ textTransform: 'capitalize' }}>{user?.org_type || 'university'}</div>
+            <div style={{ textTransform: 'capitalize' }}>{user?.org_type || 'N/A'}</div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Primary Contact:</div>
-            <div>{user?.contact_name || 'Dr. Ramesh Kumar'}</div>
+            <div>{user?.contact_name || 'N/A'}</div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Contact Phone:</div>
-            <div>{user?.contact_phone || '+91-9876543210'}</div>
+            <div>{user?.contact_phone || 'N/A'}</div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Website Link:</div>
             <div>
-              <a href={user?.website} target="_blank" rel="noopener noreferrer">{user?.website || 'https://www.nitt.edu'}</a>
+              {user?.website ? (
+                <a href={user?.website} target="_blank" rel="noopener noreferrer">{user?.website}</a>
+              ) : (
+                'N/A'
+              )}
             </div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Address:</div>
-            <div>{user?.address || 'Trichy, TN'}</div>
+            <div>{user?.address || 'N/A'}</div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Approved Since:</div>
             <div>{formatDate(user?.created_at)}</div>

@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import client from '../../core/api/client';
-import VoiceWaveform from '../../components/common/VoiceWaveform';
 import Button from '../../components/common/Button';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/biometrics-premium.css';
@@ -14,10 +13,25 @@ export default function VoiceRegistration() {
   const location = useLocation();
   const toast = useToast();
 
+  const canvasRef = useRef(null);
+
   const [recording, setRecording] = useState(false);
   const [complete, setComplete] = useState(false);
-  const [seconds, setSeconds] = useState(5);
+  const [registering, setRegistering] = useState(false);
+  const [blocked, setBlocked] = useState(false);
 
+  const [statusMessage, setStatusMessage] = useState('Click "Start Recording" to begin voice enrollment.');
+  const [statusClass, setStatusClass] = useState('');
+  const [progress, setProgress] = useState(0);
+
+  const streamRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const mediaRecRef = useRef(null);
+  const chunksRef = useRef([]);
+  const animFrameRef = useRef(null);
+
+  // Onboarding warning check
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('pending') === 'true') {
@@ -26,108 +40,454 @@ export default function VoiceRegistration() {
     }
   }, [location.pathname, location.search, navigate, toast]);
 
+  // Clean up audio context and stream on unmount
   useEffect(() => {
-    if (!recording) return;
-    if (seconds <= 0) {
-      setRecording(false);
-      setComplete(true);
-      toast.success('Voice Registered', 'Speaker voiceprint vector template saved successfully!');
-      return;
-    }
-    const timer = setTimeout(() => setSeconds(s => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [recording, seconds, toast]);
+    return () => {
+      stopVoiceMic();
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, []);
 
-  function handleRecord() {
-    setSeconds(5);
+  async function startVoiceEnroll() {
     setRecording(true);
-  }
+    setBlocked(false);
+    setStatusMessage('Requesting microphone permission…');
+    setStatusClass('info');
+    setProgress(10);
+    chunksRef.current = [];
 
-  async function handleFinish() {
     try {
-      const res = await client.post('/auth/me/register-voice');
-      updateUserCache(res.data);
-      toast.success('Onboarding Complete', 'Welcome to your dashboard!');
-      navigate(ROUTES.USER.DASHBOARD);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioCtxRef.current = audioCtx;
+
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+
+      // Start drawing waveform
+      if (canvasRef.current) {
+        const canvas = canvasRef.current;
+        canvas.width = canvas.offsetWidth || 400;
+        canvas.height = canvas.offsetHeight || 240;
+        drawWaveform(canvas, analyser);
+      }
+
+      // MediaRecorder setup
+      const mediaRec = new MediaRecorder(stream);
+      mediaRec.ondataavailable = e => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mediaRec.start();
+      mediaRecRef.current = mediaRec;
+
+      setStatusMessage('Recording… read the passphrase aloud then click Stop.');
+      setStatusClass('info');
+      setProgress(30);
     } catch (err) {
       console.error(err);
-      toast.error('Setup Failed', err.response?.data?.detail || 'Failed to complete registration.');
+      setStatusMessage('Microphone access denied: ' + err.message);
+      setStatusClass('err');
+      setRecording(false);
+      setProgress(0);
+      toast.error('Microphone Access Denied', 'Please allow microphone permissions to complete voice enrollment.');
     }
   }
 
-  // Calculate circular progress ring stroke-dashoffset (circumference is 440)
-  const dashOffset = recording ? 440 - (440 * seconds) / 5 : complete ? 0 : 440;
+  function drawWaveform(canvas, analyser) {
+    const ctx = canvas.getContext('2d');
+    const bufLen = analyser.frequencyBinCount;
+    const data = new Uint8Array(bufLen);
+
+    function render() {
+      animFrameRef.current = requestAnimationFrame(render);
+      analyser.getByteTimeDomainData(data);
+      
+      // Clear canvas with deep dark background matching theme
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Gradient waveform line
+      const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+      grad.addColorStop(0, '#6c63ff');
+      grad.addColorStop(0.5, '#a78bfa');
+      grad.addColorStop(1, '#6c63ff');
+
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = grad;
+      ctx.beginPath();
+
+      const sliceW = canvas.width / bufLen;
+      let x = 0;
+      for (let i = 0; i < bufLen; i++) {
+        const v = data[i] / 128.0;
+        const y = (v / 2) * canvas.height;
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+        x += sliceW;
+      }
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+
+      // Draw frequency spectrum at the bottom for premium visual feedback
+      const freqData = new Uint8Array(bufLen);
+      analyser.getByteFrequencyData(freqData);
+      const barW = (canvas.width / bufLen) * 2.5;
+      let bx = 0;
+      for (let i = 0; i < bufLen; i++) {
+        const barH = (freqData[i] / 255) * (canvas.height * 0.3);
+        const alpha = 0.3 + (freqData[i] / 255) * 0.5;
+        ctx.fillStyle = `rgba(108,99,255,${alpha})`;
+        ctx.fillRect(bx, canvas.height - barH, barW, barH);
+        bx += barW + 1;
+      }
+    }
+    render();
+  }
+
+  async function checkDuplicate(voiceEmbedding) {
+    try {
+      const res = await client.post('/biometric/check-duplicate', {
+        session_id: user?.id,
+        voice_embedding: voiceEmbedding
+      });
+      return res.data;
+    } catch (err) {
+      console.warn('Duplicate check failed (non-blocking):', err.message);
+      return null;
+    }
+  }
+
+  async function stopVoiceEnroll() {
+    setRegistering(true);
+    setStatusMessage('Processing voice fingerprint…');
+    setStatusClass('info');
+    setProgress(60);
+
+    if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') {
+      mediaRecRef.current.stop();
+    }
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+    }
+
+    // Wait slightly to guarantee the last chunks are received
+    await new Promise(r => setTimeout(r, 400));
+
+    try {
+      const embedding = await extractVoiceEmbedding(chunksRef.current);
+      if (!embedding || embedding.length === 0) {
+        throw new Error('Empty audio captured — please record longer.');
+      }
+
+      setProgress(70);
+      setStatusMessage('Checking for duplicate voice registrations…');
+      setStatusClass('info');
+
+      const dupResult = await checkDuplicate(embedding);
+      if (dupResult && dupResult.voice_is_duplicate) {
+        stopVoiceMic();
+        setRegistering(false);
+        setBlocked(true);
+        setStatusMessage(dupResult.message || 'Duplicate voice detected');
+        setStatusClass('err');
+        setProgress(0);
+        toast.error('Duplicate Voice Detected', dupResult.message || 'This voice is already registered under a different account.');
+        return;
+      }
+
+      setProgress(80);
+      setStatusMessage('Sending voice fingerprint to server…');
+      setStatusClass('info');
+
+      const res = await client.post('/auth/me/register-voice', {
+        voice_embedding: embedding
+      });
+
+      updateUserCache(res.data);
+      stopVoiceMic();
+      setComplete(true);
+      setProgress(100);
+      setStatusMessage('✓ Voice fingerprint registered successfully!');
+      setStatusClass('ok');
+      toast.success('Onboarding Complete', 'Voice fingerprint registered successfully!');
+    } catch (err) {
+      console.error(err);
+      setRegistering(false);
+      setStatusMessage('Error: ' + (err.response?.data?.detail || err.message));
+      setStatusClass('err');
+      toast.error('Registration Failed', err.response?.data?.detail || err.message);
+    } finally {
+      stopVoiceMic();
+    }
+  }
+
+  // FFT and Spectral Feature Vector extraction math matching biometric_enroll.html
+  async function extractVoiceEmbedding(chunks) {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const arrayBuf = await blob.arrayBuffer();
+    const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuf = await tempCtx.decodeAudioData(arrayBuf);
+    await tempCtx.close();
+
+    const channelData = audioBuf.getChannelData(0); // Float32Array
+    const duration = audioBuf.duration;
+
+    // Check minimum duration to ensure they speak the sentence
+    if (duration < 3.0) {
+      throw new Error(`Recording is too short (${duration.toFixed(1)}s). Please read the entire sentence clearly.`);
+    }
+
+    // 1. High-pass filter to remove low-frequency room noise (background hum / noise suppression)
+    const sampleRate = audioBuf.sampleRate;
+    const rc = 1.0 / (2 * Math.PI * 150); // 150Hz cutoff frequency
+    const dt = 1.0 / sampleRate;
+    const alpha = rc / (rc + dt);
+
+    const filteredData = new Float32Array(channelData.length);
+    filteredData[0] = channelData[0];
+    for (let i = 1; i < channelData.length; i++) {
+      filteredData[i] = alpha * (filteredData[i - 1] + channelData[i] - channelData[i - 1]);
+    }
+
+    // 2. Calculate RMS energy (signal amplitude) on noise-filtered audio
+    let sumSquares = 0;
+    for (let i = 0; i < filteredData.length; i++) {
+      sumSquares += filteredData[i] * filteredData[i];
+    }
+    const rms = Math.sqrt(sumSquares / filteredData.length);
+    console.log('[DEBUG] Audio signal RMS energy (after noise filtering):', rms);
+
+    // If signal amplitude is extremely low (silence)
+    if (rms < 0.005) {
+      throw new Error("no voice is detected");
+    }
+
+    // If signal is present but too soft/quiet for reliable biometric extraction
+    if (rms < 0.025) {
+      throw new Error("the voice is not clear speak loudly");
+    }
+
+    const frameSize = 512;
+    const hopSize = 256;
+    const numBands = 64;
+    const embedding = new Array(numBands).fill(0);
+    let frames = 0;
+
+    for (let start = 0; start + frameSize < filteredData.length; start += hopSize) {
+      const frame = filteredData.slice(start, start + frameSize);
+      const mag = getFFTMagnitude(frame, frameSize);
+      const binPerBand = Math.floor((frameSize / 2) / numBands);
+      for (let b = 0; b < numBands; b++) {
+        let sum = 0;
+        for (let k = 0; k < binPerBand; k++) {
+          sum += mag[b * binPerBand + k];
+        }
+        embedding[b] += sum / binPerBand;
+      }
+      frames++;
+    }
+
+    if (frames === 0) return [];
+    // Average and Normalize vector
+    const avgEmbedding = embedding.map(v => v / frames);
+    const maxVal = Math.max(...avgEmbedding);
+    return avgEmbedding.map(v => maxVal > 0 ? v / maxVal : 0);
+  }
+
+  function bitReverse(n, bits) {
+    let reversed = 0;
+    for (let i = 0; i < bits; i++) {
+      if ((n & (1 << i)) !== 0) {
+        reversed |= (1 << (bits - 1 - i));
+      }
+    }
+    return reversed;
+  }
+
+  // Exact FFT implementation from biometric_enroll.html
+  function fft(re, im) {
+    const n = re.length;
+    const bits = Math.round(Math.log2(n));
+    for (let i = 0; i < n; i++) {
+      const j = bitReverse(i, bits);
+      if (i < j) {
+        let temp = re[i]; re[i] = re[j]; re[j] = temp;
+        temp = im[i]; im[i] = im[j]; im[j] = temp;
+      }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const angle = -2 * Math.PI / len;
+      const wlenRe = Math.cos(angle);
+      const wlenIm = Math.sin(angle);
+      for (let i = 0; i < n; i += len) {
+        let wRe = 1, wIm = 0;
+        for (let j = 0; j < len / 2; j++) {
+          const uRe = re[i + j];
+          const uIm = im[i + j];
+          const vRe = re[i + j + len / 2] * wRe - im[i + j + len / 2] * wIm;
+          const vIm = re[i + j + len / 2] * wIm + im[i + j + len / 2] * wRe;
+          re[i + j] = uRe + vRe;
+          im[i + j] = uIm + vIm;
+          re[i + j + len / 2] = uRe - vRe;
+          im[i + j + len / 2] = uIm - vIm;
+          const nextWRe = wRe * wlenRe - wIm * wlenIm;
+          wIm = wRe * wlenIm + wIm * wlenRe;
+          wRe = nextWRe;
+        }
+      }
+    }
+  }
+
+  function getFFTMagnitude(frame, N) {
+    const re = new Float32Array(N);
+    const im = new Float32Array(N);
+    re.set(frame);
+    fft(re, im);
+    const half = N / 2;
+    const mag = new Float32Array(half);
+    for (let k = 0; k < half; k++) {
+      mag[k] = Math.sqrt(re[k] * re[k] + im[k] * im[k]) / N;
+    }
+    return mag;
+  }
+
+  function stopVoiceMic() {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+  }
+
+  function handleRetry() {
+    stopVoiceMic();
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    setRecording(false);
+    setComplete(false);
+    setRegistering(false);
+    setBlocked(false);
+    setProgress(0);
+    setStatusMessage('Click "Start Recording" to begin voice enrollment.');
+    setStatusClass('');
+  }
+
+  function handleFinish() {
+    navigate(ROUTES.USER.DASHBOARD);
+  }
 
   return (
-    <div className="biometric-page">
-      <div className="biometric-card anim-scale-in">
-        <h2 className="biometric-card__title">Biometric Voice Registry</h2>
-        <p className="biometric-card__subtitle">
-          Read the phrase below aloud to register your voiceprint.
+    <div className="biometric-page" style={{ background: 'var(--background)' }}>
+      <div className={`biometric-card anim-scale-in ${recording ? 'capturing' : ''} ${complete ? 'registered' : ''}`} 
+           style={{ 
+             maxWidth: 540,
+             background: 'var(--surface)',
+             border: '1px solid var(--border)',
+             boxShadow: 'var(--shadow-lg)',
+             color: 'var(--text-primary)'
+           }}>
+        
+        <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 className="biometric-card__title" style={{ margin: 0, color: 'var(--text-primary)' }}>Voice Profile Registry</h2>
+          <span className={`badge ${complete ? 'badge-done' : blocked ? 'badge-error' : recording ? 'badge-active' : 'badge-pending'}`}>
+            {complete ? 'Registered' : blocked ? 'Blocked' : recording ? 'Recording' : 'Pending'}
+          </span>
+        </div>
+
+        <p className="biometric-card__subtitle" style={{ textAlign: 'left', alignSelf: 'flex-start', marginBottom: 20, color: 'var(--text-secondary)' }}>
+          Read the security phrase clearly into your microphone. This template will protect against voice spoofing and deepfakes during verification.
         </p>
 
-        {/* Minimal Speech Box */}
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.03)',
-          padding: '20px 24px',
-          borderRadius: '16px',
-          fontSize: '14px',
-          fontWeight: 500,
-          textAlign: 'center',
-          color: 'var(--text-primary)',
-          border: '1px solid rgba(255, 255, 255, 0.06)',
-          width: '100%',
-          margin: '0 0 20px 0',
-          lineHeight: '1.5'
-        }}>
-          "I confirm that I am completing the SkillProof assessment independently."
-        </div>
-
-        {/* Minimal Mic & Ring Visualizer */}
-        <div className="voice-radar-wrapper">
-          <div className={`voice-mic-icon-button ${recording ? 'voice-mic-icon-button--active' : ''}`}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              <line x1="12" y1="19" x2="12" y2="23"/>
-              <line x1="8" y1="23" x2="16" y2="23"/>
-            </svg>
-          </div>
-
-          <svg className="circular-progress-ring" width="150" height="150">
-            <circle className="circular-progress-ring__bg" cx="75" cy="75" r="55" />
-            <circle 
-              className={`circular-progress-ring__bar ${complete ? 'circular-progress-ring__bar--success' : ''}`}
-              cx="75" 
-              cy="75" 
-              r="55" 
-              style={{ strokeDashoffset: dashOffset }}
+        {/* 4:3 Rectangular Waveform media panel matching biometric_enroll.html */}
+        <div className="media-panel" style={{ width: '100%', position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#09090f', border: '1px solid var(--border)', aspectRatio: '4/3', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {complete ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--success)' }}>
+              <div style={{ fontSize: '5rem' }}>✅</div>
+              <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>Voice registered successfully!</p>
+            </div>
+          ) : blocked ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--error)', padding: 24, textAlign: 'center' }}>
+              <div style={{ fontSize: '5rem' }}>❌</div>
+              <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>Biometric duplicate registration blocked.</p>
+            </div>
+          ) : !recording ? (
+            <div className="media-placeholder" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'var(--text-secondary)', gap: 12 }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--primary)', opacity: 0.8 }}>
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+              <p style={{ fontSize: '0.9rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Waveform visualizer will appear here.<br />Click Start Recording below.</p>
+            </div>
+          ) : (
+            <canvas
+              ref={canvasRef}
+              style={{ width: '100%', height: '100%', display: 'block' }}
             />
-          </svg>
+          )}
         </div>
 
-        {/* Active Waveform feedback */}
-        <div style={{ width: '100%', marginBottom: 24 }}>
-          <VoiceWaveform active={recording} barCount={20} className="w-full" style={{ height: 48 }} />
-        </div>
-
-        <div className={`biometric-status-banner ${complete ? 'biometric-status-banner--success' : ''}`}>
-          {complete 
-            ? '✓ Speaker Template Registered' 
-            : recording 
-              ? `Recording... Speak Now (${seconds}s)` 
-              : 'Press the button below to record voiceprint.'}
-        </div>
-
-        {complete ? (
-          <Button fullWidth onClick={handleFinish}>
-            Go to Dashboard →
-          </Button>
-        ) : (
-          <Button fullWidth onClick={handleRecord} loading={recording}>
-            Record Voiceprint
-          </Button>
+        {/* Passphrase Box */}
+        {(recording || complete) && (
+          <div style={{
+            background: 'var(--surface-elevated)',
+            padding: '16px 20px',
+            borderRadius: '12px',
+            fontSize: '15px',
+            fontWeight: 600,
+            textAlign: 'center',
+            color: 'var(--primary)',
+            border: '1px solid var(--border)',
+            width: '100%',
+            marginBottom: 20,
+            lineHeight: '1.5'
+          }}>
+            "My voice is my unique identity and my password"
+          </div>
         )}
+
+        {/* Progress Bar */}
+        <div style={{ width: '100%', height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden', marginBottom: 12 }}>
+          <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(90deg, var(--primary), #a78bfa)', transition: 'width 0.3s ease' }} />
+        </div>
+
+        {/* Status Text Banner */}
+        <div className={`bio-status ${statusClass}`} style={{ fontSize: 13, marginBottom: 24, fontWeight: 500, alignSelf: 'flex-start' }}>
+          {statusMessage}
+        </div>
+
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+          {complete ? (
+            <Button fullWidth onClick={handleFinish}>
+              Go to Dashboard →
+            </Button>
+          ) : !recording ? (
+            <Button fullWidth onClick={startVoiceEnroll}>
+              🎙 Start Recording
+            </Button>
+          ) : (
+            <>
+              <Button variant="danger" onClick={stopVoiceEnroll} loading={registering} disabled={blocked}>
+                ⏹ Stop & Save
+              </Button>
+              <Button variant="outline" onClick={handleRetry}>
+                ↺ Reset
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

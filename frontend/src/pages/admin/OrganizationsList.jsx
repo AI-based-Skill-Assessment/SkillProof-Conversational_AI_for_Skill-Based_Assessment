@@ -60,7 +60,7 @@ export default function OrganizationsList() {
                   <td style={{ fontWeight: 600 }}>{o.name}</td>
                   <td>{o.email}</td>
                   <td style={{ textTransform: 'capitalize' }}>{o.org_type}</td>
-                  <td>{o.contact_name || 'Dr. Ramesh Kumar'}</td>
+                  <td>{o.contact_name || 'N/A'}</td>
                   <td style={{ fontWeight: 600 }}>{o.total_candidates} students</td>
                   <td>
                     <StatusBadge variant={o.status === 'approved' ? 'success' : o.status === 'pending' ? 'warning' : 'error'}>

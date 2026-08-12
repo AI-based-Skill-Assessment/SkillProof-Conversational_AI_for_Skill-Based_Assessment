@@ -45,13 +45,7 @@ async def ingest_credentials(
     actual_name = candidate_name or (current_user.full_name if current_user else "Anonymous Candidate")
     actual_email = candidate_email or (current_user.email if current_user else "anonymous@example.com")
 
-    # 0. Check for duplicate session with same email
-    existing_session = await session_repo.get_session_by_email(db, actual_email)
-    if existing_session:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"A verification session for candidate email '{actual_email}' already exists. Duplicate sessions are not allowed."
-        )
+
 
     # 1. Determine intake mode
     has_file = file is not None and file.filename not in (None, "", "string")
@@ -60,10 +54,10 @@ async def ingest_credentials(
     if has_file:
         intake_mode = "certificate"
         ext = (file.filename or "").lower().split(".")[-1]
-        if ext not in ("pdf", "png", "jpg", "jpeg", "txt"):
+        if ext not in ("pdf", "png", "jpg", "jpeg", "txt", "docx"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Unsupported file format. Please upload PDF, PNG, JPG, JPEG, or TXT."
+                detail="Unsupported file format. Please upload PDF, PNG, JPG, JPEG, TXT, or DOCX."
             )
     elif has_skills:
         intake_mode = "skill_only"

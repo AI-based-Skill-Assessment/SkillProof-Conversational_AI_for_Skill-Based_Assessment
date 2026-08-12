@@ -102,14 +102,20 @@ async def set_biometric_flags(
     db: AsyncSession,
     user: User,
     face_registered: Optional[bool] = None,
+    face_embedding: Optional[list] = None,
     voice_registered: Optional[bool] = None,
+    voice_embedding: Optional[list] = None,
 ) -> User:
     if face_registered is not None:
         user.face_registered = face_registered
+        if face_embedding is not None:
+            user.face_embedding = face_embedding
         if face_registered and user.onboarding_step == "face_registration":
             user.onboarding_step = "voice_registration"
     if voice_registered is not None:
         user.voice_registered = voice_registered
+        if voice_embedding is not None:
+            user.voice_embedding = voice_embedding
         if voice_registered:
             user.onboarding_step = "completed"
     db.add(user)

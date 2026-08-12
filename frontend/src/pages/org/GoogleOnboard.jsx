@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Logo from '../../components/common/Logo';
 import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import client from '../../core/api/client';
@@ -17,6 +18,7 @@ export default function GoogleOnboard() {
   const [name, setName] = useState(user?.name || '');
   const [type, setType] = useState('college');
   const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [website, setWebsite] = useState('');
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
@@ -48,6 +50,7 @@ export default function GoogleOnboard() {
         name,
         org_type: type,
         contact_name: contactName,
+        contact_phone: contactPhone || null,
         website: website || null,
         address
       });
@@ -57,7 +60,13 @@ export default function GoogleOnboard() {
       navigate(ROUTES.ORG.PENDING);
     } catch (err) {
       console.error(err);
-      toast.error('Onboarding Failed', err.response?.data?.detail || 'Failed to submit onboarding details.');
+      if (err.response?.status === 403 && err.response?.data?.detail?.includes('pending')) {
+        toast.warning('Approval Pending', err.response.data.detail);
+        logout();
+        navigate(ROUTES.ORG.PENDING);
+      } else {
+        toast.error('Onboarding Failed', err.response?.data?.detail || 'Failed to submit onboarding details.');
+      }
     } finally {
       setLoading(false);
     }
@@ -75,7 +84,7 @@ export default function GoogleOnboard() {
     <div className="auth-container">
       <div className="auth-card anim-scale-in" style={{ maxWidth: 540 }}>
         <div className="auth-card__brand">
-          <div className="public-navbar__logo-icon">SP</div>
+          <Logo size={36} className="public-navbar__logo-icon" color="var(--primary)" />
           <span>SkillProof</span>
         </div>
         <div className="auth-card__header">
@@ -114,6 +123,15 @@ export default function GoogleOnboard() {
             onChange={(e) => setContactName(e.target.value)}
             error={errors.contactName}
             required
+          />
+
+          <Input
+            label="Contact Phone (Optional)"
+            type="text"
+            id="org-onboard-phone"
+            placeholder="+91 98765 43210"
+            value={contactPhone}
+            onChange={(e) => setContactPhone(e.target.value)}
           />
 
           <div style={{ gridColumn: 'span 2' }}>

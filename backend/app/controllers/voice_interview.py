@@ -105,27 +105,32 @@ async def realtime_interview_ws(
         async def monitor_biometrics():
             try:
                 while True:
-                    await asyncio.sleep(2.0)
-                    async with async_session_factory() as db_session:
-                        profile = await biometric_repo.get_profile(db_session, session_id)
-                        if profile:
-                            # Instant kick if fraud flagged or mismatch limit reached (2 failures)
-                            if (profile.face_mismatch_count >= 2 or 
-                                profile.voice_mismatch_count >= 2 or 
-                                profile.interview_flagged):
-                                try:
-                                    await websocket.send_json({
-                                        "type": "error",
-                                        "message": "Biometric verification failed. Interview terminated."
-                                    })
-                                    await websocket.close(code=1008)
-                                except Exception:
-                                    pass
-                                break
+                    await asyncio.sleep(4.0)
+                    try:
+                        async with async_session_factory() as db_session:
+                            profile = await biometric_repo.get_profile(db_session, session_id)
+                            await db_session.commit()  # Commit the readonly query to prevent ROLLBACK
+                            if profile:
+                                # Instant kick if fraud flagged or mismatch limit reached
+                                if (profile.face_mismatch_count >= 3 or 
+                                    profile.voice_mismatch_count >= 3 or 
+                                    profile.interview_flagged):
+                                    try:
+                                        await websocket.send_json({
+                                            "type": "error",
+                                            "message": "Biometric verification failed. Interview terminated due to identity mismatch."
+                                        })
+                                        await websocket.close(code=1008)
+                                    except Exception:
+                                        pass
+                                    break
+                    except Exception as tick_err:
+                        print(f"[WS Biometric Monitor] Tick error: {tick_err}")
+                        continue
             except asyncio.CancelledError:
                 pass
             except Exception as e:
-                print(f"[WS Biometric Monitor] Error: {e}")
+                print(f"[WS Biometric Monitor] Fatal error: {e}")
 
         monitor_task = asyncio.create_task(monitor_biometrics())
 

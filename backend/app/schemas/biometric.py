@@ -41,6 +41,7 @@ class BiometricStatusResponse(BaseModel):
 class BiometricDuplicateCheckRequest(BaseModel):
     """Check if a face or voice embedding already belongs to another session."""
     session_id:      UUID
+    face_image:      Optional[str] = None
     face_embedding:  Optional[List[float]] = None
     voice_embedding: Optional[List[float]] = None
 
@@ -62,6 +63,7 @@ class BiometricDuplicateCheckResponse(BaseModel):
 class BiometricVerifyRequest(BaseModel):
     session_id:      UUID
     face_embedding:  Optional[List[float]] = None
+    face_image:      Optional[str] = None
     voice_embedding: Optional[List[float]] = None
 
 

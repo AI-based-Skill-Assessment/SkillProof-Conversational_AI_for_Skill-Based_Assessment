@@ -41,12 +41,14 @@ async def create_admin(
     password: str,
     totp_secret: str,
     full_name: str = "Platform Admin",
+    totp_enabled: bool = False,
 ) -> Admin:
     admin = Admin(
         email=email.lower().strip(),
         full_name=full_name,
         hashed_password=hash_password(password),
         totp_secret=totp_secret,
+        totp_enabled=totp_enabled,
     )
     db.add(admin)
     await db.flush()
@@ -68,4 +70,5 @@ async def ensure_default_admin(db: AsyncSession) -> Admin:
         password=settings.ADMIN_PASSWORD,
         totp_secret=settings.ADMIN_TOTP_SECRET,
         full_name="SkillProof Admin",
+        totp_enabled=settings.ADMIN_TOTP_ENABLED,
     )

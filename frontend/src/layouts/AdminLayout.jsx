@@ -46,6 +46,7 @@ export default function AdminLayout({ pageTitle = 'System Admin' }) {
         onToggle={() => setCollapsed(c => !c)}
         onMobileClose={() => setMobileOpen(false)}
         portalLabel="SkillProof Admin"
+        logoLink={ROUTES.ADMIN.DASHBOARD}
       />
       <div className={`app-layout__content${collapsed ? ' app-layout__content--collapsed' : ''}`}>
         <Topbar
@@ -53,6 +54,7 @@ export default function AdminLayout({ pageTitle = 'System Admin' }) {
           collapsed={collapsed}
           onMenuClick={() => setMobileOpen(o => !o)}
           user={{ full_name: 'System Admin', email: user?.email }}
+          logoLink={ROUTES.ADMIN.DASHBOARD}
         />
         <main className="app-layout__page">
           <Outlet />

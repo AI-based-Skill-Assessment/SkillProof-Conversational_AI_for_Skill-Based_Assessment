@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import ROUTES from '../core/routes';
+import Logo from '../components/common/Logo';
 import ThemeToggle from '../components/common/ThemeToggle';
 import '../styles/pages/public.css';
 
@@ -22,7 +23,7 @@ export default function PublicLayout() {
       {/* Navbar */}
       <nav className="public-navbar" aria-label="Main Navigation">
         <Link to={ROUTES.HOME} className="public-navbar__logo">
-          <div className="public-navbar__logo-icon">SP</div>
+          <Logo size={36} className="public-navbar__logo-icon" color="var(--primary)" />
           <span>SkillProof</span>
         </Link>
 
@@ -90,7 +91,7 @@ export default function PublicLayout() {
       <footer className="public-footer">
         <div className="public-footer__content">
           <div className="public-navbar__logo" style={{ marginBottom: 12 }}>
-            <div className="public-navbar__logo-icon">SP</div>
+            <Logo size={36} className="public-navbar__logo-icon" color="var(--primary)" />
             <span>SkillProof</span>
           </div>
           <div className="public-footer__links">

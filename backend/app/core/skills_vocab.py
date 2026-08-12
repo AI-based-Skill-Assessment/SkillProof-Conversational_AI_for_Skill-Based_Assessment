@@ -18,7 +18,8 @@ SKILLS_VOCABULARY = {
         "react", "reactjs", "react.js", "next.js", "nextjs", "vue.js", "vuejs",
         "nuxt.js", "nuxtjs", "angular", "svelte", "jquery", "html5", "html",
         "css3", "css", "tailwind css", "tailwind", "sass", "scss", "webgl",
-        "three.js", "redux", "zustand", "bootstrap", "material ui", "chakra ui"
+        "three.js", "redux", "zustand", "bootstrap", "material ui", "chakra ui",
+        "wordpress", "web development", "website development", "frontend development", "backend development"
     ],
     "Databases & Cache": [
         "postgresql", "postgres", "mysql", "sqlite", "mongodb", "redis",
@@ -131,6 +132,13 @@ SKILL_CANONICAL = {
     "llm": "LLM",
     "generative ai": "Generative AI",
     "rag": "RAG",
+    "wordpress": "WordPress",
+    "web development": "Web Development",
+    "website development": "Web Development",
+    "frontend development": "Frontend Development",
+    "backend development": "Backend Development",
+    "computer science": "Computer Science",
+    "engineering": "Engineering"
 }
 
 
@@ -154,6 +162,12 @@ def extract_skills_from_text(text: str) -> list[str]:
         pattern = r'(?<![a-zA-Z0-9])' + re.escape(skill) + r'(?![a-zA-Z0-9])'
         if re.search(pattern, text_lower):
             canonical = SKILL_CANONICAL.get(skill, skill.title())
+            
+            # Filter out false positive name initials like 'Denis Newman T' or 'Balamanikandan R'
+            if canonical == "R":
+                if re.search(r'\b[A-Z][a-z]+\s+R\b', text):
+                    continue
+            
             matched.add(canonical)
 
     return sorted(matched)

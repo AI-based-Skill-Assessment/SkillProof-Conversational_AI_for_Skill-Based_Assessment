@@ -3,7 +3,7 @@ app/schemas/auth.py
 Pydantic schemas for all authentication endpoints.
 """
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
@@ -131,6 +131,7 @@ class OrgGoogleOnboardRequest(BaseModel):
     org_type: str = "college"
     name: str = Field(..., min_length=2, max_length=255)
     contact_name: str = Field(..., min_length=2, max_length=255)
+    contact_phone: Optional[str] = None
     website: Optional[str] = None
     address: str = Field(..., min_length=5)
 
@@ -169,3 +170,11 @@ class AdminProfileResponse(BaseModel):
 class GoogleVerifyRequest(BaseModel):
     credential_token: str
     is_signup: bool = False
+
+
+class UserFaceRegisterRequest(BaseModel):
+    face_embedding: List[float]
+
+
+class UserVoiceRegisterRequest(BaseModel):
+    voice_embedding: List[float]

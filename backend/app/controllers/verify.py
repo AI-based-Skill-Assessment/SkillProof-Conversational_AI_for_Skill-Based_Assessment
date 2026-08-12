@@ -220,3 +220,31 @@ async def force_verification_override(
         "reason": reason,
         "updated_session_status": new_status
     }
+
+
+@router.delete(
+    "/sessions/{session_id}",
+    summary="Delete Verification Session",
+    description="Deletes a verification session if it has not been completed/scored yet."
+)
+async def delete_verification_session(
+    session_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    session = await session_repo.get_session(db, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    
+    # Check if session is owned by current user
+    if session.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this session.")
+        
+    # Check if session is already completed/scored
+    from app.models.session import SessionStatus
+    if session.status == SessionStatus.scored:
+        raise HTTPException(status_code=400, detail="Completed assessments cannot be deleted.")
+        
+    await session_repo.delete_session(db, session_id)
+    await db.commit()
+    return {"message": "Session deleted successfully."}

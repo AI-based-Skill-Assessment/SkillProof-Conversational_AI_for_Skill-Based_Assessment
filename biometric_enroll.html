@@ -1357,6 +1357,25 @@
       await tempCtx.close();
 
       const channelData = audioBuf.getChannelData(0);   // Float32Array
+      const duration = audioBuf.duration;
+
+      // Check minimum duration
+      if (duration < 3.0) {
+        throw new Error(`Recording is too short (${duration.toFixed(1)}s). Please read the entire sentence clearly.`);
+      }
+
+      // Calculate RMS energy (signal amplitude) to detect silence / static background noise
+      let sumSquares = 0;
+      for (let i = 0; i < channelData.length; i++) {
+        sumSquares += channelData[i] * channelData[i];
+      }
+      const rms = Math.sqrt(sumSquares / channelData.length);
+      console.log('[DEBUG] Audio signal RMS energy:', rms);
+
+      if (rms < 0.02) {
+        throw new Error("No speech detected. Please speak clearly into your microphone.");
+      }
+
       const sampleRate = audioBuf.sampleRate;
       const frameSize = 512;
       const hopSize = 256;

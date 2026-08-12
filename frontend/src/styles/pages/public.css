@@ -27,13 +27,10 @@
 .public-navbar__logo-icon {
   width: 36px;
   height: 36px;
-  background: var(--primary);
-  color: white;
-  border-radius: var(--radius-md);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: var(--font-bold);
 }
 
 .public-navbar__links {

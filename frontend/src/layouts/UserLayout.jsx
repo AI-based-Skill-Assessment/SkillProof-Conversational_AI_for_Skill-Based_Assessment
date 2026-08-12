@@ -19,15 +19,10 @@ const Icons = {
 };
 
 const NAV_ITEMS = [
-  { to: ROUTES.USER.DASHBOARD,        label: 'Dashboard',      icon: <Icons.Dashboard /> },
-  { type: 'section', label: 'Assessments' },
   { to: ROUTES.USER.NEW_ASSESSMENT,   label: 'New Assessment', icon: <Icons.Assessment /> },
   { to: ROUTES.USER.REPORTS_LIST,     label: 'My Reports',     icon: <Icons.Reports /> },
   { to: ROUTES.USER.CERTIFICATES,     label: 'Certificates',   icon: <Icons.Certificates /> },
-  { type: 'section', label: 'Account' },
   { to: ROUTES.USER.ORGANIZATIONS,    label: 'Organisations',  icon: <Icons.Orgs /> },
-  { to: ROUTES.USER.PROFILE,          label: 'Profile',        icon: <Icons.Profile /> },
-  { to: ROUTES.USER.SETTINGS,         label: 'Settings',       icon: <Icons.Settings /> },
 ];
 
 export default function UserLayout({ pageTitle = 'SkillProof' }) {
@@ -49,6 +44,7 @@ export default function UserLayout({ pageTitle = 'SkillProof' }) {
         onToggle={() => setCollapsed(c => !c)}
         onMobileClose={() => setMobileOpen(false)}
         portalLabel="SkillProof"
+        logoLink={ROUTES.USER.DASHBOARD}
       />
       <div className={`app-layout__content${collapsed ? ' app-layout__content--collapsed' : ''}`}>
         <Topbar
@@ -58,6 +54,7 @@ export default function UserLayout({ pageTitle = 'SkillProof' }) {
           user={user}
           profileLink={ROUTES.USER.PROFILE}
           notifLink={ROUTES.USER.NOTIFICATIONS}
+          logoLink={ROUTES.USER.DASHBOARD}
         />
         <main className="app-layout__page">
           <Outlet />

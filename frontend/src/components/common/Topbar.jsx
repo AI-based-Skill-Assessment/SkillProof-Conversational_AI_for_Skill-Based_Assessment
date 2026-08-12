@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import Logo from './Logo';
 import '../../styles/common/topbar.css';
 import ThemeToggle from './ThemeToggle';
 import ROUTES from '../../core/routes';
@@ -13,6 +14,7 @@ import ROUTES from '../../core/routes';
  * @param {string}  profileLink - link to profile page
  * @param {string}  notifLink   - link to notifications page
  * @param {number}  notifCount  - unread notification count
+ * @param {string}  logoLink    - dashboard redirect link for mobile logo
  */
 export default function Topbar({
   title = '',
@@ -22,6 +24,7 @@ export default function Topbar({
   profileLink,
   notifLink,
   notifCount = 0,
+  logoLink = '/',
 }) {
   const initials = user?.full_name
     ? user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
@@ -41,6 +44,12 @@ export default function Topbar({
             <line x1="3" y1="18" x2="21" y2="18"/>
           </svg>
         </button>
+
+        {/* Mobile-only Logo linking back to dashboard */}
+        <Link to={logoLink} className="common-topbar__mobile-logo" aria-label="SkillProof Dashboard">
+          <Logo size={32} color="var(--primary)" />
+        </Link>
+
         {title && <h1 className="common-topbar__title">{title}</h1>}
       </div>
 

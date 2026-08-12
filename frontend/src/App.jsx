@@ -163,7 +163,7 @@ export default function App() {
         <Route
           element={
             <ProtectedRoute requiredRole="user">
-              <UserLayout pageTitle="Candidate Portal" />
+              <UserLayout pageTitle="" />
             </ProtectedRoute>
           }
         >

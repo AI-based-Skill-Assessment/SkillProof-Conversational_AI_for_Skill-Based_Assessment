@@ -15,9 +15,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadDashboard() {
+    async function loadDashboard(showLoading = true) {
       try {
-        setLoading(true);
+        if (showLoading) setLoading(true);
         // Call live endpoints
         const statsRes = await client.get('/admin/stats');
         setStats(statsRes.data);
@@ -29,10 +29,16 @@ export default function Dashboard() {
         setStats(MOCK_ADMIN_STATS);
         setPendingOrgs(MOCK_ORGANISATIONS.filter(o => o.status === 'pending'));
       } finally {
-        setLoading(false);
+        if (showLoading) setLoading(false);
       }
     }
-    loadDashboard();
+    loadDashboard(true);
+
+    const interval = setInterval(() => {
+      loadDashboard(false);
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   async function handleApprove(orgId) {
@@ -98,7 +104,7 @@ export default function Dashboard() {
                   <tr key={o.id}>
                     <td style={{ fontWeight: 600 }}>{o.name}</td>
                     <td>{o.email}</td>
-                    <td>{o.contact_name || 'Dr. Ramesh Kumar'}</td>
+                    <td>{o.contact_name || 'N/A'}</td>
                     <td>{formatDate(o.created_at)}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 8 }}>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import Logo from '../../components/common/Logo';
 import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import Input from '../../components/common/Input';
@@ -45,7 +46,7 @@ export default function TwoFactorVerify() {
     <div className="auth-container">
       <div className="auth-card anim-scale-in" style={{ maxWidth: showSetup ? '460px' : '400px' }}>
         <div className="auth-card__brand">
-          <div className="public-navbar__logo-icon" style={{ background: 'var(--error)' }}>SP</div>
+          <Logo size={36} className="public-navbar__logo-icon" color="var(--error)" />
           <span style={{ color: 'var(--text-primary)' }}>SkillProof Security</span>
         </div>
         

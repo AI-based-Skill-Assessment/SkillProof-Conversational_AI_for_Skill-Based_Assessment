@@ -120,13 +120,13 @@ export default function AssessmentReview() {
         {isCert && (
           <div className="common-card">
             <div className="common-card__header">
-              <h3 style={{ fontSize: 16, fontWeight: 700 }}>Crawler Document Verification</h3>
+              <h3 style={{ fontSize: 16, fontWeight: 700 }}>Document Verification</h3>
             </div>
             <div className="common-card__body">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Crawl State: {session.status === 'pending' ? 'Not Run' : 'Crawl Completed'}
+                    Verification State: {session.status === 'pending' ? 'Not Run' : 'Document is Verified'}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
                     Runs URL verification and MCA corporate checks to confirm issuer details.

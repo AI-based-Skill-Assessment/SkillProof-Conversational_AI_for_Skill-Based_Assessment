@@ -24,6 +24,7 @@ from app.schemas.auth import (
     AdminLoginRequest, AdminLoginStep1Response, Admin2FARequest, AdminProfileResponse,
     RefreshTokenRequest, AccessTokenResponse, GoogleVerifyRequest, UserAccountTypeRequest,
     OrgGoogleVerifyRequest, OrgGoogleOnboardRequest,
+    UserFaceRegisterRequest, UserVoiceRegisterRequest,
 )
 from app.repositories import user_repo, org_repo, admin_repo
 from app.security.jwt import (
@@ -197,20 +198,26 @@ async def update_my_account_type(
 
 @router.post("/me/register-face", summary="Register User Face Biometric")
 async def register_my_face(
+    payload: UserFaceRegisterRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UserProfileResponse:
-    updated = await user_repo.set_biometric_flags(db, current_user, face_registered=True)
+    updated = await user_repo.set_biometric_flags(
+        db, current_user, face_registered=True, face_embedding=payload.face_embedding
+    )
     await db.commit()
     return UserProfileResponse.model_validate(updated)
 
 
 @router.post("/me/register-voice", summary="Register User Voice Biometric")
 async def register_my_voice(
+    payload: UserVoiceRegisterRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UserProfileResponse:
-    updated = await user_repo.set_biometric_flags(db, current_user, voice_registered=True)
+    updated = await user_repo.set_biometric_flags(
+        db, current_user, voice_registered=True, voice_embedding=payload.voice_embedding
+    )
     await db.commit()
     return UserProfileResponse.model_validate(updated)
 
@@ -262,10 +269,14 @@ async def org_login(payload: OrgLoginRequest, db: AsyncSession = Depends(get_db)
     if org.status.value == "pending":
         raise HTTPException(
             status_code=403,
-            detail="Your organisation account is pending admin approval. Please check back later."
+            detail="Organisation account status is 'pending'. Must be approved to access the platform."
         )
     if org.status.value == "rejected":
-        raise HTTPException(status_code=403, detail="Your organisation account has been rejected.")
+        reason = org.rejection_reason or "No reason provided."
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your organisation account has been rejected by the admin. Reason: {reason}"
+        )
     if org.status.value == "suspended":
         raise HTTPException(status_code=403, detail="Your organisation account has been suspended.")
 
@@ -330,10 +341,14 @@ async def org_google_verify(payload: OrgGoogleVerifyRequest, db: AsyncSession = 
             if org.status.value == "pending":
                 raise HTTPException(
                     status_code=403,
-                    detail="Your organisation account is pending admin approval. Please check back later."
+                    detail="Organisation account status is 'pending'. Must be approved to access the platform."
                 )
             if org.status.value == "rejected":
-                raise HTTPException(status_code=403, detail="Your organisation account has been rejected.")
+                reason = org.rejection_reason or "No reason provided."
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Your organisation account has been rejected by the admin. Reason: {reason}"
+                )
             if org.status.value == "suspended":
                 raise HTTPException(status_code=403, detail="Your organisation account has been suspended.")
 
@@ -362,6 +377,7 @@ async def org_google_onboard(
     except ValueError:
         current_org.org_type = OrgType.other
     current_org.contact_name = payload.contact_name
+    current_org.contact_phone = payload.contact_phone
     current_org.website = payload.website
     current_org.address = payload.address
     current_org.google_onboarding_completed = True
@@ -370,7 +386,10 @@ async def org_google_onboard(
     db.add(current_org)
     await db.commit()
     await db.refresh(current_org)
-    return OrgProfileResponse.model_validate(current_org)
+    raise HTTPException(
+        status_code=403,
+        detail="Organisation account status is 'pending'. Must be approved to access the platform."
+    )
 
 
 @router.get("/org/me", summary="Get Organisation Profile")

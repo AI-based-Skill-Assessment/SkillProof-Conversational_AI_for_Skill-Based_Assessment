@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     ADMIN_EMAIL: str = "admin@skillproof.ai"
     ADMIN_PASSWORD: str = "SkillProof@Admin2024"   # CHANGE in production
     ADMIN_TOTP_SECRET: str = "JBSWY3DPEHPK3PXP"   # Default dev secret (use pyotp.random_base32())
+    ADMIN_TOTP_ENABLED: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",

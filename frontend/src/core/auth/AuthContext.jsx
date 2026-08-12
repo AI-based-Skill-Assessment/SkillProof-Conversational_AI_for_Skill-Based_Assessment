@@ -1,7 +1,7 @@
 /**
  * core/auth/AuthContext.jsx
  * Authentication context for all three portals.
- * Stores JWT tokens in localStorage, restores session on mount.
+ * Stores JWT tokens in localStorage partitioned by role, restores session on mount.
  * Calls real backend auth endpoints; no mock auth.
  */
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
@@ -10,13 +10,6 @@ import { EP } from '../api/endpoints';
 
 const AuthContext = createContext(null);
 
-const LS = {
-  ACCESS:  'skillproof_access_token',
-  REFRESH: 'skillproof_refresh_token',
-  ROLE:    'skillproof_role',
-  USER:    'skillproof_user',
-};
-
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);   // profile object
   const [role, setRole]       = useState(null);   // 'user' | 'org' | 'admin'
@@ -24,38 +17,43 @@ export function AuthProvider({ children }) {
   const [warningActive, setWarningActive] = useState(false);
   const [countdown, setCountdown] = useState(60);
 
-  // ── Restore session on mount ──────────────────────────────────────────────
-  useEffect(() => {
-    const storedUser = localStorage.getItem(LS.USER);
-    const storedRole = localStorage.getItem(LS.ROLE);
-    const token      = localStorage.getItem(LS.ACCESS);
-
-    if (storedUser && storedRole && token) {
-      try {
-        setUser(JSON.parse(storedUser));
-        setRole(storedRole);
-      } catch {
-        _clearStorage();
-      }
-    }
-    setLoading(false);
+  // Helper to extract role based on URL
+  const getActiveRole = useCallback((pathname = window.location.pathname) => {
+    if (pathname.startsWith('/admin')) return 'admin';
+    if (pathname.startsWith('/org')) return 'org';
+    if (pathname.startsWith('/user')) return 'user';
+    return 'user';
   }, []);
 
+  // ── Restore and Sync session on mount ───────────────────────────────────────
+  useEffect(() => {
+    const activeRole = getActiveRole(window.location.pathname);
+    const storedUser = localStorage.getItem(`skillproof_${activeRole}_user`);
+    const token      = localStorage.getItem(`skillproof_${activeRole}_access_token`);
 
-  // ── Helper: clear all auth storage ────────────────────────────────────────
-  function _clearStorage() {
-    localStorage.removeItem(LS.ACCESS);
-    localStorage.removeItem(LS.REFRESH);
-    localStorage.removeItem(LS.ROLE);
-    localStorage.removeItem(LS.USER);
-  }
+    if (storedUser && token) {
+      try {
+        setUser(JSON.parse(storedUser));
+        setRole(activeRole);
+      } catch {
+        localStorage.removeItem(`skillproof_${activeRole}_access_token`);
+        localStorage.removeItem(`skillproof_${activeRole}_refresh_token`);
+        localStorage.removeItem(`skillproof_${activeRole}_user`);
+        setUser(null);
+        setRole(activeRole);
+      }
+    } else {
+      setUser(null);
+      setRole(activeRole);
+    }
+    setLoading(false);
+  }, [getActiveRole]);
 
-  // ── Helper: save tokens + profile ─────────────────────────────────────────
+  // ── Helper: save tokens + profile partitioned by role ────────────────────────
   function _saveSession(tokens, profile, portalRole) {
-    localStorage.setItem(LS.ACCESS,  tokens.access_token);
-    localStorage.setItem(LS.REFRESH, tokens.refresh_token);
-    localStorage.setItem(LS.ROLE,    portalRole);
-    localStorage.setItem(LS.USER,    JSON.stringify(profile));
+    localStorage.setItem(`skillproof_${portalRole}_access_token`,  tokens.access_token);
+    localStorage.setItem(`skillproof_${portalRole}_refresh_token`, tokens.refresh_token);
+    localStorage.setItem(`skillproof_${portalRole}_user`,          JSON.stringify(profile));
     setUser(profile);
     setRole(portalRole);
   }
@@ -63,9 +61,8 @@ export function AuthProvider({ children }) {
   // ── User (candidate) auth ─────────────────────────────────────────────────
   const userRegister = useCallback(async ({ full_name, email, password }) => {
     const res = await client.post(EP.AUTH.USER_REGISTER, { full_name, email, password });
-    // After register, fetch profile
-    localStorage.setItem(LS.ACCESS,  res.data.access_token);
-    localStorage.setItem(LS.REFRESH, res.data.refresh_token);
+    localStorage.setItem(`skillproof_user_access_token`,  res.data.access_token);
+    localStorage.setItem(`skillproof_user_refresh_token`, res.data.refresh_token);
     const profile = await client.get(EP.AUTH.ME);
     _saveSession(res.data, profile.data, 'user');
     return profile.data;
@@ -73,8 +70,8 @@ export function AuthProvider({ children }) {
 
   const userLogin = useCallback(async ({ email, password }) => {
     const res = await client.post(EP.AUTH.USER_LOGIN, { email, password });
-    localStorage.setItem(LS.ACCESS,  res.data.access_token);
-    localStorage.setItem(LS.REFRESH, res.data.refresh_token);
+    localStorage.setItem(`skillproof_user_access_token`,  res.data.access_token);
+    localStorage.setItem(`skillproof_user_refresh_token`, res.data.refresh_token);
     const profile = await client.get(EP.AUTH.ME);
     _saveSession(res.data, profile.data, 'user');
     return profile.data;
@@ -85,8 +82,8 @@ export function AuthProvider({ children }) {
       credential_token: credentialToken,
       is_signup: isSignup
     });
-    localStorage.setItem(LS.ACCESS,  res.data.access_token);
-    localStorage.setItem(LS.REFRESH, res.data.refresh_token);
+    localStorage.setItem(`skillproof_user_access_token`,  res.data.access_token);
+    localStorage.setItem(`skillproof_user_refresh_token`, res.data.refresh_token);
     const profile = await client.get(EP.AUTH.ME);
     _saveSession(res.data, profile.data, 'user');
     return profile.data;
@@ -97,8 +94,8 @@ export function AuthProvider({ children }) {
       credential_token: credentialToken,
       is_signup: isSignup
     });
-    localStorage.setItem(LS.ACCESS,  res.data.access_token);
-    localStorage.setItem(LS.REFRESH, res.data.refresh_token);
+    localStorage.setItem(`skillproof_org_access_token`,  res.data.access_token);
+    localStorage.setItem(`skillproof_org_refresh_token`, res.data.refresh_token);
     const profile = await client.get('/auth/org/me');
     _saveSession(res.data, profile.data, 'org');
     return profile.data;
@@ -107,24 +104,23 @@ export function AuthProvider({ children }) {
   // ── Organisation auth ─────────────────────────────────────────────────────
   const orgLogin = useCallback(async ({ email, password }) => {
     const res = await client.post(EP.AUTH.ORG_LOGIN, { email, password });
-    localStorage.setItem(LS.ACCESS,  res.data.access_token);
-    localStorage.setItem(LS.REFRESH, res.data.refresh_token);
+    localStorage.setItem(`skillproof_org_access_token`,  res.data.access_token);
+    localStorage.setItem(`skillproof_org_refresh_token`, res.data.refresh_token);
     const profile = await client.get(EP.AUTH.ORG_ME);
     _saveSession(res.data, profile.data, 'org');
     return profile.data;
   }, []);
 
   // ── Admin auth ────────────────────────────────────────────────────────────
-  // Returns { temp_token, message } — caller must do 2FA step
   const adminLoginStep1 = useCallback(async ({ email, password }) => {
     const res = await client.post(EP.AUTH.ADMIN_LOGIN, { email, password });
-    return res.data;  // { temp_token, message }
+    return res.data;
   }, []);
 
   const adminLoginStep2 = useCallback(async ({ temp_token, totp_code }) => {
     const res = await client.post(EP.AUTH.ADMIN_2FA, { temp_token, totp_code });
-    localStorage.setItem(LS.ACCESS,  res.data.access_token);
-    localStorage.setItem(LS.REFRESH, res.data.refresh_token);
+    localStorage.setItem(`skillproof_admin_access_token`,  res.data.access_token);
+    localStorage.setItem(`skillproof_admin_refresh_token`, res.data.refresh_token);
     const profile = await client.get(EP.AUTH.ADMIN_ME);
     _saveSession(res.data, profile.data, 'admin');
     return profile.data;
@@ -132,16 +128,20 @@ export function AuthProvider({ children }) {
 
   // ── Logout ─────────────────────────────────────────────────────────────────
   const logout = useCallback(() => {
-    _clearStorage();
+    const currentPortalRole = getActiveRole(window.location.pathname);
+    localStorage.removeItem(`skillproof_${currentPortalRole}_access_token`);
+    localStorage.removeItem(`skillproof_${currentPortalRole}_refresh_token`);
+    localStorage.removeItem(`skillproof_${currentPortalRole}_user`);
     setUser(null);
-    setRole(null);
-  }, []);
+    setRole(currentPortalRole);
+  }, [getActiveRole]);
 
   // ── Update local user cache ────────────────────────────────────────────────
   const updateUserCache = useCallback((updatedProfile) => {
+    const currentPortalRole = getActiveRole(window.location.pathname);
     setUser(updatedProfile);
-    localStorage.setItem(LS.USER, JSON.stringify(updatedProfile));
-  }, []);
+    localStorage.setItem(`skillproof_${currentPortalRole}_user`, JSON.stringify(updatedProfile));
+  }, [getActiveRole]);
 
   // ── Inactivity / Auto-logout tracker ───────────────────────────────────────
   useEffect(() => {
@@ -191,14 +191,21 @@ export function AuthProvider({ children }) {
     return () => clearInterval(interval);
   }, [warningActive, countdown, role, logout]);
 
+  const currentRole = role || getActiveRole(window.location.pathname);
+  const currentUser = user || (() => {
+    const val = localStorage.getItem(`skillproof_${currentRole}_user`);
+    if (!val) return null;
+    try { return JSON.parse(val); } catch { return null; }
+  })();
+
   const value = {
-    user,
-    role,
+    user: currentUser,
+    role: currentRole,
     loading,
-    isAuthenticated: !!user,
-    isUser:  role === 'user',
-    isOrg:   role === 'org',
-    isAdmin: role === 'admin',
+    isAuthenticated: !!currentUser,
+    isUser:  currentRole === 'user',
+    isOrg:   currentRole === 'org',
+    isAdmin: currentRole === 'admin',
     userLogin,
     googleLogin,
     userRegister,

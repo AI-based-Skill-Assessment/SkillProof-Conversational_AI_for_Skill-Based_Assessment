@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import Logo from '../../components/common/Logo';
 import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import Input from '../../components/common/Input';
@@ -77,7 +78,7 @@ export default function SignIn() {
     <div className="auth-container">
       <div className="auth-card anim-scale-in">
         <Link to="/" className="auth-card__brand">
-          <div className="public-navbar__logo-icon">SP</div>
+          <Logo size={36} className="public-navbar__logo-icon" color="var(--primary)" />
           <span>SkillProof</span>
         </Link>
         <div className="auth-card__header">

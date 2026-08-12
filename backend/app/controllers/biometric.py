@@ -113,6 +113,21 @@ async def get_biometric_status(
 ) -> BiometricStatusResponse:
     profile = await biometric_repo.get_profile(db, session_id)
     if not profile:
+        from app.repositories import session_repo, user_repo
+        session_obj = await session_repo.get_session(db, session_id)
+        if session_obj and session_obj.owner_id:
+            owner = await user_repo.get_user(db, session_obj.owner_id)
+            if owner and (owner.face_registered or owner.voice_registered):
+                profile = await biometric_repo.create_or_update_profile(
+                    db,
+                    session_id=session_id,
+                    face_embedding=owner.face_embedding,
+                    voice_embedding=owner.voice_embedding,
+                )
+                await db.commit()
+                await db.refresh(profile)
+
+    if not profile:
         return BiometricStatusResponse(
             session_id=session_id,
             face_registered=False,
@@ -144,6 +159,9 @@ async def get_biometric_status(
 # POST /api/v1/biometric/check-duplicate
 # ═══════════════════════════════════════════════════════════════════════════════
 
+from app.models.user import User
+from sqlalchemy import select
+
 @router.post(
     "/biometric/check-duplicate",
     response_model=BiometricDuplicateCheckResponse,
@@ -166,10 +184,24 @@ async def check_duplicate(
     # ── Face duplicate scan ───────────────────────────────────────────────────
     face_emb = _extract_face_embedding_if_present(payload.face_image, payload.face_embedding)
     if face_emb:
+        # 1. Search session biometric profiles
         face_dup = await biometric_repo.find_face_duplicate(
             db, payload.session_id, face_emb
         )
-        if face_dup:
+        
+        # 2. Search user accounts (onboarding biometrics)
+        if not face_dup:
+            stmt = select(User).where(User.face_registered == True).where(User.id != payload.session_id)
+            res = await db.execute(stmt)
+            all_users = res.scalars().all()
+            for u in all_users:
+                if u.face_embedding and len(u.face_embedding) == len(face_emb):
+                    dist = biometric_repo.euclidean_distance(face_emb, u.face_embedding)
+                    if dist < biometric_repo.FACE_DUPLICATE_THRESHOLD:
+                        face_dup = u
+                        face_dist = round(dist, 4)
+                        break
+        else:
             # Compute match distance (euclidean or 1-cosine)
             if len(face_emb) == 512 and face_dup.face_embedding and len(face_dup.face_embedding) == 512:
                 sim = biometric_repo.cosine_similarity(face_emb, face_dup.face_embedding)
@@ -181,11 +213,26 @@ async def check_duplicate(
 
     # ── Voice duplicate scan ──────────────────────────────────────────────────
     if payload.voice_embedding:
+        # 1. Search session biometric profiles
         voice_dup = await biometric_repo.find_voice_duplicate(
             db, payload.session_id, payload.voice_embedding
         )
-        if voice_dup:
-            voice_sim = round(biometric_repo.cosine_similarity(
+        
+        # 2. Search user accounts (onboarding biometrics)
+        if not voice_dup:
+            stmt = select(User).where(User.voice_registered == True).where(User.id != payload.session_id)
+            res = await db.execute(stmt)
+            all_users = res.scalars().all()
+            for u in all_users:
+                if u.voice_embedding and len(u.voice_embedding) == len(payload.voice_embedding):
+                    sim = biometric_repo.voice_similarity(payload.voice_embedding, u.voice_embedding)
+                    print(f"[DEBUG] Voice duplicate check similarity: {sim:.4f} (threshold: {biometric_repo.VOICE_DUPLICATE_THRESHOLD})")
+                    if sim >= biometric_repo.VOICE_DUPLICATE_THRESHOLD:
+                        voice_dup = u
+                        voice_sim = round(sim, 4)
+                        break
+        else:
+            voice_sim = round(biometric_repo.voice_similarity(
                 payload.voice_embedding, voice_dup.voice_embedding
             ), 4)
 
@@ -198,12 +245,15 @@ async def check_duplicate(
             else "face" if face_dup
             else "voice"
         )
-        dup_session_id = str(
-            face_dup.session_id if face_dup else voice_dup.session_id
-        )
+        # Determine competing session or user id string
+        if hasattr(face_dup if face_dup else voice_dup, "session_id"):
+            dup_ref_id = str((face_dup if face_dup else voice_dup).session_id)
+        else:
+            dup_ref_id = str((face_dup if face_dup else voice_dup).id)
+            
         try:
             await biometric_repo.mark_duplicate(
-                db, payload.session_id, dup_session_id, bio_type
+                db, payload.session_id, dup_ref_id, bio_type
             )
             await db.commit()
         except ValueError:
@@ -215,11 +265,12 @@ async def check_duplicate(
             parts.append("face")
         if voice_dup:
             parts.append("voice")
-        msg = (
-            f"Duplicate {' and '.join(parts)} biometric detected. "
-            "This biometric is already registered under a different account. "
-            "Registration is blocked to prevent proxy abuse."
-        )
+        if face_dup and voice_dup:
+            msg = "Duplicate face and voice detected"
+        elif face_dup:
+            msg = "Duplicate face detected"
+        else:
+            msg = "Duplicate voice detected"
     else:
         msg = "No duplicates found. Biometric is unique — safe to register."
 
@@ -249,6 +300,21 @@ async def verify_biometrics(
 ) -> BiometricVerifyResponse:
     profile = await biometric_repo.get_profile(db, payload.session_id)
     if not profile:
+        from app.repositories import session_repo, user_repo
+        session_obj = await session_repo.get_session(db, payload.session_id)
+        if session_obj and session_obj.owner_id:
+            owner = await user_repo.get_user_by_id(db, session_obj.owner_id)
+            if owner and (owner.face_registered or owner.voice_registered):
+                profile = await biometric_repo.create_or_update_profile(
+                    db,
+                    session_id=payload.session_id,
+                    face_embedding=owner.face_embedding,
+                    voice_embedding=owner.voice_embedding,
+                )
+                await db.commit()
+                await db.refresh(profile)
+
+    if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No biometric profile for session {payload.session_id}.",
@@ -258,7 +324,7 @@ async def verify_biometrics(
     voice_match = False; voice_conf = 0.0
     mismatch = False
 
-    face_emb = _extract_face_embedding_if_present(payload.face_image, payload.face_embedding)
+    face_emb = _extract_face_embedding_if_present(getattr(payload, 'face_image', None), payload.face_embedding)
     if face_emb and profile.face_embedding:
         is_arcface = len(face_emb) == 512 and len(profile.face_embedding) == 512
         if is_arcface:
@@ -328,6 +394,21 @@ async def interview_verify(
     db: AsyncSession = Depends(get_db),
 ) -> InterviewVerifyResponse:
     profile = await biometric_repo.get_profile(db, payload.session_id)
+    if not profile:
+        from app.repositories import session_repo, user_repo
+        session_obj = await session_repo.get_session(db, payload.session_id)
+        if session_obj and session_obj.owner_id:
+            owner = await user_repo.get_user_by_id(db, session_obj.owner_id)
+            if owner and (owner.face_registered or owner.voice_registered):
+                profile = await biometric_repo.create_or_update_profile(
+                    db,
+                    session_id=payload.session_id,
+                    face_embedding=owner.face_embedding,
+                    voice_embedding=owner.voice_embedding,
+                )
+                await db.commit()
+                await db.refresh(profile)
+
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

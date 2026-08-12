@@ -50,8 +50,19 @@
 
 .common-topbar__menu-btn:hover { background: var(--surface-hover); }
 
+.common-topbar__mobile-logo {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 @media (max-width: 1023px) {
   .common-topbar__menu-btn { display: flex; }
+  .common-topbar__mobile-logo {
+    display: flex;
+    margin-right: var(--space-2);
+  }
 }
 
 .common-topbar__title {

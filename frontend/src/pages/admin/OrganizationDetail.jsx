@@ -34,13 +34,23 @@ export default function OrganizationDetail() {
   }, [id]);
 
   async function handleStatus(action) {
+    let payload = {};
+    if (action === 'reject') {
+      const reason = window.prompt("Please enter the reason for rejecting this organisation:");
+      if (reason === null) return; // User cancelled
+      if (!reason.trim()) {
+        toast.warning('Reason Required', 'You must enter a reason to reject the registration.');
+        return;
+      }
+      payload = { reason: reason.trim() };
+    }
+
     try {
-      // endpoints: approve, suspend, reactivate, reject
-      const res = await client.post(`/admin/organisations/${id}/${action}`);
+      const res = await client.post(`/admin/organisations/${id}/${action}`, payload);
       setOrg(res.data);
       toast.success('Status updated', `Institution has been marked as ${res.data.status}.`);
     } catch (err) {
-      toast.error('Action failed', 'Failed updating status.');
+      toast.error('Action failed', err.response?.data?.detail || 'Failed updating status.');
     }
   }
 
@@ -86,14 +96,18 @@ export default function OrganizationDetail() {
             <div>{org.email}</div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Primary Contact:</div>
-            <div>{org.contact_name || 'Dr. Ramesh Kumar'}</div>
+            <div>{org.contact_name || 'N/A'}</div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Contact Phone:</div>
-            <div>{org.contact_phone || '+91-9876543210'}</div>
+            <div>{org.contact_phone || 'N/A'}</div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Website Link:</div>
             <div>
-              <a href={org.website} target="_blank" rel="noopener noreferrer">{org.website || 'https://www.nitt.edu'}</a>
+              {org.website ? (
+                <a href={org.website} target="_blank" rel="noopener noreferrer">{org.website}</a>
+              ) : (
+                'N/A'
+              )}
             </div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Candidates Linked:</div>

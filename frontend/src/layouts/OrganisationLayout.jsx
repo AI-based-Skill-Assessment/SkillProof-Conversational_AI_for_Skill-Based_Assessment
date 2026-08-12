@@ -48,6 +48,7 @@ export default function OrganisationLayout({ pageTitle = 'Organisation Portal' }
         onToggle={() => setCollapsed(c => !c)}
         onMobileClose={() => setMobileOpen(false)}
         portalLabel="SkillProof Org"
+        logoLink={ROUTES.ORG.DASHBOARD}
       />
       <div className={`app-layout__content${collapsed ? ' app-layout__content--collapsed' : ''}`}>
         <Topbar
@@ -56,6 +57,7 @@ export default function OrganisationLayout({ pageTitle = 'Organisation Portal' }
           onMenuClick={() => setMobileOpen(o => !o)}
           user={user}
           profileLink={ROUTES.ORG.PROFILE}
+          logoLink={ROUTES.ORG.DASHBOARD}
         />
         <main className="app-layout__page">
           <Outlet />
