@@ -240,9 +240,9 @@ export default function VoiceRegistration() {
     const channelData = audioBuf.getChannelData(0); // Float32Array
     const duration = audioBuf.duration;
 
-    // Check minimum duration to ensure they speak the sentence
-    if (duration < 3.0) {
-      throw new Error(`Recording is too short (${duration.toFixed(1)}s). Please read the entire sentence clearly.`);
+    // Check minimum duration to ensure they speak the entire required sentence
+    if (duration < 3.2) {
+      throw new Error("Please speak every word of the passphrase clearly to register your voice: 'My voice is my unique identity and my password'.");
     }
 
     // 1. High-pass filter to remove low-frequency room noise (background hum / noise suppression)
@@ -267,12 +267,12 @@ export default function VoiceRegistration() {
 
     // If signal amplitude is extremely low (silence)
     if (rms < 0.005) {
-      throw new Error("no voice is detected");
+      throw new Error("No voice detected. Please check your microphone and speak clearly.");
     }
 
     // If signal is present but too soft/quiet for reliable biometric extraction
     if (rms < 0.025) {
-      throw new Error("the voice is not clear speak loudly");
+      throw new Error("The voice is not clear or too quiet. Please speak every word loudly to register your voice.");
     }
 
     const frameSize = 512;
@@ -296,15 +296,10 @@ export default function VoiceRegistration() {
     }
 
     if (frames === 0) return [];
-    // Average feature values across frames
+    // Average feature values across frames & Min-Max normalize to [0, 1] range
     const avgEmbedding = embedding.map(v => v / frames);
-
-    // Mean-center and Z-score normalize so speaker-specific dynamic range is preserved
-    const mean = avgEmbedding.reduce((a, b) => a + b, 0) / avgEmbedding.length;
-    const variance = avgEmbedding.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / avgEmbedding.length;
-    const std = Math.sqrt(variance) || 1e-6;
-
-    return avgEmbedding.map(v => (v - mean) / std);
+    const maxVal = Math.max(...avgEmbedding);
+    return avgEmbedding.map(v => maxVal > 0 ? parseFloat((v / maxVal).toFixed(6)) : 0);
   }
 
   function bitReverse(n, bits) {

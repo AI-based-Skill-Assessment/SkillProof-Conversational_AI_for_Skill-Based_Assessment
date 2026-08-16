@@ -69,9 +69,9 @@ app.include_router(admin_mgmt_router, prefix="/api/v1", tags=["Admin Management"
 # Assessment pipeline (existing)
 app.include_router(ingest_router,     prefix="/api/v1", tags=["Ingest"])
 app.include_router(verify_router,     prefix="/api/v1", tags=["Verification"])
+app.include_router(voice_router,      prefix="/api/v1", tags=["Voice Interview"])
 app.include_router(interview_router,  prefix="/api/v1", tags=["Interview"])
 app.include_router(score_router,      prefix="/api/v1", tags=["Scores"])
-app.include_router(voice_router,      prefix="/api/v1", tags=["Voice Interview"])
 app.include_router(biometric_router,  prefix="/api/v1", tags=["Biometrics"])
 
 

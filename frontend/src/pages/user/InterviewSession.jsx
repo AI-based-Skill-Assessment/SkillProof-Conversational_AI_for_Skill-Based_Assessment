@@ -204,58 +204,108 @@ export default function InterviewSession() {
     };
   }, [modelsLoaded, id]);
 
-  // 3. Connect to live WebSocket or fallback mock
+  // 3. Connect to live WebSocket with ping heartbeat and disconnect auto-recovery
+  const navigateRef = useRef(navigate);
+  const toastRef = useRef(toast);
   useEffect(() => {
-    const wsUrl = `ws://${window.location.hostname}:8000/api/v1/interview/${id}/ws`;
-    console.log(`Connecting to Interview WebSocket: ${wsUrl}`);
+    navigateRef.current = navigate;
+    toastRef.current = toast;
+  });
 
-    const socket = new WebSocket(wsUrl);
-    socketRef.current = socket;
+  const [wsStatus, setWsStatus] = useState('connecting'); // 'connecting' | 'connected' | 'disconnected'
+  const [reconnectCounter, setReconnectCounter] = useState(0);
 
-    socket.onopen = () => {
-      console.log('Interview WS Connection opened.');
-      socket.send(JSON.stringify({ type: 'start' }));
-    };
+  useEffect(() => {
+    let isComponentMounted = true;
+    let socket = null;
+    let pingInterval = null;
+    let reconnectTimer = null;
 
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('WS Message received:', data);
+    function connect() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.hostname}:8000/api/v1/interview/${id}/ws`;
+      console.log(`Connecting to Interview WebSocket: ${wsUrl}`);
+      setWsStatus('connecting');
 
-        if (data.type === 'ready') {
-          setAiState('speaking');
-          setAiText(data.first_question);
-          setMessages([{ sender: 'ai', text: data.first_question }]);
-        } else if (data.type === 'question') {
-          setAiState('speaking');
-          setAiText(data.text);
-          setMessages(prev => [...prev, { sender: 'ai', text: data.text }]);
-        } else if (data.type === 'complete') {
-          toast.success('Interview Completed', 'Analyzing your answers now...');
-          navigate(ROUTES.USER.INTERVIEW_PROCESSING(id));
-        } else if (data.type === 'error') {
-          toast.error('Identity Verification Failed', data.message);
-          navigate(ROUTES.USER.DASHBOARD());
+      socket = new WebSocket(wsUrl);
+      socketRef.current = socket;
+
+      socket.onopen = () => {
+        if (!isComponentMounted) return;
+        console.log('Interview WS Connection opened.');
+        setWsStatus('connected');
+        socket.send(JSON.stringify({ type: 'start' }));
+
+        // Heartbeat timer to keep connection alive and detect dropped sockets
+        pingInterval = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 10000);
+      };
+
+      socket.onmessage = (event) => {
+        if (!isComponentMounted) return;
+        try {
+          const data = JSON.parse(event.data);
+          console.log('WS Message received:', data);
+
+          if (data.type === 'ready') {
+            setAiState('speaking');
+            setAiText(data.first_question || data.content || 'Ready to start.');
+            setMessages([{ sender: 'ai', text: data.first_question || data.content || 'Ready to start.' }]);
+          } else if (data.type === 'question') {
+            setAiState('speaking');
+            setAiText(data.text || data.content);
+            setMessages(prev => [...prev, { sender: 'ai', text: data.text || data.content }]);
+          } else if (data.type === 'complete') {
+            toastRef.current.success('Interview Completed', 'Analyzing your answers now...');
+            navigateRef.current(ROUTES.USER.INTERVIEW_PROCESSING(id));
+          } else if (data.type === 'error') {
+            toastRef.current.error('Session Error', data.message || 'Interview session error occurred.');
+            if (data.message && data.message.includes('Biometric verification failed')) {
+              navigateRef.current(ROUTES.USER.DASHBOARD);
+            }
+          }
+        } catch (err) {
+          console.error('Failed parsing WS frame:', err);
         }
-      } catch (err) {
-        console.error('Failed parsing WS frame:', err);
-      }
-    };
+      };
 
-    socket.onerror = (err) => {
-      console.error('WS Error:', err);
-      toast.warning('WebSocket Unreachable', 'Running interview in simulated mode.');
-      setupSimulatedInterview();
-    };
+      socket.onerror = (err) => {
+        console.error('WS Error:', err);
+      };
 
-    socket.onclose = () => {
-      console.log('WS Connection closed.');
-    };
+      socket.onclose = (e) => {
+        if (!isComponentMounted) return;
+        console.log(`WS Connection closed (code ${e.code}).`);
+        if (pingInterval) clearInterval(pingInterval);
+
+        setWsStatus('disconnected');
+
+        // Automatic reconnect if connection dropped unexpectedly (not normal completion code 1000 or policy code 1008)
+        if (e.code !== 1000 && e.code !== 1008) {
+          toastRef.current.warning('Connection Dropped', 'Attempting to reconnect to interview server...');
+          reconnectTimer = setTimeout(() => {
+            if (isComponentMounted) {
+              setReconnectCounter(c => c + 1);
+            }
+          }, 3000);
+        }
+      };
+    }
+
+    connect();
 
     return () => {
-      socket.close();
+      isComponentMounted = false;
+      if (pingInterval) clearInterval(pingInterval);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        socket.close(1000, 'Component unmounted');
+      }
     };
-  }, [id, navigate, toast]);
+  }, [id, reconnectCounter]);
 
   // Simulated flow fallback on error / demo runs
   function setupSimulatedInterview() {
@@ -309,6 +359,49 @@ export default function InterviewSession() {
     <div className="anim-fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 24, height: 'calc(100vh - 120px)' }}>
       {/* Left: Chat room, prompt, orb */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24, background: 'var(--surface)', borderRadius: 'var(--radius-xl)', padding: 24, border: '1px solid var(--border)', position: 'relative' }}>
+        {wsStatus === 'disconnected' && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: 'var(--radius-md)',
+            padding: '10px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justify: 'space-between',
+            fontSize: 13,
+            color: '#f87171'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+              <strong>Connection Lost:</strong> Live WebSocket disconnected. Attempting auto-reconnect...
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setReconnectCounter(c => c + 1)}
+              style={{ fontSize: 12, padding: '4px 12px' }}
+            >
+              Reconnect Now
+            </Button>
+          </div>
+        )}
+        {wsStatus === 'connecting' && (
+          <div style={{
+            background: 'rgba(56, 189, 248, 0.1)',
+            border: '1px solid rgba(56, 189, 248, 0.2)',
+            borderRadius: 'var(--radius-md)',
+            padding: '8px 16px',
+            fontSize: 12,
+            color: 'var(--accent)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', animation: 'pulse 1s infinite' }} />
+            Connecting to live interview server...
+          </div>
+        )}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <AIOrb state={aiState} text={aiState === 'speaking' ? 'Speaking' : aiState === 'listening' ? 'Listening' : 'Thinking'} />
 

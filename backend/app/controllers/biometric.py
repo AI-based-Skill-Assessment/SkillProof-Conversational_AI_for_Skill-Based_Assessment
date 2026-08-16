@@ -44,7 +44,7 @@ def _extract_face_embedding_if_present(face_image: Optional[str], fallback_emb: 
 
 
 FACE_DIST_THRESHOLD  = 0.50   # Strict Euclidean distance threshold (face-api.js) — rejects different individuals strictly
-VOICE_SIM_THRESHOLD  = 0.70   # Pearson similarity threshold for matching live candidate voice to registered voice
+VOICE_SIM_THRESHOLD  = 0.55   # Pearson similarity threshold for matching live candidate voice to registered voice
 
 
 
@@ -112,20 +112,19 @@ async def get_biometric_status(
     db: AsyncSession = Depends(get_db),
 ) -> BiometricStatusResponse:
     profile = await biometric_repo.get_profile(db, session_id)
-    if not profile:
-        from app.repositories import session_repo, user_repo
-        session_obj = await session_repo.get_session(db, session_id)
-        if session_obj and session_obj.owner_id:
-            owner = await user_repo.get_user(db, session_obj.owner_id)
-            if owner and (owner.face_registered or owner.voice_registered):
-                profile = await biometric_repo.create_or_update_profile(
-                    db,
-                    session_id=session_id,
-                    face_embedding=owner.face_embedding,
-                    voice_embedding=owner.voice_embedding,
-                )
-                await db.commit()
-                await db.refresh(profile)
+    from app.repositories import session_repo, user_repo
+    session_obj = await session_repo.get_session(db, session_id)
+    if session_obj and session_obj.owner_id:
+        owner = await user_repo.get_user_by_id(db, session_obj.owner_id)
+        if owner and (owner.face_registered or owner.voice_registered):
+            profile = await biometric_repo.create_or_update_profile(
+                db,
+                session_id=session_id,
+                face_embedding=owner.face_embedding,
+                voice_embedding=owner.voice_embedding,
+            )
+            await db.commit()
+            await db.refresh(profile)
 
     if not profile:
         return BiometricStatusResponse(
@@ -197,6 +196,7 @@ async def check_duplicate(
             for u in all_users:
                 if u.face_embedding and len(u.face_embedding) == len(face_emb):
                     dist = biometric_repo.euclidean_distance(face_emb, u.face_embedding)
+                    print(f"[DEBUG] Face duplicate check distance: {dist:.4f} (threshold: {biometric_repo.FACE_DUPLICATE_THRESHOLD})")
                     if dist < biometric_repo.FACE_DUPLICATE_THRESHOLD:
                         face_dup = u
                         face_dist = round(dist, 4)
@@ -299,20 +299,21 @@ async def verify_biometrics(
     db: AsyncSession = Depends(get_db),
 ) -> BiometricVerifyResponse:
     profile = await biometric_repo.get_profile(db, payload.session_id)
-    if not profile:
-        from app.repositories import session_repo, user_repo
-        session_obj = await session_repo.get_session(db, payload.session_id)
-        if session_obj and session_obj.owner_id:
-            owner = await user_repo.get_user_by_id(db, session_obj.owner_id)
-            if owner and (owner.face_registered or owner.voice_registered):
-                profile = await biometric_repo.create_or_update_profile(
-                    db,
-                    session_id=payload.session_id,
-                    face_embedding=owner.face_embedding,
-                    voice_embedding=owner.voice_embedding,
-                )
-                await db.commit()
-                await db.refresh(profile)
+    from app.repositories import session_repo, user_repo
+    session_obj = await session_repo.get_session(db, payload.session_id)
+
+    if session_obj and session_obj.owner_id:
+        owner = await user_repo.get_user_by_id(db, session_obj.owner_id)
+        if owner and (owner.face_registered or owner.voice_registered):
+            # Always sync current logged-in candidate's latest registered embeddings to session profile
+            profile = await biometric_repo.create_or_update_profile(
+                db,
+                session_id=payload.session_id,
+                face_embedding=owner.face_embedding,
+                voice_embedding=owner.voice_embedding,
+            )
+            await db.commit()
+            await db.refresh(profile)
 
     if not profile:
         raise HTTPException(
@@ -347,6 +348,7 @@ async def verify_biometrics(
         sim = biometric_repo.voice_similarity(
             payload.voice_embedding, profile.voice_embedding
         )
+        print(f"[DEBUG] Pre-interview voice verification similarity: {sim:.4f} (Threshold: {VOICE_SIM_THRESHOLD})")
         voice_conf  = max(0.0, round(sim, 4))
         voice_match = sim >= VOICE_SIM_THRESHOLD
         if not voice_match:
@@ -358,9 +360,9 @@ async def verify_biometrics(
 
     parts = []
     if payload.face_embedding:
-        parts.append("Face verified" if face_match else "Face mismatch")
+        parts.append("✓ Face identity verified" if face_match else "Face ID mismatch: The person on camera does not match the registered candidate face.")
     if payload.voice_embedding:
-        parts.append("Voice verified" if voice_match else "Voice mismatch")
+        parts.append("✓ Voice identity verified" if voice_match else "Voice ID mismatch: Speaker voice pattern does not match the registered candidate profile.")
 
     return BiometricVerifyResponse(
         session_id=payload.session_id,

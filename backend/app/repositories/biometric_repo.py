@@ -111,8 +111,8 @@ async def mark_duplicate(
 # Duplicate Cross-Session Checks
 # ─────────────────────────────────────────────────────────────────────────────
 
-FACE_DUPLICATE_THRESHOLD  = 0.50   # Euclidean — strict for duplicate detection
-VOICE_DUPLICATE_THRESHOLD = 0.78   # Pearson correlation / similarity threshold — calibrated to 0.78 to prevent false positive duplicate matches for different speakers
+FACE_DUPLICATE_THRESHOLD  = 0.55   # Euclidean distance threshold (face-api.js 128-dim) — catches duplicate face registrations
+VOICE_DUPLICATE_THRESHOLD = 0.78   # Pearson correlation / similarity threshold — catches duplicate voice registrations
 
 
 async def find_face_duplicate(
@@ -156,7 +156,7 @@ async def find_voice_duplicate(
 # ─────────────────────────────────────────────────────────────────────────────
 
 FACE_MATCH_THRESHOLD  = 0.60   # Euclidean — same person during interview
-VOICE_MATCH_THRESHOLD = 0.85   # Pearson correlation on smoothed log-differenced formants
+VOICE_MATCH_THRESHOLD = 0.55   # Pearson correlation on smoothed log-differenced formants
 
 FLAG_AT_FRAUD_COUNT = 3        # Flag interview after N combined integrity failures
 

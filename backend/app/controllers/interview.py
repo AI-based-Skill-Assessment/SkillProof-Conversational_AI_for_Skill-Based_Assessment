@@ -87,7 +87,10 @@ async def technical_interview_websocket(
             
             try:
                 parsed_data = json.loads(data)
-                candidate_reply = parsed_data.get("content", data)
+                if isinstance(parsed_data, dict) and parsed_data.get("type") == "ping":
+                    await websocket.send_json({"role": "system", "type": "pong", "content": "pong"})
+                    continue
+                candidate_reply = parsed_data.get("content", data) if isinstance(parsed_data, dict) else data
             except Exception:
                 candidate_reply = data
 

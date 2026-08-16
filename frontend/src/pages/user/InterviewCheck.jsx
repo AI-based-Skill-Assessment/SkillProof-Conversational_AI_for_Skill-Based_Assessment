@@ -376,15 +376,17 @@ export default function InterviewCheck() {
         toast.success('Voice Match Successful', 'Your voice footprint matched your registered profile.');
       } else {
         setVoiceChecking(false);
-        setVoiceStatus('Voice mismatch. Speak clearly into the microphone.');
+        const errMsg = res.data.message || 'Voice ID mismatch: Speaker voice pattern does not match the registered candidate profile.';
+        setVoiceStatus(errMsg);
         setVoiceStatusClass('err');
-        toast.error('Voice Mismatch', 'Verification failed. Try again in a quiet environment.');
+        toast.error('Voice ID Check Failed', errMsg);
       }
     } catch (err) {
       setVoiceChecking(false);
-      setVoiceStatus(err.message || 'Verification failed. Try again.');
+      const msg = err.response?.data?.detail || err.message || 'Verification failed. Try again.';
+      setVoiceStatus(msg);
       setVoiceStatusClass('err');
-      toast.error('Voice Match Failed', err.message || 'Recording issues.');
+      toast.error('Voice Check Issue', msg);
     }
   }
 
@@ -414,8 +416,8 @@ export default function InterviewCheck() {
     const channelData = audioBuf.getChannelData(0);
     const duration = audioBuf.duration;
 
-    if (duration < 3.0) {
-      throw new Error(`Voice capture too short (${duration.toFixed(1)}s). Speak the full sentence.`);
+    if (duration < 3.2) {
+      throw new Error("Please speak every word of the passphrase clearly: 'My voice is my unique identity and my password'.");
     }
 
     const sampleRate = audioBuf.sampleRate;
@@ -434,8 +436,16 @@ export default function InterviewCheck() {
       sumSquares += filteredData[i] * filteredData[i];
     }
     const rms = Math.sqrt(sumSquares / filteredData.length);
+    console.log('[DEBUG] Audio signal RMS energy:', rms);
+
+    // 1. Silent or no voice captured
     if (rms < 0.005) {
-      throw new Error("No voice detected. Please speak clearly into your mic.");
+      throw new Error("No voice detected. Please check your microphone and speak clearly.");
+    }
+
+    // 2. Far away, too quiet, or background noise dominant
+    if (rms < 0.025) {
+      throw new Error("Voice is too quiet or distant. Please move closer to the microphone and speak loudly.");
     }
 
     const frameSize = 512;
@@ -461,7 +471,7 @@ export default function InterviewCheck() {
     if (frames === 0) return [];
     const avgEmbedding = embedding.map(v => v / frames);
     const maxVal = Math.max(...avgEmbedding);
-    return avgEmbedding.map(v => maxVal > 0 ? v / maxVal : 0);
+    return avgEmbedding.map(v => maxVal > 0 ? parseFloat((v / maxVal).toFixed(6)) : 0);
   }
 
   function bitReverse(n, bits) {

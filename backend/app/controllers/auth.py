@@ -203,6 +203,31 @@ async def register_my_face(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UserProfileResponse:
+    # ── Double check face uniqueness across registered users and biometric profiles
+    if payload.face_embedding:
+        # Check against existing users
+        stmt = select(User).where(User.face_registered == True).where(User.id != current_user.id)
+        res = await db.execute(stmt)
+        other_users = res.scalars().all()
+        for u in other_users:
+            if u.face_embedding and len(u.face_embedding) == len(payload.face_embedding):
+                dist = biometric_repo.euclidean_distance(payload.face_embedding, u.face_embedding)
+                if dist < biometric_repo.FACE_DUPLICATE_THRESHOLD:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Duplicate face detected: This face is already registered under another account."
+                    )
+        
+        # Check against session biometric profiles
+        face_dup = await biometric_repo.find_face_duplicate(
+            db, current_user.id, payload.face_embedding
+        )
+        if face_dup:
+            raise HTTPException(
+                status_code=400,
+                detail="Duplicate face detected: This face matches an existing registered profile."
+            )
+
     updated = await user_repo.set_biometric_flags(
         db, current_user, face_registered=True, face_embedding=payload.face_embedding
     )
