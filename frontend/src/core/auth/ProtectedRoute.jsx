@@ -56,7 +56,8 @@ export function ProtectedRoute({ requiredRole, children }) {
 
   // ── Candidate Onboarding Checks ──────────────────────────────────────────
   if (requiredRole === 'user' && role === 'user') {
-    const currentStep = user?.onboarding_step || 'account_type';
+    const isBiometricsRegistered = user?.face_registered === true && user?.voice_registered === true;
+    const currentStep = isBiometricsRegistered ? 'completed' : (user?.onboarding_step || 'account_type');
     const path = location.pathname;
 
     if (currentStep !== 'completed') {

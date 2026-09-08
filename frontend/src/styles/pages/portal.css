@@ -49,10 +49,9 @@
   margin-top: var(--space-1);
 }
 
-/* Dashboard layouts */
 .dashboard-grid {
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-4);
   grid-template-columns: repeat(4, 1fr);
   margin-bottom: var(--space-7);
 }
@@ -63,6 +62,74 @@
 
 @media (max-width: 640px) {
   .dashboard-grid { grid-template-columns: 1fr; }
+}
+
+/* Glassmorphic Responsive Candidate Hub Cards */
+.hub-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.hub-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-hover);
+}
+
+.hub-card--primary { border-top: 3px solid var(--primary); }
+.hub-card--info { border-top: 3px solid #3b82f6; }
+.hub-card--success { border-top: 3px solid #10b981; }
+.hub-card--purple { border-top: 3px solid #8b5cf6; }
+
+.hub-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.hub-card__tag {
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.hub-card__badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.hub-card__badge--cyan { background: rgba(14, 165, 233, 0.12); color: var(--primary); }
+.hub-card__badge--blue { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+.hub-card__badge--green { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.hub-card__badge--purple { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
+
+.hub-card__title {
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin-top: var(--space-1);
+}
+
+.hub-card__text {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+}
+
+.hub-card__action {
+  margin-top: var(--space-4);
 }
 
 .dashboard-section {
@@ -147,23 +214,294 @@
   width: 140px;
   height: 140px;
   border-radius: 50%;
-  border: 8px solid var(--border);
+  background: conic-gradient(
+    var(--score-color, #1F9D6C) calc(var(--score-pct, 0) * 1%),
+    rgba(0, 0, 0, 0.08) calc(var(--score-pct, 0) * 1%) 100%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto var(--space-4);
+  padding: 8px;
+}
+
+.score-display-ring::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: var(--surface);
+  z-index: 1;
 }
 
 .score-display-ring__val {
-  font-size: var(--text-3xl);
-  font-weight: var(--font-extrabold);
+  position: relative;
+  z-index: 2;
+  font-size: 24px;
+  font-weight: 800;
   color: var(--text-primary);
+  line-height: 1;
+  margin-top: -10px;
 }
 
 .score-display-ring__label {
   position: absolute;
-  bottom: 24px;
-  font-size: var(--text-xs);
+  bottom: 22px;
+  z-index: 2;
+  font-size: 11px;
   color: var(--text-secondary);
-  font-weight: var(--font-medium);
+  font-weight: 600;
+  text-align: center;
+  max-width: 95px;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Dedicated Clean Single-Page Print / PDF Export Styles
+   ───────────────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 10pt !important;
+    line-height: 1.35 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Hide app navigation chrome, topbar, sidebar and non-printable elements */
+  .sidebar,
+  .topbar,
+  .common-sidebar,
+  .common-topbar,
+  header,
+  nav,
+  .page-header__actions,
+  .common-alert,
+  .report-non-printable {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .app-layout {
+    display: block !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .app-layout__content {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    padding-top: 0 !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  .app-layout__page {
+    padding: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* Single-page container constraints */
+  .report-print-container {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Header banner */
+  .report-print-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    border-bottom: 2px solid #0284c7 !important;
+    padding-bottom: 6px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .report-print-title {
+    font-size: 16pt !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+  }
+
+  .report-print-subtitle {
+    font-size: 9pt !important;
+    color: #64748b !important;
+    margin-top: 2px !important;
+  }
+
+  /* Cards in print */
+  .report-print-container .common-card,
+  .report-print-container .card {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    border-radius: 6px !important;
+    padding: 8px 12px !important;
+  }
+
+  .report-print-container .card-body,
+  .report-print-container .common-card__body {
+    padding: 0 !important;
+  }
+
+  .report-print-container .card-header {
+    padding: 0 0 6px 0 !important;
+    margin-bottom: 4px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+
+  .report-print-container h3,
+  .report-print-container .card-title {
+    color: #0f172a !important;
+    font-size: 10.5pt !important;
+    margin-bottom: 4px !important;
+  }
+
+  .report-print-container p,
+  .report-print-container li,
+  .report-print-container span,
+  .report-print-container div {
+    color: #1e293b !important;
+    font-size: 9.5pt !important;
+  }
+
+  /* Score ring in print - colored outline filled according to score percentage */
+  .report-print-container .score-display-ring,
+  .score-display-ring {
+    width: 95px !important;
+    height: 95px !important;
+    padding: 6px !important;
+    background: conic-gradient(
+      var(--score-color, #1F9D6C) calc(var(--score-pct, 0) * 1%),
+      #e2e8f0 calc(var(--score-pct, 0) * 1%) 100%
+    ) !important;
+    border: none !important;
+    margin: 0 auto 6px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .report-print-container .score-display-ring::before,
+  .score-display-ring::before {
+    inset: 6px !important;
+    background: #ffffff !important;
+  }
+
+  .report-print-container .score-display-ring__val,
+  .score-display-ring__val {
+    font-size: 15pt !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+  }
+
+  .report-print-container .score-display-ring__label,
+  .score-display-ring__label {
+    position: absolute !important;
+    bottom: 12px !important;
+    font-size: 6.5pt !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.03em !important;
+    line-height: 1.1 !important;
+    max-width: 70px !important;
+    text-align: center !important;
+  }
+
+  /* Grid 2 in print */
+  .report-print-grid-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Verification data list */
+  .report-print-verify-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px 16px !important;
+    font-size: 9.5pt !important;
+  }
+
+  .report-print-verify-item {
+    display: flex !important;
+    justify-content: space-between !important;
+    border-bottom: 1px dashed #e2e8f0 !important;
+    padding-bottom: 2px !important;
+  }
+
+  .report-print-badge-pass {
+    color: #16a34a !important;
+    font-weight: 700 !important;
+  }
+
+  /* Dedicated compact QR in PDF parallel to score on right */
+  .report-print-hero-card {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 16px !important;
+  }
+
+  .report-print-only {
+    display: block !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+    align-self: center !important;
+  }
+
+  .report-print-only .qr-display-card {
+    padding: 6px 8px !important;
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    background: #ffffff !important;
+    width: auto !important;
+    margin: 0 !important;
+  }
+
+  .report-print-only canvas {
+    width: 85px !important;
+    height: 85px !important;
+    display: block !important;
+    margin: 0 auto !important;
+  }
+
+  .report-print-only span {
+    font-size: 7pt !important;
+    margin-top: 1px !important;
+    color: #0f172a !important;
+  }
+}
+
+/* On screen, hide print-only elements */
+.report-print-only {
+  display: none;
+}
+

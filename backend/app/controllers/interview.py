@@ -196,7 +196,6 @@ async def technical_interview_websocket(
                 question_count=q_count
             )
             await db.commit()
-            
     except Exception as e:
         print(f"[SkillProof WebSocket] System exception inside WebSocket handler: {e}")
         try:
@@ -204,3 +203,136 @@ async def technical_interview_websocket(
             await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
         except Exception:
             pass
+
+
+from fastapi import UploadFile, File
+
+@router.post("/interview/transcribe")
+async def transcribe_audio(
+    audio: UploadFile = File(...)
+):
+    """
+    Transcribes candidate spoken audio to text using Groq Whisper (whisper-large-v3).
+    Ensures precise spelling of Indian names, tech companies, and specialized terms.
+    """
+    try:
+        content = await audio.read()
+        if not content or len(content) < 500:
+            return {"text": ""}
+
+        from app.config import settings
+        from groq import Groq
+        
+        client = Groq(api_key=settings.GROQ_API_KEY)
+        
+        filename = audio.filename or "answer.webm"
+        file_tuple = (filename, content, audio.content_type or "audio/webm")
+
+        transcription = client.audio.transcriptions.create(
+            file=file_tuple,
+            model="whisper-large-v3",
+            prompt="Aravind, SAVIC Technologies Private Limited, Indian names, IT companies, tech terminology, candidate background, internship details",
+            response_format="text",
+            temperature=0.0
+        )
+
+        result_text = str(transcription).strip() if transcription else ""
+        print(f"🎙️ [GROQ WHISPER STT] Transcribed Audio -> '{result_text}'")
+        return {"text": result_text}
+    except Exception as e:
+        print(f"⚠️ [GROQ WHISPER STT ERROR] {e}")
+        return {"text": ""}
+
+
+from pydantic import BaseModel
+
+class VisionFrameRequest(BaseModel):
+    session_id: str
+    image_b64: str  # Base64 encoded JPEG canvas snapshot frame
+
+@router.post("/interview/analyze-vision-frame")
+async def analyze_vision_frame(payload: VisionFrameRequest):
+    """
+    Event-Driven Vision AI Proctoring using Groq Llama-3.2-Vision.
+    Detects multiple people in room, secondary persons behind candidate, reading from phone/notes, and background reflections.
+    """
+    try:
+        from app.config import settings
+        from groq import Groq
+        import json
+
+        if not payload.image_b64:
+            return {"flagged": False, "reason": ""}
+
+        # Prepare base64 image data url
+        b64_str = payload.image_b64
+        if not b64_str.startswith("data:image"):
+            b64_str = f"data:image/jpeg;base64,{b64_str}"
+
+        client = Groq(api_key=settings.GROQ_API_KEY)
+        
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "Analyze this camera frame of a candidate in an online interview.\n"
+                                "Is the candidate holding a smartphone / mobile phone in hand or is a phone visible in frame? Is there another person standing behind? Is candidate looking away?\n\n"
+                                "Respond in JSON:\n"
+                                "{\n"
+                                '  "suspicious": true/false,\n'
+                                '  "multiple_people": true/false,\n'
+                                '  "person_behind": true/false,\n'
+                                '  "reading_phone_or_notes": true/false,\n'
+                                '  "no_person": true/false,\n'
+                                '  "reason": "Explain any violation found, or empty string if clear"\n'
+                                "}"
+                            )
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": b64_str
+                            }
+                        }
+                    ]
+                }
+            ],
+            model="llama-3.2-11b-vision-instruct",
+            temperature=0.0,
+            max_tokens=150
+        )
+
+        resp_content = chat_completion.choices[0].message.content
+        print(f"👁️ [GROQ RAW LLM OUTPUT] -> {resp_content}")
+
+        import re
+        json_match = re.search(r'\{.*\}', resp_content, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group(0))
+        else:
+            result = json.loads(resp_content)
+
+        print(f"👁️ [GROQ PARSED RESULT] -> {result}")
+        print(f"👁️ [GROQ VISION AI] Analysis -> {result}")
+
+        is_reading = result.get("reading_phone_or_notes", False) or result.get("reading_phone", False)
+        is_behind = result.get("person_behind", False)
+        is_multi = result.get("multiple_people", False)
+        is_noperson = result.get("no_person", False)
+        is_suspicious = result.get("suspicious", False) or is_reading or is_behind or is_multi or is_noperson
+
+        return {
+            "suspicious": is_suspicious,
+            "multiple_people": is_multi,
+            "person_behind": is_behind,
+            "reading_phone": is_reading,
+            "no_person": is_noperson,
+            "reason": result.get("reason", "")
+        }
+    except Exception as err:
+        print(f"⚠️ [GROQ VISION AI ERROR] {err}")
+        return {"suspicious": False, "reason": ""}

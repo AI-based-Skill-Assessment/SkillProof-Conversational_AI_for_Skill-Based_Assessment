@@ -31,13 +31,16 @@ class ReportService:
 
         if scores:
             total = 0.0
-            for s in scores:
+            extracted_skills_list = (session.extracted_skills if session and session.extracted_skills else [])
+            for idx, s in enumerate(scores):
                 overall = s.overall_skill_score or 0.0
                 total += overall
                 if overall < min_score:
                     min_score = overall
+                
+                skill_label = extracted_skills_list[idx] if idx < len(extracted_skills_list) else (extracted_skills_list[0] if extracted_skills_list else "Skill")
                 scores_list.append({
-                    "skill_name": s.session.extracted_skills[0] if (s.session and s.session.extracted_skills) else "Skill", # Or query skill from context
+                    "skill_name": skill_label,
                     "specificity_score": s.specificity_score,
                     "depth_score": s.depth_score,
                     "consistency_score": s.consistency_score,
@@ -50,7 +53,14 @@ class ReportService:
             min_score = 0.0
 
         # Overall verdict logic
-        if not doc_valid and session.intake_mode.name == "certificate":
+        user_turns_count = 0
+        if session.interview and session.interview.transcript:
+            user_turns_count = sum(1 for m in session.interview.transcript if m.get("role") == "user" and m.get("content", "").strip())
+
+        if user_turns_count == 0 or avg_score == 0.0:
+            verdict = "UNVERIFIED_EARLY_EXIT"
+            explanation = "Assessment concluded early by candidate without submitting answers to technical questions."
+        elif not doc_valid and session.intake_mode.name == "certificate":
             verdict = "FAILED_DOCUMENT_VERIFICATION"
             explanation = "The uploaded certificate verification URL could not be resolved or was classified as untrusted."
         elif not scores:
@@ -66,6 +76,33 @@ class ReportService:
             verdict = "FAILED_SKILL_VERIFICATION"
             explanation = "Candidate failed to answer fundamental technical questions correctly."
 
+        # Dynamic strengths and growth areas based on real performance
+        strengths = []
+        improvements = []
+        
+        # Check if AI evaluation generated dynamic strengths & improvements
+        ctx = session.interview.skill_context if session.interview else None
+        if isinstance(ctx, dict):
+            if ctx.get("strengths"):
+                strengths = list(ctx.get("strengths"))
+            if ctx.get("improvements"):
+                improvements = list(ctx.get("improvements"))
+
+        if not strengths or not improvements:
+            if user_turns_count == 0 or avg_score == 0.0:
+                strengths = strengths or ["Certificate ingested successfully"]
+                improvements = improvements or ["Complete the AI technical interview to verify domain skills"]
+            else:
+                domain = (session.extracted_skills[0] if session.extracted_skills else "Engineering")
+                strengths = strengths or [
+                    f"Understanding of core {domain} fundamentals",
+                    "Conversational response engagement during interview drills"
+                ]
+                improvements = improvements or [
+                    f"Provide deeper implementation examples in {domain}",
+                    "Articulate complete technical problem-solving workflows"
+                ]
+
         # Compile JSON scorecard
         report = {
             "session_id": session_id,
@@ -80,9 +117,13 @@ class ReportService:
                 "document_score": doc_score,
                 "average_skill_score": avg_score,
                 "minimum_skill_score": min_score,
-                "skills_assessed_count": len(scores)
+                "skills_assessed_count": len(scores),
+                "questions_answered_count": user_turns_count
             },
-            "detailed_scores": scores_list
+            "strengths": strengths,
+            "improvements": improvements,
+            "detailed_scores": scores_list,
+            "transcript": session.interview.transcript if session.interview else []
         }
 
         return report

@@ -155,12 +155,12 @@ export default function VoiceRegistration() {
   async function checkDuplicate(voiceEmbedding) {
     try {
       const res = await client.post('/biometric/check-duplicate', {
-        session_id: user?.id,
+        session_id: user?.id || user?.user_id,
         voice_embedding: voiceEmbedding
-      });
+      }, { timeout: 8000 });
       return res.data;
     } catch (err) {
-      console.warn('Duplicate check failed (non-blocking):', err.message);
+      console.warn('Duplicate check failed or timed out:', err.message);
       return null;
     }
   }
@@ -203,15 +203,21 @@ export default function VoiceRegistration() {
         return;
       }
 
-      setProgress(80);
-      setStatusMessage('Sending voice fingerprint to server…');
+      setProgress(85);
+      setStatusMessage('Saving voice fingerprint to database profile…');
       setStatusClass('info');
 
-      const res = await client.post('/auth/me/register-voice', {
+      await client.post('/biometric/register', {
+        session_id: user?.id || user?.user_id,
         voice_embedding: embedding
       });
 
-      updateUserCache(res.data);
+      if (updateUserCache) {
+        updateUserCache({ 
+          voice_registered: true,
+          onboarding_step: 'completed'
+        });
+      }
       stopVoiceMic();
       setComplete(true);
       setProgress(100);
@@ -221,12 +227,21 @@ export default function VoiceRegistration() {
     } catch (err) {
       console.error(err);
       setRegistering(false);
-      setStatusMessage('Error: ' + (err.response?.data?.detail || err.message));
+      const errMsg = formatApiError(err);
+      setStatusMessage('Error: ' + errMsg);
       setStatusClass('err');
-      toast.error('Registration Failed', err.response?.data?.detail || err.message);
+      toast.error('Registration Failed', errMsg);
     } finally {
       stopVoiceMic();
     }
+  }
+
+  function formatApiError(err, fallback = 'Failed to process voice fingerprint.') {
+    const detail = err.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) return detail.map(d => d.msg || JSON.stringify(d)).join(' | ');
+    if (typeof detail === 'object' && detail !== null) return detail.msg || JSON.stringify(detail);
+    return err.message || fallback;
   }
 
   // FFT and Spectral Feature Vector extraction math matching biometric_enroll.html
@@ -240,9 +255,9 @@ export default function VoiceRegistration() {
     const channelData = audioBuf.getChannelData(0); // Float32Array
     const duration = audioBuf.duration;
 
-    // Check minimum duration to ensure they speak the entire required sentence
+    // Check minimum duration to ensure they speak the complete sentence without leaving out words
     if (duration < 3.2) {
-      throw new Error("Please speak every word of the passphrase clearly to register your voice: 'My voice is my unique identity and my password'.");
+      throw new Error("Incomplete recording: You missed words in the sentence. Please read the entire sentence clearly: 'My voice is my unique identity and my password'.");
     }
 
     // 1. High-pass filter to remove low-frequency room noise (background hum / noise suppression)
@@ -267,17 +282,20 @@ export default function VoiceRegistration() {
 
     // If signal amplitude is extremely low (silence)
     if (rms < 0.005) {
-      throw new Error("No voice detected. Please check your microphone and speak clearly.");
+      throw new Error("No voice detected. Please check your microphone and read the sentence: 'My voice is my unique identity and my password'.");
     }
 
     // If signal is present but too soft/quiet for reliable biometric extraction
     if (rms < 0.025) {
-      throw new Error("The voice is not clear or too quiet. Please speak every word loudly to register your voice.");
+      throw new Error("The recording is not clear or missing words. Please read every word of the sentence clearly: 'My voice is my unique identity and my password'.");
     }
 
     const frameSize = 512;
-    const hopSize = 256;
     const numBands = 64;
+    const totalSamples = filteredData.length;
+    const numTargetFrames = 64;
+    const hopSize = Math.max(256, Math.floor((totalSamples - frameSize) / numTargetFrames));
+
     const embedding = new Array(numBands).fill(0);
     let frames = 0;
 
@@ -383,6 +401,12 @@ export default function VoiceRegistration() {
   }
 
   function handleFinish() {
+    if (updateUserCache) {
+      updateUserCache({ 
+        voice_registered: true,
+        onboarding_step: 'completed'
+      });
+    }
     navigate(ROUTES.USER.DASHBOARD);
   }
 

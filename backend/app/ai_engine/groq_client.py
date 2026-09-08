@@ -1,5 +1,6 @@
 import asyncio
-from typing import List, Dict, Any
+import io
+from typing import List, Dict, Any, Optional
 from app.config import settings
 
 class GroqClient:
@@ -19,7 +20,7 @@ class GroqClient:
     async def chat_completion(
         self, 
         messages: List[Dict[str, str]], 
-        model: str = "llama-3.1-8b-instant"
+        model: str = "qwen/qwen3.8-27b"
     ) -> str:
         """Call Groq API asynchronously. Falls back to mock responses if API key is invalid/missing."""
         if self.enabled and self.client:
@@ -42,46 +43,89 @@ class GroqClient:
         await asyncio.sleep(0.5)  # Simulate network latency
         return self._generate_simulated_response(messages)
 
+    async def transcribe_audio(self, audio_bytes: bytes, filename: str = "audio.webm") -> Optional[str]:
+        """Transcribe audio using Groq's Whisper API. Returns transcribed text or None on failure."""
+        if not self.enabled or not self.client:
+            return None
+        try:
+            loop = asyncio.get_running_loop()
+            audio_file = io.BytesIO(audio_bytes)
+            audio_file.name = filename
+
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.client.audio.transcriptions.create(
+                    file=(filename, audio_bytes),
+                    model="whisper-large-v3",
+                    language="en",
+                )
+            )
+            return response.text.strip() if response and response.text else None
+        except Exception as e:
+            print(f"[GroqClient] Transcription error: {e}")
+            return None
+
     def _generate_simulated_response(self, messages: List[Dict[str, str]]) -> str:
         """Heuristic responses to mock interviews when Groq is not active."""
         system_content = next((m["content"] for m in messages if m["role"] == "system"), "")
         user_messages = [m["content"] for m in messages if m["role"] == "user"]
         
         # Detect scoring context by the specific system role marker set in interview_manager.evaluate_interview()
-        # The scoring call uses "You are a database compiler" as the system message — never used in interviews.
         is_scoring_call = "database compiler" in system_content.lower()
         if is_scoring_call:
-            return """{
-  "scores": [
-    {
-      "skill_name": "Python",
-      "specificity_score": 80.0,
-      "depth_score": 85.0,
-      "consistency_score": 90.0,
-      "overall_skill_score": 85.0,
-      "verdict": "verified",
-      "llm_reasoning": "Demonstrated core command over async programming, generators, and packaging."
-    },
-    {
-      "skill_name": "FastAPI",
-      "specificity_score": 85.0,
-      "depth_score": 90.0,
-      "consistency_score": 85.0,
-      "overall_skill_score": 86.6,
-      "verdict": "verified",
-      "llm_reasoning": "Excellent understanding of lifespan events, dependency injection, and Pydantic models."
-    },
-    {
-      "skill_name": "PostgreSQL",
-      "specificity_score": 70.0,
-      "depth_score": 75.0,
-      "consistency_score": 70.0,
-      "overall_skill_score": 71.6,
-      "verdict": "verified",
-      "llm_reasoning": "Capable of async SQLAlchemy usage, but lacks deep query optimization insights."
-    }
-  ]
-}"""
+            # Extract skills list from prompt if available
+            user_prompt = next((m["content"] for m in messages if m["role"] == "user"), "")
+            skills = []
+            if "skills:" in user_prompt.lower():
+                part = user_prompt.lower().split("skills:", 1)[1].split("\n", 1)[0].strip()
+                skills = [s.strip().title() for s in part.split(",") if s.strip()]
+            if not skills:
+                skills = ["Technical Proficiency"]
+
+            # Calculate dynamic scores from actual user content
+            all_user_text = " ".join(user_messages)
+            word_count = len(all_user_text.split())
+            
+            # Dynamic grading: more articulate answers give higher specificity & depth
+            computed_spec = min(92.0, max(45.0, 48.0 + (word_count * 0.7)))
+            computed_depth = min(90.0, max(40.0, 44.0 + (word_count * 0.6)))
+            computed_cons = min(94.0, max(50.0, 55.0 + (word_count * 0.5)))
+            computed_overall = round((computed_spec + computed_depth + computed_cons) / 3.0, 1)
+
+            simulated_items = []
+            for sk in skills:
+                simulated_items.append({
+                    "skill_name": sk,
+                    "specificity_score": round(computed_spec, 1),
+                    "depth_score": round(computed_depth, 1),
+                    "consistency_score": round(computed_cons, 1),
+                    "overall_skill_score": computed_overall,
+                    "verdict": "verified" if computed_overall >= 60.0 else "suspicious",
+                    "llm_reasoning": f"Candidate demonstrated relevant practical knowledge of {sk} during conversational answers ({word_count} total words analyzed)."
+                })
+
+            simulated_strengths = [
+                f"Conversational engagement with {skills[0]} interview questions",
+                "Verbal responsiveness to technical inquiry prompts"
+            ] if word_count > 10 else [
+                "Connected to assessment environment",
+                "Microphone audio captured successfully"
+            ]
+
+            simulated_improvements = [
+                f"Provide more specific implementation and architecture details in {skills[0]}",
+                "Explain concrete problem-solving steps and tool workflows"
+            ] if word_count > 10 else [
+                "Provide complete verbal answers to technical questions",
+                "Elaborate on specific projects, technologies, and responsibilities"
+            ]
+
+            import json
+            return json.dumps({
+                "scores": simulated_items,
+                "strengths": simulated_strengths,
+                "improvements": simulated_improvements
+            })
 
         # General conversational simulation based on the conversation so far
         turn_count    = len(user_messages)

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -14,7 +14,7 @@ class TranscriptTurn(BaseModel):
 
 # ── Shared ──────────────────────────────────────────────────────
 class InterviewSessionBase(BaseModel):
-    skill_context: Optional[List[str]] = Field(default_factory=list)
+    skill_context: Optional[Union[List[str], Dict[str, Any], Any]] = None
     question_count: int = 0
     status: str = "active"
 

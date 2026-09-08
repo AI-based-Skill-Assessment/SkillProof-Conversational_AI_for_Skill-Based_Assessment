@@ -788,6 +788,8 @@ async def verify_url(
     if redis:
         await redis.setex(cache_key, 86400, json.dumps(result))
 
+    return result
+
 async def _verify_company_via_falconebiz(company_name: str) -> Optional[Dict[str, Any]]:
     """
     Search Falconebiz API for the company name and scrape its details.

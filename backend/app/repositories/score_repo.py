@@ -39,8 +39,10 @@ async def create_skill_score(db: AsyncSession, score_in: SkillScoreCreate) -> Sk
 
 async def delete_scores_by_session(db: AsyncSession, session_id: UUID) -> None:
     """Delete all score results for a session (usually for re-evaluation)."""
-    stmt = delete(SkillScoreResult).where(SkillScoreResult.session_id == session_id)
-    await db.execute(stmt)
+    # Fetch and delete existing instances so SQLAlchemy identity map tracks their removal cleanly
+    existing = await get_scores_by_session(db, session_id)
+    for row in existing:
+        await db.delete(row)
     await db.flush()
 
 

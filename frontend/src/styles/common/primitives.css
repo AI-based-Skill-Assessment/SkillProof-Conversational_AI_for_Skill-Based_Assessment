@@ -515,29 +515,195 @@
   animation: waveBar 1.2s ease-in-out infinite;
 }
 
-/* AI Orb */
-.ai-orb-container {
+/* ── 3D Realistic AI Orb ─────────────────────────────────────────────────── */
+.ai-orb-stage {
+  position: relative;
+  width: 170px;
+  height: 170px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
+  perspective: 800px;
+  user-select: none;
+  cursor: pointer;
 }
 
-.ai-orb {
+.ai-orb-3d {
+  position: relative;
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: radial-gradient(circle, var(--primary) 0%, var(--accent) 100%);
-  animation: orbFloat 4s ease-in-out infinite, orbGlow 3s ease-in-out infinite;
+  background: radial-gradient(circle at 35% 30%, #38bdf8 0%, #12a37e 45%, #064e3b 80%, #022c22 100%);
+  box-shadow: 
+    0 0 35px rgba(18, 163, 126, 0.5),
+    0 0 70px rgba(56, 189, 248, 0.25),
+    inset 0 -12px 25px rgba(0, 0, 0, 0.7),
+    inset 0 8px 16px rgba(255, 255, 255, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: var(--font-bold);
-  font-size: var(--text-lg);
-  cursor: pointer;
-  user-select: none;
+  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 300ms ease;
+  animation: float3D 4s ease-in-out infinite;
+}
+
+/* State-specific 3D Sphere variations */
+.sphere-speaking {
+  animation: float3D 3s ease-in-out infinite, speakPulse3D 1.2s ease-in-out infinite alternate;
+  box-shadow: 
+    0 0 50px rgba(18, 163, 126, 0.8),
+    0 0 90px rgba(56, 189, 248, 0.5),
+    inset 0 -12px 25px rgba(0, 0, 0, 0.6),
+    inset 0 10px 20px rgba(255, 255, 255, 0.6);
+}
+
+.sphere-listening {
+  animation: float3D 4s ease-in-out infinite, listenBreathe3D 2.5s ease-in-out infinite alternate;
+  background: radial-gradient(circle at 35% 30%, #34d399 0%, #059669 45%, #064e3b 85%, #022c22 100%);
+}
+
+.sphere-processing {
+  animation: spinSlow 3s linear infinite;
+  background: radial-gradient(circle at 35% 30%, #f59e0b 0%, #d97706 45%, #78350f 85%, #451a03 100%);
+}
+
+/* Specular Glint Reflection */
+.ai-orb-glint {
+  position: absolute;
+  top: 10px;
+  left: 18px;
+  width: 38px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 80%);
+  transform: rotate(-25deg);
+  pointer-events: none;
+}
+
+/* Inner Core Glow */
+.ai-orb-inner-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.25) 0%, transparent 60%);
+  mix-blend-mode: overlay;
+}
+
+/* Center Text */
+.ai-orb-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
+
+.ai-orb-status-text {
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* 3D Orbiting Rings */
+.ai-orb-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(56, 189, 248, 0.4);
+  pointer-events: none;
+}
+
+.ring-1 {
+  width: 155px;
+  height: 60px;
+  transform: rotateX(70deg) rotateY(15deg);
+  animation: ringRotate1 6s linear infinite;
+}
+
+.ring-2 {
+  width: 165px;
+  height: 70px;
+  border-color: rgba(18, 163, 126, 0.35);
+  transform: rotateX(65deg) rotateY(-30deg);
+  animation: ringRotate2 8s linear infinite reverse;
+}
+
+/* Orbiting Micro-Particles */
+.ai-orb-particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 10px #38bdf8, 0 0 20px #12a37e;
+  pointer-events: none;
+}
+
+.p-1 { animation: orbitP1 5s linear infinite; }
+.p-2 { animation: orbitP2 7s linear infinite; background: #34d399; }
+.p-3 { animation: orbitP3 4s linear infinite reverse; background: #60a5fa; }
+
+/* Dynamic Speaking Wave Aura */
+.ai-orb-wave-pulse {
+  position: absolute;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  border: 2px solid rgba(18, 163, 126, 0.6);
+  animation: waveExpand 1.5s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+  pointer-events: none;
+}
+
+/* 3D Keyframe Animations */
+@keyframes float3D {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(2deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+@keyframes speakPulse3D {
+  0% { transform: scale(1.0) translateY(-2px); }
+  50% { transform: scale(1.15) translateY(-10px); }
+  100% { transform: scale(1.02) translateY(-4px); }
+}
+
+@keyframes listenBreathe3D {
+  0% { transform: scale(0.98); }
+  100% { transform: scale(1.06); }
+}
+
+@keyframes ringRotate1 {
+  0% { transform: rotateX(70deg) rotateY(15deg) rotateZ(0deg); }
+  100% { transform: rotateX(70deg) rotateY(15deg) rotateZ(360deg); }
+}
+
+@keyframes ringRotate2 {
+  0% { transform: rotateX(65deg) rotateY(-30deg) rotateZ(0deg); }
+  100% { transform: rotateX(65deg) rotateY(-30deg) rotateZ(360deg); }
+}
+
+@keyframes orbitP1 {
+  0% { transform: rotate(0deg) translateX(78px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(78px) rotate(-360deg); }
+}
+
+@keyframes orbitP2 {
+  0% { transform: rotate(120deg) translateY(85px) rotate(-120deg); }
+  100% { transform: rotate(480deg) translateY(85px) rotate(-480deg); }
+}
+
+@keyframes orbitP3 {
+  0% { transform: rotate(240deg) translateX(72px) rotate(-240deg); }
+  100% { transform: rotate(600deg) translateX(72px) rotate(-600deg); }
+}
+
+@keyframes waveExpand {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+@keyframes spinSlow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* QR display */

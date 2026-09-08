@@ -19,9 +19,14 @@
   margin-left: var(--sidebar-collapsed-width);
 }
 
+.app-layout__content--full {
+  margin-left: 0 !important;
+}
+
 @media (max-width: 1023px) {
   .app-layout__content,
-  .app-layout__content--collapsed {
+  .app-layout__content--collapsed,
+  .app-layout__content--full {
     margin-left: 0;
   }
 }
@@ -30,6 +35,10 @@
   padding: var(--space-6);
   max-width: var(--content-max-width);
   margin: 0 auto;
+}
+
+.app-layout__page--full {
+  max-width: 100% !important;
 }
 
 @media (max-width: 767px) {

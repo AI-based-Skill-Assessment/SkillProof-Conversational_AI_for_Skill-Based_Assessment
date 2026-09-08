@@ -26,6 +26,7 @@ export const ROUTES = {
     SKILL_ASSESSMENT:       '/user/assessment/skill',
     ASSESSMENT_REVIEW:  (id = ':id') => `/user/assessment/${id}/review`,
     INTERVIEW_CHECK:    (id = ':id') => `/user/interview/${id}/check`,
+    BIOMETRIC_CHECK:    '/user/biometric-check',
     INTERVIEW_SESSION:  (id = ':id') => `/user/interview/${id}`,
     INTERVIEW_PROCESSING: (id = ':id') => `/user/interview/${id}/processing`,
     REPORTS_LIST:       '/user/reports',

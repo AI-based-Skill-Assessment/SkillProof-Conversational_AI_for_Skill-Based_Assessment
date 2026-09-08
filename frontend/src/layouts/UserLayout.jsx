@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../components/common/Sidebar';
 import Topbar from '../components/common/Topbar';
 import { useAuth } from '../core/auth/AuthContext';
+import client from '../core/api/client';
 import ROUTES from '../core/routes';
+import { buildNotificationsFromData } from '../utils/notificationService';
 import '../styles/layouts/app-layout.css';
 
 // Nav icons
@@ -26,9 +28,63 @@ const NAV_ITEMS = [
 ];
 
 export default function UserLayout({ pageTitle = 'SkillProof' }) {
-  const { user, logout } = useAuth();
+  const { user, updateUserCache, logout } = useAuth();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
+
+  // Check real database session count on mount and route change to reflect demo and notification states
+  useEffect(() => {
+    client.get('/sessions').then(res => {
+      if (res.data && res.data.length > 0) {
+        setIsDemo(false);
+        const built = buildNotificationsFromData({ user, sessions: res.data });
+        setNotifCount(built.filter(n => !n.is_read).length);
+      } else {
+        setIsDemo(true);
+        const built = buildNotificationsFromData({ user, sessions: [] });
+        setNotifCount(built.filter(n => !n.is_read).length);
+      }
+    }).catch(() => {
+      setIsDemo(true);
+      const built = buildNotificationsFromData({ user, sessions: [] });
+      setNotifCount(built.filter(n => !n.is_read).length);
+    });
+
+    // Fetch fresh candidate profile from backend on mount to ensure avatar & profile info are synced
+    client.get('/auth/me').then(res => {
+      if (res.data && updateUserCache) {
+        updateUserCache(res.data);
+      }
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  // Check if user is currently inside an active interview session
+  const isInterview = location.pathname.includes('/interview/') && !location.pathname.includes('/check');
+
+  // Global Hardware Media Stream Safety Net:
+  // When leaving interview or biometric routes, ensure all webcam & mic tracks are closed at browser hardware level.
+  useEffect(() => {
+    if (!isInterview && !location.pathname.includes('/face-registration') && !location.pathname.includes('/voice-registration')) {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        // Query active DOM video elements or open streams and shut them down
+        document.querySelectorAll('video').forEach(videoEl => {
+          if (videoEl.srcObject && videoEl.srcObject.getTracks) {
+            videoEl.srcObject.getTracks().forEach(track => {
+              try {
+                track.stop();
+                track.enabled = false;
+              } catch (e) {}
+            });
+            videoEl.srcObject = null;
+          }
+        });
+      }
+    }
+  }, [location.pathname, isInterview]);
 
   const FOOTER_ITEMS = [
     { label: 'Logout', icon: <Icons.Logout />, onClick: logout },
@@ -36,17 +92,19 @@ export default function UserLayout({ pageTitle = 'SkillProof' }) {
 
   return (
     <div className="app-layout">
-      <Sidebar
-        navItems={NAV_ITEMS}
-        footerItems={FOOTER_ITEMS}
-        collapsed={collapsed}
-        mobileOpen={mobileOpen}
-        onToggle={() => setCollapsed(c => !c)}
-        onMobileClose={() => setMobileOpen(false)}
-        portalLabel="SkillProof"
-        logoLink={ROUTES.USER.DASHBOARD}
-      />
-      <div className={`app-layout__content${collapsed ? ' app-layout__content--collapsed' : ''}`}>
+      {!isInterview && (
+        <Sidebar
+          navItems={NAV_ITEMS}
+          footerItems={FOOTER_ITEMS}
+          collapsed={collapsed}
+          mobileOpen={mobileOpen}
+          onToggle={() => setCollapsed(c => !c)}
+          onMobileClose={() => setMobileOpen(false)}
+          portalLabel="SkillProof"
+          logoLink={ROUTES.USER.DASHBOARD}
+        />
+      )}
+      <div className={`app-layout__content${isInterview ? ' app-layout__content--full' : collapsed ? ' app-layout__content--collapsed' : ''}`}>
         <Topbar
           title={pageTitle}
           collapsed={collapsed}
@@ -54,10 +112,13 @@ export default function UserLayout({ pageTitle = 'SkillProof' }) {
           user={user}
           profileLink={ROUTES.USER.PROFILE}
           notifLink={ROUTES.USER.NOTIFICATIONS}
+          notifCount={notifCount}
           logoLink={ROUTES.USER.DASHBOARD}
+          isInterview={isInterview}
+          isDemo={isDemo}
         />
-        <main className="app-layout__page">
-          <Outlet />
+        <main className={`app-layout__page${isInterview ? ' app-layout__page--full' : ''}`}>
+          <Outlet context={{ isDemo, setIsDemo }} />
         </main>
       </div>
     </div>

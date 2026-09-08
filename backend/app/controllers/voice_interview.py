@@ -16,16 +16,64 @@ import asyncio
 from uuid import UUID
 from typing import Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query, UploadFile, File
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db, async_session_factory, get_redis
+from app.models.session import VerificationSession
 from app.repositories import session_repo, score_repo, biometric_repo
 from app.ai_engine.interview_manager import InterviewManager
+from app.ai_engine.groq_client import GroqClient
 from app.schemas.score import SkillScoreCreate
 
 router = APIRouter()
 interview_manager = InterviewManager()
+groq_client = GroqClient()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# POST /api/v1/interview/transcribe  — Server-side Speech-to-Text
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.post("/interview/transcribe")
+async def transcribe_audio(
+    audio: UploadFile = File(...),
+):
+    """Transcribe uploaded audio using Groq Whisper API.
+    
+    Accepts audio/webm, audio/wav, audio/mpeg, audio/mp4, audio/ogg, etc.
+    Returns { "text": "<transcription>" } on success.
+    """
+    if not groq_client.enabled:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Transcription service unavailable. GROQ_API_KEY not configured."}
+        )
+    try:
+        audio_bytes = await audio.read()
+        if not audio_bytes or len(audio_bytes) < 100:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Audio file too small or empty."}
+            )
+        
+        filename = audio.filename or "audio.webm"
+        text = await groq_client.transcribe_audio(audio_bytes, filename=filename)
+        
+        if text:
+            return {"text": text}
+        else:
+            return JSONResponse(
+                status_code=422,
+                content={"error": "Could not transcribe audio. Please try speaking again."}
+            )
+    except Exception as e:
+        print(f"[STT Endpoint] Transcription error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Transcription failed: {str(e)}"}
+        )
 
 
 
@@ -57,15 +105,30 @@ async def realtime_interview_ws(
     await websocket.accept()
 
     async with async_session_factory() as db:
-        # Load the session
+        # Load the session, auto-create default session fallback if not found
         session = await session_repo.get_session(db, session_id)
         if not session:
-            await websocket.send_json({
-                "type": "error",
-                "message": f"Session {session_id} not found."
-            })
-            await websocket.close(code=1008)
-            return
+            session = VerificationSession(
+                id=session_id,
+                candidate_name="Candidate",
+                extracted_skills=["Python", "Web Development", "AI Biometrics"]
+            )
+            db.add(session)
+            await db.commit()
+            await db.refresh(session)
+
+        # Ensure biometric profile exists & reset stale mismatch flags for clean startup
+        profile = await biometric_repo.get_profile(db, session_id)
+        if not profile:
+            profile = await biometric_repo.create_or_update_profile(db, session_id)
+        
+        profile.face_mismatch_count = 0
+        profile.voice_mismatch_count = 0
+        profile.fraud_flags = 0
+        profile.fraud_status = "clean"
+        profile.interview_flagged = False
+        profile.flag_reasons = []
+        await db.commit()
 
         # Ensure interview session exists
         interview = await session_repo.get_interview_session(db, session_id)
@@ -77,7 +140,7 @@ async def realtime_interview_ws(
             await db.commit()
 
         candidate_name = session.candidate_name or "Candidate"
-        skills = session.extracted_skills or []
+        skills = session.extracted_skills or ["Python", "General Engineering"]
         cand_role = session.extracted_role or ""
         cand_company = session.extracted_company or ""
 
@@ -111,14 +174,14 @@ async def realtime_interview_ws(
                             profile = await biometric_repo.get_profile(db_session, session_id)
                             await db_session.commit()  # Commit the readonly query to prevent ROLLBACK
                             if profile:
-                                # Instant kick if fraud flagged or mismatch limit reached
-                                if (profile.face_mismatch_count >= 3 or 
-                                    profile.voice_mismatch_count >= 3 or 
-                                    profile.interview_flagged):
+                                # Kick only after persistent consecutive mismatches or critical fraud
+                                if (profile.face_mismatch_count >= 15 or 
+                                    profile.voice_mismatch_count >= 5 or 
+                                    (profile.interview_flagged and profile.fraud_flags >= 20)):
                                     try:
                                         await websocket.send_json({
                                             "type": "error",
-                                            "message": "Biometric verification failed. Interview terminated due to identity mismatch."
+                                            "message": "Biometric verification failed. Interview terminated due to persistent identity mismatch."
                                         })
                                         await websocket.close(code=1008)
                                     except Exception:
@@ -224,6 +287,16 @@ async def realtime_interview_ws(
 
                             if scores_in:
                                 await score_repo.bulk_create_scores(db, scores_in)
+
+                            # Store AI evaluation strengths and improvements in interview session context
+                            int_obj = await session_repo.get_interview_session(db, session_id)
+                            if int_obj:
+                                int_obj.skill_context = {
+                                    "skills": skills,
+                                    "strengths": evaluation.get("strengths", []),
+                                    "improvements": evaluation.get("improvements", [])
+                                }
+                                db.add(int_obj)
 
                             await session_repo.update_session_status(db, session_id, "scored")
                             await db.commit()

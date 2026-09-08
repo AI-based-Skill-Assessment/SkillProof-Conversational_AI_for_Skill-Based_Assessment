@@ -30,12 +30,20 @@ const ICONS = {
 };
 
 function ToastItem({ toast, onRemove }) {
+  const formatProp = (prop) => {
+    if (!prop) return '';
+    if (typeof prop === 'string') return prop;
+    if (Array.isArray(prop)) return prop.map(p => p?.msg || JSON.stringify(p)).join(' | ');
+    if (typeof prop === 'object') return prop.msg || JSON.stringify(prop);
+    return String(prop);
+  };
+
   return (
     <div className="common-toast" role="alert" aria-live="polite">
       {ICONS[toast.type] || ICONS.info}
       <div className="common-toast__content">
-        {toast.title && <div className="common-toast__title">{toast.title}</div>}
-        {toast.message && <div className="common-toast__message">{toast.message}</div>}
+        {toast.title && <div className="common-toast__title">{formatProp(toast.title)}</div>}
+        {toast.message && <div className="common-toast__message">{formatProp(toast.message)}</div>}
       </div>
       <button className="common-toast__close" onClick={() => onRemove(toast.id)} aria-label="Dismiss">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

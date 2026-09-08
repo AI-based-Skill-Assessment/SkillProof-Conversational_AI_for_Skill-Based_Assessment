@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import client from '../../core/api/client';
@@ -7,8 +7,7 @@ import Button from '../../components/common/Button';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
-export default function InterviewCheck() {
-  const { id } = useParams();
+export default function BiometricCheckPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
@@ -17,13 +16,15 @@ export default function InterviewCheck() {
   const [faceApiLoaded, setFaceApiLoaded] = useState(!!window.faceapi);
   const [modelsLoaded, setModelsLoaded] = useState(false);
 
-  // Sequential Verification State
+  // Face Verification State
   const [faceChecking, setFaceChecking] = useState(false);
+  const [faceDetected, setFaceDetected] = useState(false);
   const [capturingFace, setCapturingFace] = useState(false);
   const [faceVerified, setFaceVerified] = useState(false);
   const [faceStatus, setFaceStatus] = useState('Face ID check pending.');
   const [faceStatusClass, setFaceStatusClass] = useState('info'); // info, success, err
 
+  // Voice Verification State
   const [voiceChecking, setVoiceChecking] = useState(false);
   const [voiceVerified, setVoiceVerified] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('Complete Face ID Check to unlock Voice ID Check.');
@@ -32,16 +33,17 @@ export default function InterviewCheck() {
 
   // References
   const videoRef = useRef(null);
+  const faceCanvasRef = useRef(null);
+  const voiceCanvasRef = useRef(null);
   const streamRef = useRef(null);
   const audioStreamRef = useRef(null);
   const mediaRecRef = useRef(null);
-  const timerRef = useRef(null);
-  const canvasRef = useRef(null);
   const chunksRef = useRef([]);
   const animFrameRef = useRef(null);
   const audioCtxRef = useRef(null);
+  const loopActiveRef = useRef(false);
 
-  // Inject face-api.js script if not present
+  // 1. Inject face-api.js script if not present
   useEffect(() => {
     if (window.faceapi) {
       setFaceApiLoaded(true);
@@ -50,34 +52,13 @@ export default function InterviewCheck() {
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
     script.async = true;
-    script.onload = () => {
-      console.log('face-api.js script loaded successfully.');
-      setFaceApiLoaded(true);
-    };
-    script.onerror = (e) => {
-      console.error('Failed to load face-api.js script:', e);
+    script.onload = () => setFaceApiLoaded(true);
+    script.onerror = () => {
       setFaceStatus('Error: Failed to load face-api.js script from CDN.');
       setFaceStatusClass('err');
     };
     document.body.appendChild(script);
   }, []);
-
-  // Clean up media tracks on unmount
-  useEffect(() => {
-    return () => {
-      stopCamera();
-      stopVoiceRecording();
-    };
-  }, []);
-
-  // Auto-start Face Camera Feed on mount when library loads
-  useEffect(() => {
-    if (faceApiLoaded && !faceVerified && !faceChecking) {
-      startFaceCamera();
-    }
-  }, [faceApiLoaded]);
-
-  // ── Face Verification Logic ───────────────────────────────────────────────
 
   async function loadFaceModels() {
     if (modelsLoaded) return;
@@ -99,9 +80,41 @@ export default function InterviewCheck() {
     }
   }
 
-  // Face detection loop reference
-  const loopActiveRef = useRef(false);
-  const [faceDetected, setFaceDetected] = useState(false);
+  // Clean up streams on unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+      stopVoiceRecording();
+    };
+  }, []);
+
+  function stopCamera() {
+    loopActiveRef.current = false;
+    setFaceDetected(false);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }
+
+  function stopVoiceRecording() {
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(t => t.stop());
+      audioStreamRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => { });
+      audioCtxRef.current = null;
+    }
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+    }
+  }
+
+  // ── 1. Face Verification Camera Loop ───────────────────────────────────────
 
   async function startFaceCamera() {
     try {
@@ -111,12 +124,7 @@ export default function InterviewCheck() {
       setFaceStatusClass('info');
 
       const videoStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'user',
-          width: { ideal: 640, min: 320 },
-          height: { ideal: 480, min: 240 },
-          frameRate: { ideal: 30, max: 60 }
-        }
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
       });
       streamRef.current = videoStream;
 
@@ -134,8 +142,6 @@ export default function InterviewCheck() {
       toast.error('Camera Error', 'Could not start video feed.');
     }
   }
-
-  const faceCanvasRef = useRef(null);
 
   function startFaceDetectionLoop() {
     loopActiveRef.current = true;
@@ -161,7 +167,7 @@ export default function InterviewCheck() {
       }
 
       try {
-        const options = new window.faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.15 });
+        const options = new window.faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.25 });
         const det = await window.faceapi.detectSingleFace(video, options);
 
         if (det) {
@@ -214,10 +220,9 @@ export default function InterviewCheck() {
     setFaceStatusClass('info');
 
     try {
-      // Try inputSizes from fast to standard if detection fails
       let result = null;
-      for (const inputSize of [320, 224, 160, 416]) {
-        const options = new window.faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold: 0.15 });
+      for (const inputSize of [224, 320, 160, 416]) {
+        const options = new window.faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold: 0.20 });
         result = await window.faceapi
           .detectSingleFace(videoRef.current, options)
           .withFaceLandmarks(true)
@@ -231,9 +236,8 @@ export default function InterviewCheck() {
 
       setFaceStatus('Comparing face credentials with server database...');
       const descriptor = Array.from(result.descriptor);
-      
+
       const res = await client.post('/biometric/verify', {
-        session_id: id,
         face_embedding: descriptor
       });
 
@@ -260,28 +264,7 @@ export default function InterviewCheck() {
     }
   }
 
-  function stopCamera() {
-    loopActiveRef.current = false;
-    setFaceDetected(false);
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => {
-        try { t.stop(); t.enabled = false; } catch (e) {}
-      });
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      if (videoRef.current.srcObject && videoRef.current.srcObject.getTracks) {
-        try {
-          videoRef.current.srcObject.getTracks().forEach(t => {
-            try { t.stop(); t.enabled = false; } catch (e) {}
-          });
-        } catch (e) {}
-      }
-      videoRef.current.srcObject = null;
-    }
-  }
-
-  // ── Voice Verification Logic ───────────────────────────────────────────────
+  // ── 2. Voice Verification & Spectrogram ────────────────────────────────────
 
   async function startVoiceVerification() {
     setVoiceVerified(false);
@@ -294,7 +277,6 @@ export default function InterviewCheck() {
       const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioStreamRef.current = audioStream;
 
-      // Sound visualization canvas
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       audioCtxRef.current = audioCtx;
       const source = audioCtx.createMediaStreamSource(audioStream);
@@ -303,7 +285,7 @@ export default function InterviewCheck() {
       source.connect(analyser);
 
       const freqData = new Uint8Array(analyser.frequencyBinCount);
-      const canvas = canvasRef.current;
+      const canvas = voiceCanvasRef.current;
       const ctx = canvas?.getContext('2d');
 
       function drawWave() {
@@ -325,7 +307,6 @@ export default function InterviewCheck() {
       }
       drawWave();
 
-      // Start Media Recorder
       const mediaRec = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
       mediaRecRef.current = mediaRec;
       mediaRec.ondataavailable = (e) => {
@@ -333,16 +314,14 @@ export default function InterviewCheck() {
       };
       mediaRec.start(250);
 
-      // Start 5-second recording countdown (or candidate can click Stop & Verify anytime)
-      setVoiceStatus('Read aloud clearly: "My voice is my unique identity and my password"');
+      setVoiceStatus('Read aloud: "My voice is my unique identity and my password"');
       let sec = 0;
       setRecordingSeconds(0);
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = setInterval(() => {
+      const timer = setInterval(() => {
         sec++;
         setRecordingSeconds(sec);
-        if (sec >= 5) {
-          if (timerRef.current) clearInterval(timerRef.current);
+        if (sec >= 4) {
+          clearInterval(timer);
           processVoiceVerification();
         }
       }, 1000);
@@ -357,10 +336,6 @@ export default function InterviewCheck() {
   }
 
   async function processVoiceVerification() {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
     setVoiceStatus('Processing voice fingerprint...');
     setVoiceStatusClass('info');
 
@@ -379,7 +354,6 @@ export default function InterviewCheck() {
 
       setVoiceStatus('Comparing voice credentials...');
       const res = await client.post('/biometric/verify', {
-        session_id: id,
         voice_embedding: embedding
       });
 
@@ -391,7 +365,7 @@ export default function InterviewCheck() {
         toast.success('Voice Match Successful', 'Your voice footprint matched your registered profile.');
       } else {
         setVoiceChecking(false);
-        const errMsg = res.data.message || 'Voice ID mismatch: Speaker voice pattern does not match the registered candidate profile.';
+        const errMsg = res.data.message || 'Voice ID mismatch: Speaker voice pattern does not match registered profile.';
         setVoiceStatus(errMsg);
         setVoiceStatusClass('err');
         toast.error('Voice ID Check Failed', errMsg);
@@ -405,25 +379,6 @@ export default function InterviewCheck() {
     }
   }
 
-  function stopVoiceRecording() {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach(t => t.stop());
-      audioStreamRef.current = null;
-    }
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close().catch(() => {});
-      audioCtxRef.current = null;
-    }
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-    }
-  }
-
-
   // ── FFT Voice Feature Extraction ──────────────────────────────────────────
 
   async function extractVoiceEmbedding(chunks) {
@@ -436,8 +391,8 @@ export default function InterviewCheck() {
     const channelData = audioBuf.getChannelData(0);
     const duration = audioBuf.duration;
 
-    if (duration < 1.8) {
-      throw new Error("Please speak clearly: 'My voice is my unique identity and my password'.");
+    if (duration < 3.2) {
+      throw new Error("Please speak every word of the passphrase clearly: 'My voice is my unique identity and my password'.");
     }
 
     const sampleRate = audioBuf.sampleRate;
@@ -459,15 +414,18 @@ export default function InterviewCheck() {
     console.log('[DEBUG] Audio signal RMS energy:', rms);
 
     // 1. Silent or no voice captured
-    if (rms < 0.003) {
+    if (rms < 0.005) {
       throw new Error("No voice detected. Please check your microphone and speak clearly.");
     }
 
+    // 2. Far away, too quiet, or background noise dominant
+    if (rms < 0.025) {
+      throw new Error("Voice is too quiet or distant. Please move closer to the microphone and speak loudly.");
+    }
+
     const frameSize = 512;
+    const hopSize = 256;
     const numBands = 64;
-    const totalSamples = filteredData.length;
-    const numTargetFrames = 64;
-    const hopSize = Math.max(256, Math.floor((totalSamples - frameSize) / numTargetFrames));
     const embedding = new Array(numBands).fill(0);
     let frames = 0;
 
@@ -527,7 +485,7 @@ export default function InterviewCheck() {
           re[i + j + len / 2] = uRe - vRe;
           im[i + j + len / 2] = uIm - vIm;
           const nextWRe = wRe * wlenRe - wIm * wlenIm;
-          wIm = wRe * wlenIm + wIm * wlenRe;
+          wIm = wRe * Math.sin(angle) + wIm * wlenRe;
           wRe = nextWRe;
         }
       }
@@ -686,7 +644,7 @@ export default function InterviewCheck() {
             {voiceChecking && !voiceVerified ? (
               <>
                 <canvas
-                  ref={canvasRef}
+                  ref={voiceCanvasRef}
                   width={320}
                   height={140}
                   style={{ width: '100%', height: 140 }}
@@ -734,7 +692,7 @@ export default function InterviewCheck() {
             padding: 12,
             borderRadius: 'var(--radius-md)',
             background: voiceStatusClass === 'success' ? 'rgba(18, 163, 126, 0.05)' : voiceStatusClass === 'err' ? 'rgba(239, 68, 68, 0.05)' : 'var(--surface-hover)',
-            color: voiceStatusClass === 'success' ? 'var(--success)' : voiceStatusClass === 'err' ? 'var(--error)' : 'var(--text-secondary)',
+            color: voiceStatusClass === 'success' ? 'var(--success)' : faceStatusClass === 'err' ? 'var(--error)' : 'var(--text-secondary)',
             fontWeight: 500,
             textAlign: 'center',
             minHeight: 48,
@@ -750,36 +708,13 @@ export default function InterviewCheck() {
               Start Voice Verification
             </Button>
           )}
-
-          {voiceChecking && !voiceVerified && (
-            <Button
-              onClick={processVoiceVerification}
-              variant="secondary"
-              fullWidth
-              style={{
-                background: 'rgba(99, 102, 241, 0.15)',
-                borderColor: '#6366f1',
-                color: '#818cf8',
-                fontWeight: 600
-              }}
-            >
-              Done Speaking — Stop & Verify
-            </Button>
-          )}
         </div>
       </div>
 
       {/* Bottom Actions */}
       <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 24 }}>
         <Button variant="secondary" onClick={() => navigate(ROUTES.USER.DASHBOARD)} style={{ minWidth: 160 }}>
-          Cancel
-        </Button>
-        <Button
-          onClick={() => navigate(ROUTES.USER.INTERVIEW_SESSION(id))}
-          disabled={!(faceVerified && voiceVerified)}
-          style={{ minWidth: 200 }}
-        >
-          Enter Interview Room
+          Back to Dashboard
         </Button>
       </div>
     </div>

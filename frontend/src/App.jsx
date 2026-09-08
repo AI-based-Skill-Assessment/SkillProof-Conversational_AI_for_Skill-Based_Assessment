@@ -13,6 +13,7 @@ import LandingPage from './pages/public/LandingPage';
 import OrganizationLandingPage from './pages/public/OrganizationLandingPage';
 import HowItWorks from './pages/public/HowItWorks';
 import Security from './pages/public/Security';
+import PublicReportVerify from './pages/public/PublicReportVerify';
 
 // ── Pages: Candidate / User Portal ───────────────────────────────────────────
 import UserSignIn from './pages/user/SignIn';
@@ -27,6 +28,7 @@ import UserCertificateAssessment from './pages/user/CertificateAssessment';
 import UserSkillAssessment from './pages/user/SkillAssessment';
 import UserAssessmentReview from './pages/user/AssessmentReview';
 import UserInterviewCheck from './pages/user/InterviewCheck';
+import BiometricCheckPage from './pages/user/BiometricCheckPage';
 import UserInterviewSession from './pages/user/InterviewSession';
 import UserInterviewProcessing from './pages/user/InterviewProcessing';
 import UserReportsList from './pages/user/ReportsList';
@@ -64,11 +66,15 @@ import AdminAssessments from './pages/admin/Assessments';
 import AdminActivity from './pages/admin/Activity';
 import AdminSettings from './pages/admin/Settings';
 
+import NetworkStatusFallback from './components/common/NetworkStatusFallback';
+
 export default function App() {
   return (
     <BrowserRouter>
+      <NetworkStatusFallback />
       <Routes>
-        {/* ── 1. Public Marketing Routes ──────────────────────────────────────── */}
+        {/* ── 1. Public Marketing Routes & QR Audit Verification ──────────────── */}
+        <Route path="/verify/:id" element={<PublicReportVerify />} />
         <Route element={<PublicLayout />}>
           <Route path={ROUTES.HOME} element={<LandingPage />} />
           <Route path={ROUTES.FOR_ORGANISATIONS} element={<OrganizationLandingPage />} />
@@ -173,6 +179,7 @@ export default function App() {
           <Route path={ROUTES.USER.SKILL_ASSESSMENT} element={<UserSkillAssessment />} />
           <Route path={ROUTES.USER.ASSESSMENT_REVIEW()} element={<UserAssessmentReview />} />
           <Route path={ROUTES.USER.INTERVIEW_CHECK()} element={<UserInterviewCheck />} />
+          <Route path={ROUTES.USER.BIOMETRIC_CHECK} element={<BiometricCheckPage />} />
           <Route path={ROUTES.USER.INTERVIEW_SESSION()} element={<UserInterviewSession />} />
           <Route path={ROUTES.USER.INTERVIEW_PROCESSING()} element={<UserInterviewProcessing />} />
           <Route path={ROUTES.USER.REPORTS_LIST} element={<UserReportsList />} />

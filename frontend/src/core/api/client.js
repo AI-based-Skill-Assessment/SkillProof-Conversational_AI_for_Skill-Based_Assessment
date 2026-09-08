@@ -15,13 +15,14 @@ function getRoleFromPath(pathname) {
   if (pathname.startsWith('/admin')) return 'admin';
   if (pathname.startsWith('/org')) return 'org';
   if (pathname.startsWith('/user')) return 'user';
-  return 'user';
+  return null; // Public routes have no authenticated role
 }
 
 // ── Request interceptor — attach JWT ────────────────────────────────────────────
 client.interceptors.request.use(
   (config) => {
     const role = getRoleFromPath(window.location.pathname);
+    if (!role) return config;
     const token = localStorage.getItem(`skillproof_${role}_access_token`);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -62,6 +63,11 @@ client.interceptors.response.use(
       localStorage.removeItem(`skillproof_${role}_refresh_token`);
       localStorage.removeItem(`skillproof_${role}_user`);
       window.location.href = `/user/signin?expired=true`;
+      return Promise.reject(error);
+    }
+
+    // If request is on a public page with no role, do not attempt role-specific refresh or logout
+    if (!role) {
       return Promise.reject(error);
     }
 

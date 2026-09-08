@@ -94,7 +94,7 @@ async def update_session_metadata(
             status_map = {
                 "pending": SessionStatus.pending,
                 "ocr_done": SessionStatus.ocr_done,
-                "verified": SessionStatus.verified,
+                "verified": SessionStatus.ocr_done,
                 "interview_done": SessionStatus.interview_done,
                 "scored": SessionStatus.scored,
                 "verifying": SessionStatus.ocr_done,
@@ -103,16 +103,39 @@ async def update_session_metadata(
                 "failed": SessionStatus.scored
             }
             session.status = status_map.get(update_data.status, session.status)
-        if update_data.extracted_company is not None:
-            session.extracted_company = update_data.extracted_company
-        if update_data.extracted_role is not None:
-            session.extracted_role = update_data.extracted_role
+        if update_data.extracted_company is not None and update_data.extracted_company != "Certificate Issuer":
+            if session.extracted_company and session.extracted_company != "Certificate Issuer":
+                if update_data.extracted_company not in session.extracted_company:
+                    session.extracted_company = f"{session.extracted_company}, {update_data.extracted_company}"
+            else:
+                session.extracted_company = update_data.extracted_company
+
+        if update_data.extracted_role is not None and update_data.extracted_role != "Certificate Course":
+            if session.extracted_role and session.extracted_role != "Certificate Course":
+                if update_data.extracted_role not in session.extracted_role:
+                    session.extracted_role = f"{session.extracted_role}, {update_data.extracted_role}"
+            else:
+                session.extracted_role = update_data.extracted_role
+
         if update_data.extracted_skills is not None:
-            session.extracted_skills = update_data.extracted_skills
+            existing = list(session.extracted_skills or [])
+            for sk in update_data.extracted_skills:
+                if sk not in existing and sk not in ("General Competencies", "Verified Skills"):
+                    existing.append(sk)
+            session.extracted_skills = existing
+
         if update_data.extracted_verify_url is not None:
-            session.extracted_verify_url = update_data.extracted_verify_url
+            if session.extracted_verify_url:
+                if update_data.extracted_verify_url not in session.extracted_verify_url:
+                    session.extracted_verify_url = f"{session.extracted_verify_url} | {update_data.extracted_verify_url}"
+            else:
+                session.extracted_verify_url = update_data.extracted_verify_url
+
         if update_data.raw_ocr_text is not None:
-            session.raw_ocr_text = update_data.raw_ocr_text
+            if session.raw_ocr_text:
+                session.raw_ocr_text = f"{session.raw_ocr_text}\n\n--- Next Certificate ---\n\n{update_data.raw_ocr_text}"
+            else:
+                session.raw_ocr_text = update_data.raw_ocr_text
         
         db.add(session)
         await db.flush()

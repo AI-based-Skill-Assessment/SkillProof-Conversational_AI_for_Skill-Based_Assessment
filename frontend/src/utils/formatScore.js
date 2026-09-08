@@ -16,10 +16,10 @@ export function formatScore(score) {
  * Map a 0–100 score to a color token name.
  */
 export function scoreColor(score) {
-  if (score == null) return 'var(--text-secondary)';
-  if (score >= 80)   return 'var(--success)';
-  if (score >= 60)   return 'var(--warning)';
-  return 'var(--error)';
+  if (score == null) return '#94a3b8';
+  if (score >= 80)   return '#1F9D6C'; // Green
+  if (score >= 60)   return '#C98A1E'; // Amber / Orange
+  return '#D4483C'; // Red
 }
 
 /**

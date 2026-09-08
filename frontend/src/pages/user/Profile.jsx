@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import client from '../../core/api/client';
@@ -9,12 +9,36 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, updateUserCache, logout } = useAuth();
   const toast = useToast();
 
+  const [profileData, setProfileData] = useState(user);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Only fetch if local user data is missing or incomplete
+    if (!user || !user.email) {
+      async function fetchProfile() {
+        try {
+          const res = await client.get('/auth/me');
+          if (res.data) {
+            setProfileData(res.data);
+            if (updateUserCache) updateUserCache(res.data);
+          }
+        } catch (err) {
+          console.warn('Failed to fetch user profile from API:', err);
+        }
+      }
+      fetchProfile();
+    } else {
+      setProfileData(user);
+    }
+  }, [user, updateUserCache]);
+
+  const currentUser = profileData || user;
+  const fullName = currentUser?.full_name || currentUser?.name || user?.full_name || user?.email?.split('@')[0] || 'Candidate';
 
   async function handlePasswordChange(e) {
     e.preventDefault();
@@ -51,74 +75,80 @@ export default function Profile() {
               width: 60, height: 60, borderRadius: '50%',
               background: 'var(--primary)', color: 'white',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 24, fontWeight: 700
+              fontSize: 24, fontWeight: 700, overflow: 'hidden'
             }}>
-              {user?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
+              {currentUser?.profile_picture_url || currentUser?.picture ? (
+                <img src={currentUser.profile_picture_url || currentUser.picture} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                fullName?.trim().split(' ')[0].charAt(0).toUpperCase() || 'U'
+              )}
             </div>
             <div>
-              <h3 style={{ fontSize: 18, fontWeight: 700 }}>{user?.full_name || 'Candidate Name'}</h3>
-              <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{user?.email}</p>
+              <h3 style={{ fontSize: 18, fontWeight: 700 }}>{fullName}</h3>
+              <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{currentUser?.email}</p>
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16, borderTop: '1px solid var(--border)', paddingTop: 20, fontSize: 14 }}>
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Account Type:</div>
-            <div style={{ textTransform: 'capitalize' }}>{user?.account_type || 'individual'}</div>
+            <div style={{ textTransform: 'capitalize' }}>{currentUser?.account_type || 'individual'}</div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Verified Status:</div>
             <div>
-              <StatusBadge variant={user?.email_verified ? 'success' : 'warning'}>
-                {user?.email_verified ? 'Email Verified' : 'Pending Verification'}
+              <StatusBadge variant={currentUser?.email_verified ? 'success' : 'warning'}>
+                {currentUser?.email_verified ? 'Email Verified' : 'Pending Verification'}
               </StatusBadge>
             </div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Face ID Registry:</div>
             <div>
-              <StatusBadge variant={user?.face_registered ? 'success' : 'neutral'}>
-                {user?.face_registered ? 'Registered' : 'Not Registered'}
+              <StatusBadge variant={currentUser?.face_registered ? 'success' : 'neutral'}>
+                {currentUser?.face_registered ? 'Registered' : 'Not Registered'}
               </StatusBadge>
             </div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Voice ID Registry:</div>
             <div>
-              <StatusBadge variant={user?.voice_registered ? 'success' : 'neutral'}>
-                {user?.voice_registered ? 'Registered' : 'Not Registered'}
+              <StatusBadge variant={currentUser?.voice_registered ? 'success' : 'neutral'}>
+                {currentUser?.voice_registered ? 'Registered' : 'Not Registered'}
               </StatusBadge>
             </div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Member Since:</div>
-            <div>{formatDate(user?.created_at)}</div>
+            <div>{formatDate(currentUser?.created_at)}</div>
           </div>
         </CardBody>
       </Card>
 
-      {/* Change Password Card */}
-      <Card>
-        <CardHeader><CardTitle>Change Password</CardTitle></CardHeader>
-        <CardBody>
-          <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Input
-              label="Current Password"
-              type="password"
-              id="profile-curr-pass"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-            />
-            <Input
-              label="New Password"
-              type="password"
-              id="profile-new-pass"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-            />
-            <Button type="submit" loading={loading}>
-              Change Password
-            </Button>
-          </form>
-        </CardBody>
-      </Card>
+      {/* Change Password Card — Only for traditional email/password users */}
+      {!currentUser?.is_google_auth && (
+        <Card>
+          <CardHeader><CardTitle>Change Password</CardTitle></CardHeader>
+          <CardBody>
+            <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <Input
+                label="Current Password"
+                type="password"
+                id="profile-curr-pass"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+              />
+              <Input
+                label="New Password"
+                type="password"
+                id="profile-new-pass"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+              />
+              <Button type="submit" loading={loading}>
+                Change Password
+              </Button>
+            </form>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Danger Zone Card */}
       <Card>

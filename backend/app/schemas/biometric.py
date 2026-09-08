@@ -12,10 +12,13 @@ from pydantic import BaseModel, Field
 # Register
 # ─────────────────────────────────────────────────────────────────────────────
 
+from typing import List, Optional, Any
+
 class BiometricRegisterRequest(BaseModel):
-    session_id:      UUID
-    face_embedding:  Optional[List[float]] = None
-    voice_embedding: Optional[List[float]] = None
+    session_id:      Optional[UUID] = None
+    face_image:      Optional[str] = None
+    face_embedding:  Optional[Any] = None
+    voice_embedding: Optional[Any] = None
 
 
 class BiometricStatusResponse(BaseModel):
@@ -40,10 +43,10 @@ class BiometricStatusResponse(BaseModel):
 
 class BiometricDuplicateCheckRequest(BaseModel):
     """Check if a face or voice embedding already belongs to another session."""
-    session_id:      UUID
+    session_id:      Optional[UUID] = None
     face_image:      Optional[str] = None
-    face_embedding:  Optional[List[float]] = None
-    voice_embedding: Optional[List[float]] = None
+    face_embedding:  Optional[Any] = None
+    voice_embedding: Optional[Any] = None
 
 
 class BiometricDuplicateCheckResponse(BaseModel):
@@ -61,14 +64,14 @@ class BiometricDuplicateCheckResponse(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class BiometricVerifyRequest(BaseModel):
-    session_id:      UUID
-    face_embedding:  Optional[List[float]] = None
+    session_id:      Optional[UUID] = None
+    face_embedding:  Optional[Any] = None
     face_image:      Optional[str] = None
-    voice_embedding: Optional[List[float]] = None
+    voice_embedding: Optional[Any] = None
 
 
 class BiometricVerifyResponse(BaseModel):
-    session_id:      UUID
+    session_id:      Optional[UUID] = None
     face_match:      bool
     voice_match:     bool
     face_confidence: float
@@ -107,6 +110,10 @@ class InterviewVerifyResponse(BaseModel):
     fraud_flags:         int
     alert_level:         str   # "ok" | "warn" | "flag"
     message:             str
+    face_detected:       Optional[bool] = True
+    multi_face_detected: Optional[bool] = False
+    gaze_direction:      Optional[str] = "center"
+    specific_flags:      List[str] = []
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -86,6 +86,25 @@ async def health_check():
     }
 
 
+@app.get("/server-info", tags=["Health"])
+async def server_info():
+    """Returns the server's LAN IP so the frontend can generate correct QR codes."""
+    import socket
+    lan_ip = "localhost"
+    try:
+        # Connect to external address to discover which local interface is used for LAN
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        lan_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        try:
+            lan_ip = socket.gethostbyname(socket.gethostname())
+        except Exception:
+            lan_ip = "localhost"
+    return {"lan_ip": lan_ip, "port": 8000, "frontend_port": 5173}
+
+
 # ── Serve legacy HTML pages ────────────────────────────────────────────────────
 _UI_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
