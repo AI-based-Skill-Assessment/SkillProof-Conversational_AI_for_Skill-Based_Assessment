@@ -40,6 +40,10 @@
   color: var(--input-placeholder);
 }
 
+.common-input__field:hover:not(:focus):not(:disabled) {
+  border-color: color-mix(in srgb, var(--input-focus) 45%, var(--input-border));
+}
+
 .common-input__field:focus {
   border-color: var(--input-focus);
   box-shadow: 0 0 0 3px rgba(31, 122, 107, 0.12);
@@ -48,6 +52,14 @@
 
 [data-theme="dark"] .common-input__field:focus {
   box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.12);
+}
+
+.common-input__field:-webkit-autofill,
+.common-input__field:-webkit-autofill:hover,
+.common-input__field:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  box-shadow: 0 0 0 1000px var(--input-bg) inset;
+  transition: background-color 9999s ease-out;
 }
 
 .common-input__field--error {

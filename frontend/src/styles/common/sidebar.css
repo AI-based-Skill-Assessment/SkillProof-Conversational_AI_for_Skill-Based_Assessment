@@ -23,7 +23,7 @@
 @media (max-width: 1023px) {
   .common-sidebar {
     transform: translateX(-100%);
-    width: var(--sidebar-width);
+    width: min(var(--sidebar-width), calc(100vw - 48px));
     box-shadow: var(--shadow-xl);
   }
   .common-sidebar--mobile-open {
@@ -193,7 +193,9 @@
 .common-sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(3, 12, 24, 0.52);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   z-index: calc(var(--z-sticky) - 1);
   display: none;
 }

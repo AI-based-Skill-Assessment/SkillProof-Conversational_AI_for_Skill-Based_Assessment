@@ -117,7 +117,7 @@ export default function SignIn() {
             </Link>
           </div>
 
-          <Button type="submit" fullWidth loading={loading}>
+          <Button type="submit" fullWidth loading={loading} shimmer>
             Sign In
           </Button>
         </form>

@@ -21,6 +21,7 @@ const Icons = {
 };
 
 const NAV_ITEMS = [
+  { to: ROUTES.USER.DASHBOARD,        label: 'Dashboard',       icon: <Icons.Dashboard /> },
   { to: ROUTES.USER.NEW_ASSESSMENT,   label: 'New Assessment', icon: <Icons.Assessment /> },
   { to: ROUTES.USER.REPORTS_LIST,     label: 'My Reports',     icon: <Icons.Reports /> },
   { to: ROUTES.USER.CERTIFICATES,     label: 'Certificates',   icon: <Icons.Certificates /> },

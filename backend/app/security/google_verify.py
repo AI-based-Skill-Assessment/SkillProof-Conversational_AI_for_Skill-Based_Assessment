@@ -9,12 +9,16 @@ def verify_google_token(token: str) -> dict:
     For development, if GOOGLE_CLIENT_ID is not configured, we allow decoding
     without validation (or mock extraction) if a fallback string is parsed.
     """
-    # 1. Fallback / Mock mode for local testing if GOOGLE_CLIENT_ID is empty
-    if not settings.GOOGLE_CLIENT_ID:
+    # 1. Fallback / Mock mode for local testing if GOOGLE_CLIENT_ID is unset
+    # or still contains the example placeholder.
+    client_id = settings.GOOGLE_CLIENT_ID.strip()
+    if not client_id or client_id == "your_google_client_id_here":
         if token.startswith("mock_google_"):
-            parts = token.split("_")
-            email = parts[2] if len(parts) > 2 else "candidate@example.com"
-            name = parts[3].replace("-", " ") if len(parts) > 3 else "Google Candidate"
+            payload = token[len("mock_google_"):]
+            _, profile = payload.split("_", 1) if "_" in payload else (payload, "")
+            email, name = profile.split("_", 1) if "_" in profile else (profile, "")
+            email = email or "candidate@example.com"
+            name = name.replace("-", " ") or "Google Candidate"
             return {
                 "email": email,
                 "name": name,
@@ -25,7 +29,7 @@ def verify_google_token(token: str) -> dict:
 
     # 2. Real verification using google-auth library
     try:
-        idinfo = id_token.verify_oauth2_token(token, requests.Request(), settings.GOOGLE_CLIENT_ID)
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), client_id)
         
         if idinfo["iss"] not in ["accounts.google.com", "https://accounts.google.com"]:
             raise ValueError("Wrong issuer.")

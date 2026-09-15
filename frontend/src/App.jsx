@@ -67,10 +67,12 @@ import AdminActivity from './pages/admin/Activity';
 import AdminSettings from './pages/admin/Settings';
 
 import NetworkStatusFallback from './components/common/NetworkStatusFallback';
+import CursorSpark from './components/common/CursorSpark';
 
 export default function App() {
   return (
     <BrowserRouter>
+      <CursorSpark />
       <NetworkStatusFallback />
       <Routes>
         {/* ── 1. Public Marketing Routes & QR Audit Verification ──────────────── */}

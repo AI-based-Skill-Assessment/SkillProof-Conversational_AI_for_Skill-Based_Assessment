@@ -96,11 +96,19 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div className="dashboard-stats" aria-label="Assessment summary">
+        <StatCard icon="◎" value={stats.completed_assessments} label="Assessments" />
+        <StatCard icon="✓" value={stats.verified_certificates} label="Verified certificates" />
+        <StatCard icon="%" value={stats.average_skill_score ? `${formatScore(stats.average_skill_score)}%` : '—'} label="Average skill score" />
+        <StatCard icon="↗" value={stats.shared_organisations} label="Organisations" />
+      </div>
+
       {/* Candidate Action Hub Cards */}
       <div className="dashboard-grid">
         {/* Card 1: Primary Action */}
         <div className="hub-card hub-card--primary">
           <div>
+            <div className="hub-card__icon" aria-hidden="true">+</div>
             <div className="hub-card__top">
               <span className="hub-card__tag">Next Action</span>
               <span className="hub-card__badge hub-card__badge--cyan">
@@ -134,6 +142,7 @@ export default function Dashboard() {
         {/* Card 2: Active Pipeline Tracker */}
         <div className="hub-card hub-card--info">
           <div>
+            <div className="hub-card__icon" aria-hidden="true">≡</div>
             <div className="hub-card__top">
               <span className="hub-card__tag">My Applications</span>
               <span className="hub-card__badge hub-card__badge--blue">
@@ -157,6 +166,7 @@ export default function Dashboard() {
         {/* Card 3: Camera & Mic Security Check */}
         <div className="hub-card hub-card--success">
           <div>
+            <div className="hub-card__icon" aria-hidden="true">◉</div>
             <div className="hub-card__top">
               <span className="hub-card__tag">Hardware Check</span>
               <span className="hub-card__badge hub-card__badge--green">
@@ -180,6 +190,7 @@ export default function Dashboard() {
         {/* Card 4: Certificates & Badges */}
         <div className="hub-card hub-card--purple">
           <div>
+            <div className="hub-card__icon" aria-hidden="true">◇</div>
             <div className="hub-card__top">
               <span className="hub-card__tag">Share Credentials</span>
               <span className="hub-card__badge hub-card__badge--purple">
@@ -201,6 +212,21 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div className="dashboard-pipeline" aria-label="Assessment pipeline summary">
+        <div className="dashboard-pipeline__step">
+          <span className="dashboard-pipeline__label">Intake</span>
+          <strong className="dashboard-pipeline__value">{sessions.length} submitted</strong>
+        </div>
+        <div className="dashboard-pipeline__step">
+          <span className="dashboard-pipeline__label">Verification</span>
+          <strong className="dashboard-pipeline__value">{sessions.filter(s => ['ocr_done', 'verified'].includes(s.status)).length} ready</strong>
+        </div>
+        <div className="dashboard-pipeline__step">
+          <span className="dashboard-pipeline__label">Interview</span>
+          <strong className="dashboard-pipeline__value">{sessions.filter(s => s.status === 'scored').length} completed</strong>
+        </div>
+      </div>
+
       {/* Recent Sessions */}
       <div className="dashboard-section">
         <div className="dashboard-section__header">
@@ -211,7 +237,10 @@ export default function Dashboard() {
         </div>
 
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>Loading sessions...</div>
+          <div className="app-loading-state">
+            <span className="app-loading-state__spinner" aria-hidden="true" />
+            <span>Loading assessment sessions...</span>
+          </div>
         ) : (
           <div className="common-table-container">
             <table className="common-table">

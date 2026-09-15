@@ -5,10 +5,11 @@ import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
 export default function NewAssessment() {
-  const [selected, setSelected] = useState('certificate');
+  const [selected, setSelected] = useState(null);
   const navigate = useNavigate();
 
   function handleProceed() {
+    if (!selected) return;
     if (selected === 'certificate') {
       navigate(ROUTES.USER.CERTIFICATE_ASSESSMENT);
     } else {
@@ -17,13 +18,13 @@ export default function NewAssessment() {
   }
 
   return (
-    <div className="anim-fade-in" style={{ maxWidth: 640, margin: '0 auto' }}>
+    <div className="page-shell page-shell--narrow anim-fade-in">
       <div className="page-header">
         <h2 className="page-header__title">Start a New Assessment</h2>
         <p className="page-header__subtitle">Choose how you want to ingest your credentials or skills</p>
       </div>
 
-      <div className="intake-selector" style={{ marginBottom: 32 }}>
+      <div className="intake-selector page-shell__grid" style={{ marginBottom: 32 }}>
         <div
           className={`intake-card${selected === 'certificate' ? ' intake-card--selected' : ''}`}
           onClick={() => setSelected('certificate')}
@@ -51,7 +52,7 @@ export default function NewAssessment() {
         <Button variant="secondary" onClick={() => navigate(ROUTES.USER.DASHBOARD)}>
           Cancel
         </Button>
-        <Button onClick={handleProceed}>
+        <Button onClick={handleProceed} disabled={!selected} shimmer className="common-button--shimmer-slow">
           Proceed
         </Button>
       </div>

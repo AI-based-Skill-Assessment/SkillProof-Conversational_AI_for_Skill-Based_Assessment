@@ -67,7 +67,7 @@ export default function Certificates() {
           </p>
         </div>
         <div className="page-header__actions">
-          <Link to={ROUTES.USER.NEW_ASSESSMENT} className="common-button common-button--primary">
+          <Link to={ROUTES.USER.NEW_ASSESSMENT} className="common-button common-button--primary common-button--shimmer common-button--shimmer-slow">
             New Assessment
           </Link>
         </div>
@@ -79,12 +79,17 @@ export default function Certificates() {
           <p>Loading verifiable credentials...</p>
         </div>
       ) : sessions.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 24px', background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
-          <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: 'var(--text-primary)' }}>No Assessments Found</h3>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>
+        <div className="empty-state">
+          <div className="empty-state__icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <path d="M6 3h9l3 3v15H6z" /><path d="M14 3v4h4M9 12h6M9 16h6" />
+            </svg>
+          </div>
+          <h3 className="empty-state__title">No Assessments Found</h3>
+          <p className="empty-state__text">
             Take your first assessment or upload a certificate to generate verifiable cryptographic credentials and QR codes.
           </p>
-          <Link to={ROUTES.USER.NEW_ASSESSMENT} className="common-button common-button--primary">
+          <Link to={ROUTES.USER.NEW_ASSESSMENT} className="common-button common-button--primary common-button--shimmer common-button--shimmer-slow">
             Start Assessment
           </Link>
         </div>

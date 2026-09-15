@@ -77,7 +77,7 @@ export default function Notifications() {
       </div>
 
       {/* Filter Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', paddingBottom: 4 }}>
+      <div className="notification-filters" role="tablist" aria-label="Notification categories">
         {[
           { key: 'all', label: 'All' },
           { key: 'assessment', label: 'Assessments' },
@@ -87,18 +87,9 @@ export default function Notifications() {
           <button
             key={tab.key}
             onClick={() => setActiveFilter(tab.key)}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 20,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              border: '1px solid',
-              borderColor: activeFilter === tab.key ? 'var(--primary)' : 'var(--border)',
-              background: activeFilter === tab.key ? 'var(--primary)' : 'var(--surface)',
-              color: activeFilter === tab.key ? '#ffffff' : 'var(--text-secondary)',
-              transition: 'all 150ms ease'
-            }}
+            className={`notification-filter${activeFilter === tab.key ? ' notification-filter--active' : ''}`}
+            role="tab"
+            aria-selected={activeFilter === tab.key}
           >
             {tab.label}
           </button>
@@ -113,9 +104,14 @@ export default function Notifications() {
               <p>Loading activity notifications...</p>
             </div>
           ) : filtered.length === 0 ? (
-            <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-secondary)' }}>
-              <span style={{ fontSize: 32, display: 'block', marginBottom: 10 }}>🔔</span>
-              No notifications found in this category.
+            <div className="empty-state">
+              <div className="empty-state__icon" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+                </svg>
+              </div>
+              <h3 className="empty-state__title">No notifications found</h3>
+              <p className="empty-state__text">There is nothing new in this category yet.</p>
             </div>
           ) : (
             filtered.map((n, idx) => (

@@ -82,10 +82,19 @@ export default function Dashboard() {
       <div className="dashboard-section">
         <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Pending Institution Approvals</h3>
         {loading ? (
-          <div>Loading approvals...</div>
+          <div className="app-loading-state">
+            <span className="app-loading-state__spinner" aria-hidden="true" />
+            <span>Loading approval queue...</span>
+          </div>
         ) : pendingOrgs.length === 0 ? (
-          <div style={{ padding: 30, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', color: 'var(--text-secondary)' }}>
-            No pending registration requests found.
+          <div className="empty-state">
+            <div className="empty-state__icon" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                <path d="M5 12l4 4L19 6" /><circle cx="12" cy="12" r="9" />
+              </svg>
+            </div>
+            <h3 className="empty-state__title">All caught up</h3>
+            <p className="empty-state__text">No pending organisation registration requests need review.</p>
           </div>
         ) : (
           <div className="common-table-container">

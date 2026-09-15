@@ -27,8 +27,7 @@ tf-keras>=2.16.0
 # Face mesh, gaze, head pose, iris — MediaPipe (Google, real-time, CPU)
 mediapipe>=0.10.14
 
-# Voice verification — SpeechBrain ECAPA-TDNN (state-of-the-art speaker verification)
-speechbrain>=1.0.0
+# SpeechBrain is optional: voice_verifier.py uses spectral verification when it is unavailable.
 
 # Document verification engine
 beautifulsoup4>=4.12.0

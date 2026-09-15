@@ -2,6 +2,9 @@
 /* All classes prefixed with .common-button */
 
 .common-button {
+  --button-ripple-color: rgba(255, 255, 255, 0.9);
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -19,6 +22,49 @@
   white-space: nowrap;
   user-select: none;
   text-decoration: none;
+}
+
+.common-button__ripple {
+  position: absolute;
+  z-index: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: var(--button-ripple-color);
+  opacity: 0.5;
+  transform: scale(0);
+  animation: common-button-ripple 760ms ease-out;
+}
+
+.common-button--shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.32) 46%, transparent 72%);
+  transform: translateX(-125%);
+  animation: common-button-shimmer 6s ease-in-out infinite;
+}
+
+.common-button--shimmer-slow::after {
+  background: linear-gradient(110deg, transparent 12%, rgba(255, 255, 255, 0.58) 45%, rgba(255, 255, 255, 0.18) 54%, transparent 86%);
+  animation-duration: 6s;
+}
+
+.common-button > *:not(.common-button__ripple) {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes common-button-ripple {
+  to {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes common-button-shimmer {
+  0%, 35% { transform: translateX(-125%); }
+  65%, 100% { transform: translateX(125%); }
 }
 
 .common-button:active:not(:disabled) {
@@ -39,6 +85,7 @@
 
 /* ── Secondary ── */
 .common-button--secondary {
+  --button-ripple-color: rgba(76, 201, 240, 0.65);
   background: var(--surface);
   color: var(--text-primary);
   border-color: var(--border);
@@ -51,6 +98,7 @@
 
 /* ── Ghost ── */
 .common-button--ghost {
+  --button-ripple-color: rgba(76, 201, 240, 0.65);
   background: transparent;
   color: var(--text-secondary);
   border-color: transparent;
@@ -63,6 +111,7 @@
 
 /* ── Outline ── */
 .common-button--outline {
+  --button-ripple-color: rgba(76, 201, 240, 0.7);
   background: transparent;
   color: var(--primary);
   border-color: var(--primary);
@@ -138,4 +187,11 @@
 .common-button:disabled {
   opacity: var(--disabled-opacity);
   cursor: var(--disabled-cursor);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .common-button__ripple,
+  .common-button--shimmer::after {
+    animation-duration: 1ms;
+  }
 }

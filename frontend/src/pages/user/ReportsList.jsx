@@ -52,7 +52,12 @@ export default function ReportsList() {
     }
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center' }}>Loading reports list...</div>;
+  if (loading) return (
+    <div className="app-loading-state">
+      <span className="app-loading-state__spinner" aria-hidden="true" />
+      <span>Loading assessment reports...</span>
+    </div>
+  );
 
   return (
     <div className="anim-fade-in">
@@ -62,13 +67,18 @@ export default function ReportsList() {
       </div>
 
       {sessions.length === 0 ? (
-        <div className="common-card" style={{ padding: 48, textAlign: 'center' }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-secondary)' }}>No Assessment Reports Found</h3>
-          <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 8 }}>
+        <div className="empty-state">
+          <div className="empty-state__icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <path d="M4 19V5M4 19h16M8 16v-5M12 16V8M16 16v-3" />
+            </svg>
+          </div>
+          <h3 className="empty-state__title">No Assessment Reports Found</h3>
+          <p className="empty-state__text">
             Upload a certificate or complete an assessment to view reports here.
           </p>
-          <div style={{ marginTop: 16 }}>
-            <Link to={ROUTES.USER.NEW_ASSESSMENT} className="common-button common-button--primary">
+          <div>
+            <Link to={ROUTES.USER.NEW_ASSESSMENT} className="common-button common-button--primary common-button--shimmer common-button--shimmer-slow">
               Start New Assessment
             </Link>
           </div>

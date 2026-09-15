@@ -123,7 +123,7 @@ export default function SignUp() {
             required
           />
 
-          <Button type="submit" fullWidth loading={loading}>
+          <Button type="submit" fullWidth loading={loading} shimmer>
             Create Account
           </Button>
         </form>

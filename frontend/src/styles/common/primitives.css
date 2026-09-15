@@ -329,6 +329,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 .common-table {
@@ -346,6 +347,7 @@
   letter-spacing: 0.05em;
   background: var(--surface-hover);
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 
 .common-table td {
@@ -353,6 +355,7 @@
   font-size: var(--text-sm);
   color: var(--text-primary);
   border-bottom: 1px solid var(--border);
+  transition: background-color 160ms ease;
 }
 
 .common-table tr:last-child td {
@@ -360,7 +363,7 @@
 }
 
 .common-table tr:hover td {
-  background: var(--surface-elevated);
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface-elevated));
 }
 
 /* ── Pagination ── */

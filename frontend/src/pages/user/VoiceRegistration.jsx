@@ -28,8 +28,13 @@ export default function VoiceRegistration() {
   const audioCtxRef = useRef(null);
   const analyserRef = useRef(null);
   const mediaRecRef = useRef(null);
+  const speechRecRef = useRef(null);
   const chunksRef = useRef([]);
   const animFrameRef = useRef(null);
+  const stoppingRef = useRef(false);
+  const recordingRef = useRef(false);
+
+  const voicePhrase = 'my voice is my unique identity and my password';
 
   // Onboarding warning check
   useEffect(() => {
@@ -49,6 +54,7 @@ export default function VoiceRegistration() {
   }, []);
 
   async function startVoiceEnroll() {
+    recordingRef.current = true;
     setRecording(true);
     setBlocked(false);
     setStatusMessage('Requesting microphone permission…');
@@ -85,7 +91,9 @@ export default function VoiceRegistration() {
       mediaRec.start();
       mediaRecRef.current = mediaRec;
 
-      setStatusMessage('Recording… read the passphrase aloud then click Stop.');
+      startPhraseRecognition();
+
+      setStatusMessage('Recording… read the passphrase aloud. It will save automatically when recognized.');
       setStatusClass('info');
       setProgress(30);
     } catch (err) {
@@ -93,8 +101,51 @@ export default function VoiceRegistration() {
       setStatusMessage('Microphone access denied: ' + err.message);
       setStatusClass('err');
       setRecording(false);
+      recordingRef.current = false;
       setProgress(0);
       toast.error('Microphone Access Denied', 'Please allow microphone permissions to complete voice enrollment.');
+    }
+  }
+
+  function startPhraseRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    recognition.onresult = event => {
+      const transcript = Array.from(event.results)
+        .map(result => result[0]?.transcript || '')
+        .join(' ')
+        .toLowerCase()
+        .replace(/[^a-z0-9 ]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (transcript.includes(voicePhrase) && !stoppingRef.current) {
+        setStatusMessage('Passphrase recognized. Saving voice fingerprint…');
+        stopVoiceEnroll();
+      }
+    };
+    recognition.onerror = event => {
+      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        console.warn('Passphrase recognition unavailable:', event.error);
+      }
+    };
+    recognition.onend = () => {
+      if (recordingRef.current && !stoppingRef.current) {
+        try { recognition.start(); } catch (_) { }
+      }
+    };
+
+    speechRecRef.current = recognition;
+    try {
+      recognition.start();
+    } catch (err) {
+      console.warn('Could not start passphrase recognition:', err);
+      speechRecRef.current = null;
     }
   }
 
@@ -166,6 +217,8 @@ export default function VoiceRegistration() {
   }
 
   async function stopVoiceEnroll() {
+    if (stoppingRef.current) return;
+    stoppingRef.current = true;
     setRegistering(true);
     setStatusMessage('Processing voice fingerprint…');
     setStatusClass('info');
@@ -255,8 +308,8 @@ export default function VoiceRegistration() {
     const channelData = audioBuf.getChannelData(0); // Float32Array
     const duration = audioBuf.duration;
 
-    // Check minimum duration to ensure they speak the complete sentence without leaving out words
-    if (duration < 3.2) {
+    // Speech recognition confirms the phrase; keep only a short audio sanity check for fallback browsers.
+    if (duration < 1.5) {
       throw new Error("Incomplete recording: You missed words in the sentence. Please read the entire sentence clearly: 'My voice is my unique identity and my password'.");
     }
 
@@ -378,6 +431,12 @@ export default function VoiceRegistration() {
   }
 
   function stopVoiceMic() {
+    recordingRef.current = false;
+    if (speechRecRef.current) {
+      speechRecRef.current.onend = null;
+      speechRecRef.current.stop();
+      speechRecRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -398,6 +457,7 @@ export default function VoiceRegistration() {
     setProgress(0);
     setStatusMessage('Click "Start Recording" to begin voice enrollment.');
     setStatusClass('');
+    stoppingRef.current = false;
   }
 
   function handleFinish() {
@@ -494,11 +554,11 @@ export default function VoiceRegistration() {
         {/* Action Buttons */}
         <div style={{ display: 'flex', gap: 12, width: '100%' }}>
           {complete ? (
-            <Button fullWidth onClick={handleFinish}>
+            <Button fullWidth onClick={handleFinish} shimmer>
               Go to Dashboard →
             </Button>
           ) : !recording ? (
-            <Button fullWidth onClick={startVoiceEnroll}>
+            <Button fullWidth onClick={startVoiceEnroll} shimmer>
               🎙 Start Recording
             </Button>
           ) : (

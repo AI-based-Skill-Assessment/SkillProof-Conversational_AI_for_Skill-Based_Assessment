@@ -7,7 +7,10 @@ export default function GoogleButton({ onSuccess, label = "Sign in with Google" 
   const toast = useToast();
   const [useMock, setUseMock] = useState(false);
 
-  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+  const configuredClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+  const GOOGLE_CLIENT_ID = configuredClientId.includes("your_google_client_id_here")
+    ? ""
+    : configuredClientId;
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) {
