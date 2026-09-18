@@ -172,6 +172,10 @@ class GoogleVerifyRequest(BaseModel):
     is_signup: bool = False
 
 
+class AdminGoogleVerifyRequest(BaseModel):
+    credential_token: str
+
+
 class UserFaceRegisterRequest(BaseModel):
     face_embedding: List[float]
 

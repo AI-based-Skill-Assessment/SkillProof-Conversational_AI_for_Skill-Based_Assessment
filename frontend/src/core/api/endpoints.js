@@ -13,6 +13,7 @@ export const EP = {
     ORG_LOGIN:        '/auth/org/login',
     ADMIN_LOGIN:      '/auth/admin/login',
     ADMIN_2FA:        '/auth/admin/2fa',
+    ADMIN_GOOGLE_VERIFY: '/auth/admin/google/verify',
     ME:               '/auth/me',
     ORG_ME:           '/auth/org/me',
     ADMIN_ME:         '/auth/admin/me',

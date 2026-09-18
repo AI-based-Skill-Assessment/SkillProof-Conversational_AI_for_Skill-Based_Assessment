@@ -10,9 +10,9 @@ def verify_google_token(token: str) -> dict:
     without validation (or mock extraction) if a fallback string is parsed.
     """
     # 1. Fallback / Mock mode for local testing if GOOGLE_CLIENT_ID is unset
-    # or still contains the example placeholder.
+    # or still contains the example placeholder, AND we are NOT in production.
     client_id = settings.GOOGLE_CLIENT_ID.strip()
-    if not client_id or client_id == "your_google_client_id_here":
+    if (not client_id or client_id == "your_google_client_id_here") and settings.APP_ENV != "production":
         if token.startswith("mock_google_"):
             payload = token[len("mock_google_"):]
             _, profile = payload.split("_", 1) if "_" in payload else (payload, "")
@@ -26,6 +26,8 @@ def verify_google_token(token: str) -> dict:
                 "email_verified": True
             }
         raise ValueError("Google Client ID is not configured on the backend. Provide GOOGLE_CLIENT_ID in .env.")
+    elif (not client_id or client_id == "your_google_client_id_here") and settings.APP_ENV == "production":
+        raise ValueError("CRITICAL CONFIGURATION ERROR: GOOGLE_CLIENT_ID is missing in production environment.")
 
     # 2. Real verification using google-auth library
     try:

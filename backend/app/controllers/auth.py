@@ -24,7 +24,7 @@ from app.schemas.auth import (
     AdminLoginRequest, AdminLoginStep1Response, Admin2FARequest, AdminProfileResponse,
     RefreshTokenRequest, AccessTokenResponse, GoogleVerifyRequest, UserAccountTypeRequest,
     OrgGoogleVerifyRequest, OrgGoogleOnboardRequest,
-    UserFaceRegisterRequest, UserVoiceRegisterRequest,
+    UserFaceRegisterRequest, UserVoiceRegisterRequest, AdminGoogleVerifyRequest
 )
 from app.repositories import user_repo, org_repo, admin_repo, biometric_repo
 from sqlalchemy import select
@@ -68,8 +68,13 @@ async def user_register(payload: UserRegisterRequest, db: AsyncSession = Depends
 async def user_login(payload: UserLoginRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     """Authenticate a candidate and return JWT tokens."""
     user = await user_repo.get_user_by_email(db, payload.email)
-    if not user or user.is_google_auth:
+    if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
+    if user.is_google_auth and not user.hashed_password:
+        raise HTTPException(
+            status_code=400,
+            detail="This account was registered with Google. Please use Google Sign-In."
+        )
     if not user_repo.verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     if not user.is_active:
@@ -584,3 +589,31 @@ async def admin_refresh(payload: RefreshTokenRequest) -> AccessTokenResponse:
         raise HTTPException(status_code=401, detail="Invalid refresh token.")
     access = create_access_token(data["sub"], "admin", "")
     return AccessTokenResponse(access_token=access)
+
+
+@router.post("/admin/google/verify", summary="Verify Google ID Token for Admin")
+async def admin_google_verify(payload: AdminGoogleVerifyRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+    """Verify Google token and log in existing admin."""
+    try:
+        id_info = verify_google_token(payload.credential_token)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    email = id_info.get("email")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Google token does not contain an email address.")
+
+    admin = await admin_repo.get_admin_by_email(db, email)
+    if not admin:
+        raise HTTPException(
+            status_code=401,
+            detail="No admin account found with this email. Admin access is restricted."
+        )
+
+    if not admin.is_active:
+        raise HTTPException(status_code=403, detail="Admin account is inactive.")
+
+    access = create_access_token(str(admin.id), "admin", admin.email)
+    refresh = create_refresh_token(str(admin.id), "admin")
+    return TokenResponse(access_token=access, refresh_token=refresh, role="admin")

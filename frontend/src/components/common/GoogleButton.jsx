@@ -38,7 +38,6 @@ export default function GoogleButton({ onSuccess, label = "Sign in with Google" 
             size: 'large',
             text: 'signin_with',
             shape: 'rectangular',
-            width: '100%',
           });
         } catch (err) {
           console.error("Failed to initialize Google Sign In:", err);

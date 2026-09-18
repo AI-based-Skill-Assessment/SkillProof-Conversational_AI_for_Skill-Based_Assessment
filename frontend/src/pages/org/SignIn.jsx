@@ -9,6 +9,8 @@ import GoogleButton from '../../components/common/GoogleButton';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
+import PortalSwitcher from '../../components/common/PortalSwitcher';
+
 export default function SignIn() {
   const { orgLogin, orgGoogleLogin } = useAuth();
   const toast = useToast();
@@ -76,6 +78,7 @@ export default function SignIn() {
 
   return (
     <div className="auth-container">
+      <PortalSwitcher />
       <div className="auth-card anim-scale-in">
         <Link to="/" className="auth-card__brand">
           <Logo size={36} className="public-navbar__logo-icon" color="var(--primary)" />

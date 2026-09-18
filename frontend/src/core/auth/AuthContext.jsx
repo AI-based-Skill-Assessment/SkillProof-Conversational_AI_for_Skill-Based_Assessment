@@ -126,6 +126,17 @@ export function AuthProvider({ children }) {
     return profile.data;
   }, []);
 
+  const adminGoogleLogin = useCallback(async (credentialToken) => {
+    const res = await client.post(EP.AUTH.ADMIN_GOOGLE_VERIFY, {
+      credential_token: credentialToken
+    });
+    localStorage.setItem(`skillproof_admin_access_token`,  res.data.access_token);
+    localStorage.setItem(`skillproof_admin_refresh_token`, res.data.refresh_token);
+    const profile = await client.get(EP.AUTH.ADMIN_ME);
+    _saveSession(res.data, profile.data, 'admin');
+    return profile.data;
+  }, []);
+
   // ── Logout ─────────────────────────────────────────────────────────────────
   const logout = useCallback(() => {
     const currentPortalRole = getActiveRole(window.location.pathname);
@@ -213,6 +224,7 @@ export function AuthProvider({ children }) {
     orgGoogleLogin,
     adminLoginStep1,
     adminLoginStep2,
+    adminGoogleLogin,
     logout,
     updateUserCache,
   };

@@ -8,27 +8,31 @@ import Button from '../../components/common/Button';
 import GoogleButton from '../../components/common/GoogleButton';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
+import PortalSwitcher from '../../components/common/PortalSwitcher';
 
 export default function SignUp() {
   const { userRegister, googleLogin } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [name, setName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+
+  const from = location.state?.from?.pathname || ROUTES.USER.DASHBOARD;
 
   async function handleGoogleSuccess(credentialToken) {
     try {
       setLoading(true);
       await googleLogin(credentialToken, true);
       toast.success('Registration Successful', 'Welcome to SkillProof!');
-      navigate(ROUTES.USER.ACCOUNT_TYPE);
+      navigate(from, { replace: true });
     } catch (err) {
       console.error(err);
-      toast.error('Google Auth Failed', err.response?.data?.detail || 'Authentication failed.');
+      toast.error('Google Registration Failed', err.response?.data?.detail || 'Registration failed.');
     } finally {
       setLoading(false);
     }
@@ -39,11 +43,7 @@ export default function SignUp() {
     setErrors({});
     
     const newErrors = {};
-    if (!name) {
-      newErrors.name = 'Full Name is required';
-    } else if (name.trim().length < 2) {
-      newErrors.name = 'Full Name must be at least 2 characters';
-    }
+    if (!fullName || fullName.length < 2) newErrors.fullName = 'Full name must be at least 2 characters';
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) {
@@ -52,10 +52,8 @@ export default function SignUp() {
       newErrors.email = 'Invalid email address format';
     }
 
-    if (!password) {
-      newErrors.password = 'Password is required';
-    } else if (password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+    if (!password || password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters long';
     }
     
     if (Object.keys(newErrors).length > 0) {
@@ -65,12 +63,12 @@ export default function SignUp() {
 
     try {
       setLoading(true);
-      await userRegister({ full_name: name, email, password });
+      await userRegister({ full_name: fullName, email, password });
       toast.success('Registration Successful', 'Welcome to SkillProof!');
-      navigate(ROUTES.USER.ACCOUNT_TYPE);
+      navigate(from, { replace: true });
     } catch (err) {
       console.error(err);
-      toast.error('Registration Failed', err.response?.data?.detail || 'An account with this email already exists.');
+      toast.error('Registration Failed', err.response?.data?.detail || 'An error occurred during registration.');
     } finally {
       setLoading(false);
     }
@@ -78,6 +76,7 @@ export default function SignUp() {
 
   return (
     <div className="auth-container">
+      <PortalSwitcher />
       <div className="auth-card anim-scale-in">
         <Link to="/" className="auth-card__brand">
           <Logo size={36} className="public-navbar__logo-icon" color="var(--primary)" />

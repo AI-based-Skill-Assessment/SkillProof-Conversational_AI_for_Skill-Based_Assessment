@@ -5,11 +5,14 @@ import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
+import GoogleButton from '../../components/common/GoogleButton';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
+import PortalSwitcher from '../../components/common/PortalSwitcher';
+
 export default function Login() {
-  const { adminLoginStep1 } = useAuth();
+  const { adminLoginStep1, adminGoogleLogin } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -24,6 +27,20 @@ export default function Login() {
       navigate(location.pathname, { replace: true });
     }
   }, [location, toast, navigate]);
+
+  async function handleGoogleSuccess(credentialToken) {
+    try {
+      setLoading(true);
+      await adminGoogleLogin(credentialToken);
+      toast.success('Login Successful', 'Welcome to Admin Dashboard');
+      navigate(ROUTES.ADMIN.DASHBOARD, { replace: true });
+    } catch (err) {
+      console.error(err);
+      toast.error('Google Auth Failed', err.response?.data?.detail || 'Admin authentication failed.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -52,6 +69,7 @@ export default function Login() {
 
   return (
     <div className="auth-container">
+      <PortalSwitcher />
       <div className="auth-card anim-scale-in">
         <div className="auth-card__brand">
           <Logo size={36} className="public-navbar__logo-icon" color="var(--error)" />
@@ -87,6 +105,14 @@ export default function Login() {
             Authenticate Password
           </Button>
         </form>
+
+        <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0 8px 0', gap: 12 }}>
+          <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border-color)' }}></div>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>or</span>
+          <div style={{ flex: 1, height: 1, backgroundColor: 'var(--border-color)' }}></div>
+        </div>
+
+        <GoogleButton onSuccess={handleGoogleSuccess} label="Sign in with Google" />
       </div>
     </div>
   );
