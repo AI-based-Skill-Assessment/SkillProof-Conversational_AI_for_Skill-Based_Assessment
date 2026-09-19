@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Logo from '../../components/common/Logo';
 import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
@@ -93,9 +93,9 @@ export default function SignUp() {
             type="text"
             id="signup-name"
             placeholder="John Doe"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            error={errors.name}
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            error={errors.fullName}
             required
           />
 

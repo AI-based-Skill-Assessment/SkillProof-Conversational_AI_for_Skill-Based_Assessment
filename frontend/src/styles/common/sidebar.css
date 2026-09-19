@@ -6,7 +6,9 @@
   left: 0;
   height: 100vh;
   width: var(--sidebar-width);
-  background: var(--sidebar-bg);
+  background: transparent;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-right: 1px solid var(--sidebar-border);
   display: flex;
   flex-direction: column;

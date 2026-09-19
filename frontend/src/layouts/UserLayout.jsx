@@ -6,6 +6,7 @@ import { useAuth } from '../core/auth/AuthContext';
 import client from '../core/api/client';
 import ROUTES from '../core/routes';
 import { buildNotificationsFromData } from '../utils/notificationService';
+import Grainient from '../components/common/Grainient';
 import '../styles/layouts/app-layout.css';
 
 // Nav icons
@@ -93,6 +94,21 @@ export default function UserLayout({ pageTitle = 'SkillProof' }) {
 
   return (
     <div className="app-layout">
+      {/* Grainy Gradient Background */}
+      {!isInterview && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, opacity: 0.15 }}>
+          <Grainient
+            color1="#4CC9F0"
+            color2="#7209B7"
+            color3="#0D1B2A"
+            grainAmount={0.06}
+            grainScale={1.5}
+            warpSpeed={0.5}
+            zoom={1.5}
+          />
+        </div>
+      )}
+
       {!isInterview && (
         <Sidebar
           navItems={NAV_ITEMS}

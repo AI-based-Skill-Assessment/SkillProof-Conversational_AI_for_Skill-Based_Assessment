@@ -339,7 +339,7 @@ export default function VoiceRegistration() {
     }
 
     // If signal is present but too soft/quiet for reliable biometric extraction
-    if (rms < 0.025) {
+    if (rms < 0.010) {
       throw new Error("The recording is not clear or missing words. Please read every word of the sentence clearly: 'My voice is my unique identity and my password'.");
     }
 

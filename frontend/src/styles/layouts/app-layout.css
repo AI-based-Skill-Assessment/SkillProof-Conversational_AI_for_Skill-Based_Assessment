@@ -10,7 +10,7 @@
   margin-left: var(--sidebar-width);
   padding-top: var(--topbar-height);
   min-height: 100vh;
-  background: var(--background);
+  background: transparent;
   transition: margin-left 250ms ease;
   overflow-x: hidden;
 }
@@ -134,7 +134,7 @@
 /* Public layout */
 .public-layout {
   min-height: 100vh;
-  background: var(--background);
+  background: transparent;
   display: flex;
   flex-direction: column;
 }
