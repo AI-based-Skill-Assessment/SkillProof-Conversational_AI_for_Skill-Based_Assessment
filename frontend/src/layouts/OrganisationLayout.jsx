@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/common/Sidebar';
 import Topbar from '../components/common/Topbar';
+import TechBackground from '../components/common/TechBackground';
 import { useAuth } from '../core/auth/AuthContext';
 import ROUTES from '../core/routes';
 import '../styles/layouts/app-layout.css';
@@ -40,6 +41,7 @@ export default function OrganisationLayout({ pageTitle = 'Organisation Portal' }
 
   return (
     <div className="app-layout">
+      <TechBackground />
       <Sidebar
         navItems={NAV_ITEMS}
         footerItems={FOOTER_ITEMS}

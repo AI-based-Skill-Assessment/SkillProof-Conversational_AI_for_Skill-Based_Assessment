@@ -6,10 +6,11 @@
   right: 0;
   left: var(--sidebar-width);
   height: var(--topbar-height);
-  background: transparent;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
+  background: var(--topbar-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: none;
+  outline: none;
   z-index: var(--z-sticky);
   display: flex;
   align-items: center;
@@ -17,6 +18,17 @@
   padding: 0 var(--space-6);
   gap: var(--space-4);
   transition: left 250ms ease;
+}
+
+.common-topbar,
+.common-topbar--collapsed,
+.common-topbar:focus,
+.common-topbar:focus-visible,
+.common-topbar--collapsed:focus,
+.common-topbar--collapsed:focus-visible {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .common-topbar--collapsed { left: var(--sidebar-collapsed-width); }

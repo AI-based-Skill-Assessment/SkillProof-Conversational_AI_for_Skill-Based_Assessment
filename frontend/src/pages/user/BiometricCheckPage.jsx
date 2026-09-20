@@ -4,6 +4,7 @@ import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import client from '../../core/api/client';
 import Button from '../../components/common/Button';
+import { Card } from '../../components/common/Card';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
@@ -516,7 +517,7 @@ export default function BiometricCheckPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 24 }}>
         {/* Step 1: Face ID Verification */}
-        <div className="common-card" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 24, border: faceVerified ? '2px solid var(--success)' : '1px solid var(--border)' }}>
+        <Card tilt hoverable style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 24, border: faceVerified ? '2px solid var(--success)' : '1px solid var(--border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Step 1: Face ID Check</h3>
             <span style={{
@@ -524,10 +525,10 @@ export default function BiometricCheckPage() {
               fontWeight: 600,
               padding: '4px 8px',
               borderRadius: 12,
-              background: faceVerified ? 'rgba(18, 163, 126, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-              color: faceVerified ? 'var(--success)' : 'var(--error)'
+              background: faceVerified ? 'var(--success-bg)' : 'var(--warning-bg)',
+              color: faceVerified ? 'var(--success)' : 'var(--warning)'
             }}>
-              {faceVerified ? 'Verified' : 'Pending'}
+              {faceVerified ? 'Verified' : faceChecking ? 'Checking' : 'Pending'}
             </span>
           </div>
 
@@ -535,7 +536,7 @@ export default function BiometricCheckPage() {
             position: 'relative',
             width: '100%',
             aspectRatio: '4/3',
-            background: '#1a1a2e',
+            background: 'var(--surface-elevated)',
             borderRadius: 'var(--radius-lg)',
             overflow: 'hidden',
             display: 'flex',
@@ -569,7 +570,7 @@ export default function BiometricCheckPage() {
                   transform: 'translate(-50%, -50%)',
                   width: '60%',
                   height: '70%',
-                  border: `2px dashed ${faceDetected ? '#22c55e' : 'var(--primary)'}`,
+                  border: `2px dashed ${faceDetected ? 'var(--success)' : 'var(--primary)'}`,
                   borderRadius: '50%',
                   boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
                   pointerEvents: 'none',
@@ -588,7 +589,7 @@ export default function BiometricCheckPage() {
             fontSize: 13,
             padding: 12,
             borderRadius: 'var(--radius-md)',
-            background: faceStatusClass === 'success' ? 'rgba(18, 163, 126, 0.05)' : faceStatusClass === 'err' ? 'rgba(239, 68, 68, 0.05)' : 'var(--surface-hover)',
+            background: faceStatusClass === 'success' ? 'var(--success-bg)' : faceStatusClass === 'err' ? 'var(--error-bg)' : 'var(--surface-hover)',
             color: faceStatusClass === 'success' ? 'var(--success)' : faceStatusClass === 'err' ? 'var(--error)' : 'var(--text-secondary)',
             fontWeight: 500,
             textAlign: 'center',
@@ -611,10 +612,10 @@ export default function BiometricCheckPage() {
               Start Face Camera
             </Button>
           )}
-        </div>
+        </Card>
 
         {/* Step 2: Voice ID Verification */}
-        <div className="common-card" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 24, opacity: faceVerified ? 1 : 0.6, border: voiceVerified ? '2px solid var(--success)' : '1px solid var(--border)' }}>
+        <Card tilt hoverable style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 24, opacity: faceVerified ? 1 : 0.6, border: voiceVerified ? '2px solid var(--success)' : '1px solid var(--border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Step 2: Voice ID Check</h3>
             <span style={{
@@ -622,7 +623,7 @@ export default function BiometricCheckPage() {
               fontWeight: 600,
               padding: '4px 8px',
               borderRadius: 12,
-              background: voiceVerified ? 'rgba(18, 163, 126, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+              background: voiceVerified ? 'var(--success-bg)' : 'var(--error-bg)',
               color: voiceVerified ? 'var(--success)' : 'var(--error)'
             }}>
               {voiceVerified ? 'Verified' : 'Locked'}
@@ -633,7 +634,7 @@ export default function BiometricCheckPage() {
             position: 'relative',
             width: '100%',
             aspectRatio: '4/3',
-            background: '#1a1a2e',
+            background: 'var(--surface-elevated)',
             borderRadius: 'var(--radius-lg)',
             overflow: 'hidden',
             display: 'flex',
@@ -653,7 +654,7 @@ export default function BiometricCheckPage() {
                   position: 'absolute',
                   top: 12,
                   right: 12,
-                  background: 'rgba(239, 68, 68, 0.9)',
+                  background: 'var(--error)',
                   color: 'white',
                   padding: '4px 10px',
                   borderRadius: 12,
@@ -691,7 +692,7 @@ export default function BiometricCheckPage() {
             fontSize: 13,
             padding: 12,
             borderRadius: 'var(--radius-md)',
-            background: voiceStatusClass === 'success' ? 'rgba(18, 163, 126, 0.05)' : voiceStatusClass === 'err' ? 'rgba(239, 68, 68, 0.05)' : 'var(--surface-hover)',
+            background: voiceStatusClass === 'success' ? 'var(--success-bg)' : voiceStatusClass === 'err' ? 'var(--error-bg)' : 'var(--surface-hover)',
             color: voiceStatusClass === 'success' ? 'var(--success)' : faceStatusClass === 'err' ? 'var(--error)' : 'var(--text-secondary)',
             fontWeight: 500,
             textAlign: 'center',
@@ -708,7 +709,7 @@ export default function BiometricCheckPage() {
               Start Voice Verification
             </Button>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Bottom Actions */}

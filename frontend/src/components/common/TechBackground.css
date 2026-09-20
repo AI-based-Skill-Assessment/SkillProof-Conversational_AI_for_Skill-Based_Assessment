@@ -1,0 +1,174 @@
+/* ============================================================
+   TechBackground.css
+   Clean Cyber Dot-Matrix, Tech Grid & Ambient Top/Bottom Beams
+   100% Pure CSS - Full Viewport Coverage (Top to Bottom)
+   ============================================================ */
+
+.tech-bg-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background-color: var(--background);
+}
+
+/* ── 1. Top Ambient Cyber Light Beam ── */
+.tech-bg__beam {
+  position: absolute;
+  top: -160px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1200px, 95vw);
+  height: 540px;
+  background: radial-gradient(
+    ellipse 75% 55% at 50% 0%,
+    rgba(2, 132, 199, 0.35) 0%,
+    rgba(99, 102, 241, 0.20) 42%,
+    rgba(186, 230, 253, 0.35) 65%,
+    transparent 82%
+  );
+  filter: blur(48px);
+  opacity: 1;
+}
+
+[data-theme="dark"] .tech-bg__beam {
+  background: radial-gradient(
+    ellipse 75% 55% at 50% 0%,
+    rgba(56, 189, 248, 0.28) 0%,
+    rgba(129, 140, 248, 0.18) 42%,
+    rgba(168, 85, 247, 0.08) 65%,
+    transparent 80%
+  );
+  filter: blur(52px);
+}
+
+/* ── 2. Bottom Ambient Subtle Glow Beam ── */
+.tech-bg__bottom-glow {
+  position: absolute;
+  bottom: -140px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1100px, 95vw);
+  height: 400px;
+  background: radial-gradient(
+    ellipse 70% 50% at 50% 100%,
+    rgba(99, 102, 241, 0.16) 0%,
+    rgba(2, 132, 199, 0.08) 45%,
+    transparent 75%
+  );
+  filter: blur(52px);
+}
+
+[data-theme="dark"] .tech-bg__bottom-glow {
+  background: radial-gradient(
+    ellipse 70% 50% at 50% 100%,
+    rgba(129, 140, 248, 0.14) 0%,
+    rgba(56, 189, 248, 0.08) 50%,
+    transparent 75%
+  );
+}
+
+/* ── 3. Secondary Ambient Accent Orb (Bottom-Right) ── */
+.tech-bg__orb {
+  position: absolute;
+  bottom: -10%;
+  right: -5%;
+  width: 600px;
+  height: 500px;
+  background: radial-gradient(
+    circle,
+    rgba(99, 102, 241, 0.14) 0%,
+    rgba(2, 132, 199, 0.06) 40%,
+    transparent 70%
+  );
+  filter: blur(55px);
+}
+
+[data-theme="dark"] .tech-bg__orb {
+  background: radial-gradient(
+    circle,
+    rgba(129, 140, 248, 0.15) 0%,
+    rgba(56, 189, 248, 0.06) 45%,
+    transparent 70%
+  );
+}
+
+/* ── 4. Full-Height High-Definition Cyber Grid Lines ── */
+.tech-bg__grid-lines {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(2, 132, 199, 0.09) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(2, 132, 199, 0.09) 1px, transparent 1px);
+  background-size: 64px 64px;
+  /* Full viewport coverage with subtle edge softening */
+  mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.8) 75%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.8) 75%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+[data-theme="dark"] .tech-bg__grid-lines {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.8) 75%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.8) 75%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+/* ── 5. Full-Height Tech Dot Matrix Layer ── */
+.tech-bg__dot-matrix {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    circle,
+    rgba(2, 132, 199, 0.48) 1.5px,
+    transparent 1.5px
+  );
+  background-size: 32px 32px;
+  background-position: 0 0;
+  /* Full viewport height coverage */
+  mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.8) 75%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.8) 75%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  opacity: 1;
+}
+
+[data-theme="dark"] .tech-bg__dot-matrix {
+  background-image: radial-gradient(
+    circle,
+    rgba(56, 189, 248, 0.32) 1.5px,
+    transparent 1.5px
+  );
+  opacity: 1;
+}

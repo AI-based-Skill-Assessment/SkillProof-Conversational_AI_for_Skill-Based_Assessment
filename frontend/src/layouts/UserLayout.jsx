@@ -6,7 +6,8 @@ import { useAuth } from '../core/auth/AuthContext';
 import client from '../core/api/client';
 import ROUTES from '../core/routes';
 import { buildNotificationsFromData } from '../utils/notificationService';
-import Grainient from '../components/common/Grainient';
+import { useTheme } from '../core/theme';
+import TechBackground from '../components/common/TechBackground';
 import '../styles/layouts/app-layout.css';
 
 // Nav icons
@@ -26,11 +27,12 @@ const NAV_ITEMS = [
   { to: ROUTES.USER.NEW_ASSESSMENT,   label: 'New Assessment', icon: <Icons.Assessment /> },
   { to: ROUTES.USER.REPORTS_LIST,     label: 'My Reports',     icon: <Icons.Reports /> },
   { to: ROUTES.USER.CERTIFICATES,     label: 'Certificates',   icon: <Icons.Certificates /> },
-  { to: ROUTES.USER.ORGANIZATIONS,    label: 'Organisations',  icon: <Icons.Orgs /> },
+  { to: ROUTES.USER.ORGANIZATIONS,    label: 'Organizations',  icon: <Icons.Orgs /> },
 ];
 
 export default function UserLayout({ pageTitle = 'SkillProof' }) {
   const { user, updateUserCache, logout } = useAuth();
+  const { isDark } = useTheme();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -94,20 +96,8 @@ export default function UserLayout({ pageTitle = 'SkillProof' }) {
 
   return (
     <div className="app-layout">
-      {/* Grainy Gradient Background */}
-      {!isInterview && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, opacity: 0.15 }}>
-          <Grainient
-            color1="#4CC9F0"
-            color2="#7209B7"
-            color3="#0D1B2A"
-            grainAmount={0.06}
-            grainScale={1.5}
-            warpSpeed={0.5}
-            zoom={1.5}
-          />
-        </div>
-      )}
+      {/* Cyber Dot-Matrix & Ambient Vignette Background */}
+      {!isInterview && <TechBackground />}
 
       {!isInterview && (
         <Sidebar

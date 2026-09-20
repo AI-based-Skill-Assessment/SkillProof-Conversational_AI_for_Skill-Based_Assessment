@@ -25,21 +25,25 @@ export default function Dashboard() {
           label="Total Candidates"
           value={stats.total_candidates}
           icon="👥"
+          accentColor="rgba(14, 165, 233, 0.25)"
         />
         <StatCard
           label="Verified Reports"
           value={stats.verified_assessments}
           icon="✓"
+          accentColor="rgba(16, 185, 129, 0.25)"
         />
         <StatCard
           label="Pending Audits"
           value={stats.pending_assessments}
           icon="⏳"
+          accentColor="rgba(245, 158, 11, 0.25)"
         />
         <StatCard
           label="Avg Score"
           value={`${formatScore(stats.average_skill_score)}%`}
           icon="⚡"
+          accentColor="rgba(139, 92, 246, 0.25)"
         />
       </div>
 

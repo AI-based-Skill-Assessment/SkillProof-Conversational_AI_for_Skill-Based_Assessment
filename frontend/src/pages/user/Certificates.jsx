@@ -103,7 +103,7 @@ export default function Certificates() {
             const isVerified = s.status === 'scored' || s.document?.fetch_status === 'verified';
 
             return (
-              <Card key={s.id} style={{ display: 'flex', flexDirection: 'column' }}>
+              <Card key={s.id} tilt hoverable style={{ display: 'flex', flexDirection: 'column' }}>
                 <CardHeader style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <CardTitle style={{ fontSize: 16, fontWeight: 700 }}>
                     {s.extracted_role || s.intake_mode === 'certificate' ? (s.extracted_role || 'Certificate Verification') : 'Skill Assessment'}

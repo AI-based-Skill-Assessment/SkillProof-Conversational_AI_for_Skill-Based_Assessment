@@ -4,7 +4,7 @@ import client from '../../core/api/client';
 import { useToast } from '../../components/common/Toast';
 import { EP } from '../../core/api/endpoints';
 import { MOCK_SESSIONS, MOCK_DASHBOARD_STATS } from '../../core/mockData/user.mock';
-import { StatCard } from '../../components/common/Card';
+import { TiltCard } from '../../components/common/Card';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
 import { formatScore, scoreColor, verdictVariant } from '../../utils/formatScore';
@@ -96,17 +96,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="dashboard-stats" aria-label="Assessment summary">
-        <StatCard icon="◎" value={stats.completed_assessments} label="Assessments" />
-        <StatCard icon="✓" value={stats.verified_certificates} label="Verified certificates" />
-        <StatCard icon="%" value={stats.average_skill_score ? `${formatScore(stats.average_skill_score)}%` : '—'} label="Average skill score" />
-        <StatCard icon="↗" value={stats.shared_organisations} label="Organisations" />
-      </div>
-
       {/* Candidate Action Hub Cards */}
       <div className="dashboard-grid">
         {/* Card 1: Primary Action */}
-        <div className="hub-card hub-card--primary">
+        <TiltCard
+          className="hub-card hub-card--primary"
+          accentColor="rgba(14, 165, 233, 0.3)"
+          maxTilt={12}
+          scale={1.03}
+        >
           <div>
             <div className="hub-card__icon" aria-hidden="true">+</div>
             <div className="hub-card__top">
@@ -137,10 +135,15 @@ export default function Dashboard() {
               </Link>
             )}
           </div>
-        </div>
+        </TiltCard>
 
         {/* Card 2: Active Pipeline Tracker */}
-        <div className="hub-card hub-card--info">
+        <TiltCard
+          className="hub-card hub-card--info"
+          accentColor="rgba(59, 130, 246, 0.3)"
+          maxTilt={12}
+          scale={1.03}
+        >
           <div>
             <div className="hub-card__icon" aria-hidden="true">≡</div>
             <div className="hub-card__top">
@@ -161,10 +164,15 @@ export default function Dashboard() {
               View Reports
             </Link>
           </div>
-        </div>
+        </TiltCard>
 
         {/* Card 3: Camera & Mic Security Check */}
-        <div className="hub-card hub-card--success">
+        <TiltCard
+          className="hub-card hub-card--success"
+          accentColor="rgba(16, 185, 129, 0.3)"
+          maxTilt={12}
+          scale={1.03}
+        >
           <div>
             <div className="hub-card__icon" aria-hidden="true">◉</div>
             <div className="hub-card__top">
@@ -185,10 +193,15 @@ export default function Dashboard() {
               Test Devices
             </Link>
           </div>
-        </div>
+        </TiltCard>
 
         {/* Card 4: Certificates & Badges */}
-        <div className="hub-card hub-card--purple">
+        <TiltCard
+          className="hub-card hub-card--purple"
+          accentColor="rgba(139, 92, 246, 0.3)"
+          maxTilt={12}
+          scale={1.03}
+        >
           <div>
             <div className="hub-card__icon" aria-hidden="true">◇</div>
             <div className="hub-card__top">
@@ -209,7 +222,7 @@ export default function Dashboard() {
               My Badges
             </Link>
           </div>
-        </div>
+        </TiltCard>
       </div>
 
       <div className="dashboard-pipeline" aria-label="Assessment pipeline summary">

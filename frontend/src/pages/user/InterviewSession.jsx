@@ -6,7 +6,7 @@ import VoiceWaveform from '../../components/common/VoiceWaveform';
 import AIOrb from '../../components/common/AIOrb';
 import Button from '../../components/common/Button';
 import ThoughtLine from '../../components/common/ThoughtLine';
-import Grainient from '../../components/common/Grainient';
+import TechBackground from '../../components/common/TechBackground';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
@@ -1045,18 +1045,8 @@ export default function InterviewSession() {
 
   return (
     <div className="anim-fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 370px', gap: 24, height: 'calc(100vh - 100px)', overflow: 'hidden' }}>
-      {/* Grainy Gradient Background */}
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, opacity: 0.15 }}>
-        <Grainient
-          color1="#4CC9F0"
-          color2="#7209B7"
-          color3="#0D1B2A"
-          grainAmount={0.06}
-          grainScale={1.5}
-          warpSpeed={0.5}
-          zoom={1.5}
-        />
-      </div>
+      {/* Cyber Dot-Matrix & Ambient Vignette Background */}
+      <TechBackground />
 
       {/* Left Column: AI Orb, Active Question, Scrollable Chat Transcript, Voice Record Button */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, background: 'var(--surface)', borderRadius: 'var(--radius-xl)', padding: 24, border: '1px solid var(--border)', position: 'relative', overflow: 'hidden', height: '100%' }}>

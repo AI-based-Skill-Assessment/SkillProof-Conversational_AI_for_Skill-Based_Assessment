@@ -1,18 +1,84 @@
 /* styles/common/card.css */
 
+/* ============================================================
+   3D Tilt & Base Card Styles
+   ============================================================ */
+
+.tilt-card {
+  position: relative;
+  border-radius: var(--radius-lg);
+  transform-style: preserve-3d;
+  will-change: transform, box-shadow;
+  user-select: none;
+}
+
+.tilt-card__content {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 2;
+  transform-style: preserve-3d;
+  display: flex;
+  flex-direction: column;
+}
+
+.tilt-card__glare {
+  display: none;
+}
+
+.tilt-card__ambient-border {
+  position: absolute;
+  inset: -1px;
+  border-radius: calc(var(--radius-lg) + 1px);
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.08) 0%,
+    rgba(15, 23, 42, 0.02) 50%,
+    rgba(15, 23, 42, 0.05) 100%
+  );
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  padding: 1px;
+  opacity: 0.5;
+  transition: opacity 300ms ease;
+}
+
+[data-theme="dark"] .tilt-card__ambient-border {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.02) 50%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  opacity: 0.8;
+}
+
+.tilt-card:hover .tilt-card__ambient-border {
+  opacity: 1;
+}
+
+/* Base Common Card */
 .common-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 2px 3px rgba(3, 12, 24, 0.18), 0 12px 24px rgba(3, 12, 24, 0.16);
-  transform: translateZ(0);
-  transition: box-shadow 200ms ease, transform 200ms ease;
+  box-shadow: var(--shadow-sm);
+  position: relative;
   overflow: hidden;
+  transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+}
+
+.common-card--hoverable {
+  cursor: pointer;
 }
 
 .common-card--hoverable:hover {
-  box-shadow: 0 5px 8px rgba(3, 12, 24, 0.2), 0 20px 34px rgba(3, 12, 24, 0.2);
-  transform: perspective(900px) translateY(-4px) rotateX(0.8deg);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
 }
 
 .common-card__header {
@@ -21,12 +87,14 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  transform: translateZ(14px);
 }
 
 .common-card__title {
   font-size: var(--text-lg);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .common-card__subtitle {
@@ -37,6 +105,7 @@
 
 .common-card__body {
   padding: var(--space-5);
+  transform: translateZ(10px);
 }
 
 .common-card__footer {
@@ -46,20 +115,21 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-3);
+  transform: translateZ(16px);
 }
 
-/* Glass Card — only for marketing / biometric screens */
+/* Glass Card */
 .common-glass-card {
   background: var(--glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 3px 5px rgba(3, 12, 24, 0.18), 0 18px 34px rgba(3, 12, 24, 0.2);
+  box-shadow: var(--shadow-md);
   overflow: hidden;
 }
 
-/* Stat card variant */
+/* Stat card variant with 3D depth */
 .common-stat-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -68,13 +138,33 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  box-shadow: 0 2px 3px rgba(3, 12, 24, 0.16), 0 12px 24px rgba(3, 12, 24, 0.14);
-  transition: box-shadow 200ms ease;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  transition: border-color 250ms ease, box-shadow 250ms ease;
+}
+
+.common-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  opacity: 0;
+  transition: opacity 300ms ease;
+  pointer-events: none;
 }
 
 .common-stat-card:hover {
-  box-shadow: 0 5px 8px rgba(3, 12, 24, 0.2), 0 20px 34px rgba(3, 12, 24, 0.18);
-  transform: perspective(900px) translateY(-4px) rotateX(0.8deg);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+}
+
+.common-stat-card:hover::before {
+  opacity: 1;
 }
 
 .common-stat-card__icon {
@@ -82,35 +172,44 @@
   height: 44px;
   border-radius: var(--radius-md);
   background: var(--nav-active-bg);
+  border: 1px solid var(--border);
   color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transform: translateZ(0) scale(1);
-  transition: transform 220ms ease;
+  font-size: 18px;
+  font-weight: 700;
+  transform: translateZ(24px);
+  box-shadow: var(--shadow-xs);
+  transition: transform 250ms ease, box-shadow 250ms ease, background 250ms ease;
 }
 
 .common-stat-card:hover .common-stat-card__icon {
-  transform: translateZ(0) scale(1.08);
+  box-shadow: var(--shadow-sm);
 }
 
 .common-stat-card__value {
   font-size: var(--text-3xl);
-  font-weight: var(--font-bold);
+  font-weight: 800;
   color: var(--text-primary);
   line-height: 1.1;
+  letter-spacing: -0.02em;
+  transform: translateZ(18px);
+  margin-top: 4px;
 }
 
 .common-stat-card__label {
   font-size: var(--text-sm);
   color: var(--text-secondary);
-  font-weight: var(--font-medium);
+  font-weight: 500;
+  transform: translateZ(12px);
 }
 
 .common-stat-card__delta {
   font-size: var(--text-xs);
   font-weight: var(--font-semibold);
+  transform: translateZ(14px);
 }
 
 .common-stat-card__delta--up   { color: var(--success); }

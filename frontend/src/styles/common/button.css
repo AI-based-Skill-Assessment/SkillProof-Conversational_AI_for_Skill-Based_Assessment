@@ -74,13 +74,14 @@
 /* ── Primary ── */
 .common-button--primary {
   background: var(--primary);
-  color: var(--background);
+  color: #ffffff;
   border-color: var(--primary);
+  box-shadow: 0 1px 3px rgba(2, 132, 199, 0.25);
 }
 
 .common-button--primary:hover:not(:disabled) {
   filter: brightness(1.08);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
 }
 
 /* ── Secondary ── */

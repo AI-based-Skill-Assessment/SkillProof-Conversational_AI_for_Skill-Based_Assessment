@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/common/Sidebar';
 import Topbar from '../components/common/Topbar';
+import TechBackground from '../components/common/TechBackground';
 import { useAuth } from '../core/auth/AuthContext';
 import ROUTES from '../core/routes';
 import '../styles/layouts/app-layout.css';
@@ -19,7 +20,7 @@ const Icons = {
 const NAV_ITEMS = [
   { to: ROUTES.ADMIN.DASHBOARD,   label: 'Dashboard',     icon: <Icons.Dashboard /> },
   { type: 'section', label: 'Management' },
-  { to: ROUTES.ADMIN.ORGS_LIST,   label: 'Organisations', icon: <Icons.Orgs /> },
+  { to: ROUTES.ADMIN.ORGS_LIST,   label: 'Organizations', icon: <Icons.Orgs /> },
   { to: ROUTES.ADMIN.USERS,       label: 'Candidates',    icon: <Icons.Users /> },
   { to: ROUTES.ADMIN.ASSESSMENTS, label: 'Assessments',   icon: <Icons.Assessments /> },
   { to: ROUTES.ADMIN.ACTIVITY,    label: 'System Logs',   icon: <Icons.Activity /> },
@@ -38,6 +39,7 @@ export default function AdminLayout({ pageTitle = 'System Admin' }) {
 
   return (
     <div className="app-layout">
+      <TechBackground />
       <Sidebar
         navItems={NAV_ITEMS}
         footerItems={FOOTER_ITEMS}

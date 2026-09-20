@@ -22,10 +22,10 @@ export default function Organizations() {
       const res = await client.get('/auth/orgs/search', { params: { q: searchQuery } });
       setSearchResults(res.data);
       if (res.data.length === 0) {
-        toast.info('No results', 'No matching approved organisations found.');
+        toast.info('No results', 'No matching approved organizations found.');
       }
     } catch (err) {
-      toast.error('Search failed', 'Could not query organisations.');
+      toast.error('Search failed', 'Could not query organizations.');
     } finally {
       setSearching(false);
     }
@@ -50,20 +50,20 @@ export default function Organizations() {
   return (
     <div className="anim-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div className="page-header">
-        <h2 className="page-header__title">Connected Organisations</h2>
-        <p className="page-header__subtitle">Manage college linkages and permit placement cells to access your scores</p>
+        <h2 className="page-header__title">Connected Organizations</h2>
+        <p className="page-header__subtitle">Manage institution linkages and permit placement cells to access your certified reports</p>
       </div>
 
       <div className="grid-2">
         {/* Connected orgs */}
-        <Card>
+        <Card tilt hoverable>
           <CardHeader><CardTitle>Linked Institutions</CardTitle></CardHeader>
           <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {connections.map(c => (
               <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
                 <div>
-                  <div style={{ fontWeight: 600 }}>{c.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{c.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
                     Connected on: {c.connected_at} • {c.reports_shared} reports shared
                   </div>
                 </div>
@@ -80,13 +80,13 @@ export default function Organizations() {
         </Card>
 
         {/* Search & connect */}
-        <Card>
+        <Card tilt hoverable>
           <CardHeader><CardTitle>Connect with an Institution</CardTitle></CardHeader>
           <CardBody>
             <form onSubmit={handleSearch} style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
               <Input
                 id="org-search-q"
-                placeholder="Search college name..."
+                placeholder="Search college or company name..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -96,17 +96,23 @@ export default function Organizations() {
             </form>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {searchResults.map(org => (
-                <div key={org.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{org.name}</div>
-                    {org.website && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{org.website}</div>}
-                  </div>
-                  <Button size="sm" onClick={() => handleConnect(org)}>
-                    Connect
-                  </Button>
+              {searchResults.length === 0 ? (
+                <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '16px 0' }}>
+                  Search by name to discover and link accredited placement cells.
                 </div>
-              ))}
+              ) : (
+                searchResults.map(org => (
+                  <div key={org.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{org.name}</div>
+                      {org.website && <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{org.website}</div>}
+                    </div>
+                    <Button size="sm" onClick={() => handleConnect(org)}>
+                      Connect
+                    </Button>
+                  </div>
+                ))
+              )}
             </div>
           </CardBody>
         </Card>

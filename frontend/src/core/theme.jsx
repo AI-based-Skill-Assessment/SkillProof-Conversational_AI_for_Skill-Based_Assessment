@@ -27,22 +27,30 @@ export function ThemeProvider({ children }) {
       : LIGHT_THEME;
   });
 
-  useEffect(() => {
+  function applyThemeToDOM(nextTheme) {
     const html = document.documentElement;
-    if (theme === DARK_THEME) {
+    if (nextTheme === DARK_THEME) {
       html.setAttribute('data-theme', 'dark');
     } else {
       html.removeAttribute('data-theme');
     }
-    localStorage.setItem(STORAGE_KEY, theme);
+    localStorage.setItem(STORAGE_KEY, nextTheme);
+  }
+
+  useEffect(() => {
+    applyThemeToDOM(theme);
   }, [theme]);
 
   function setTheme(value) {
-    setThemeState(value === DARK_THEME ? DARK_THEME : LIGHT_THEME);
+    const next = value === DARK_THEME ? DARK_THEME : LIGHT_THEME;
+    applyThemeToDOM(next);
+    setThemeState(next);
   }
 
   function toggleTheme() {
-    setThemeState(prev => (prev === DARK_THEME ? LIGHT_THEME : DARK_THEME));
+    const next = theme === DARK_THEME ? LIGHT_THEME : DARK_THEME;
+    applyThemeToDOM(next);
+    setThemeState(next);
   }
 
   return (

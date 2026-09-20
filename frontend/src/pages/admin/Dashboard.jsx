@@ -64,23 +64,23 @@ export default function Dashboard() {
           <p className="page-header__subtitle">Manage approved institutions, review requests, and monitor assessments</p>
         </div>
         <div className="page-header__actions">
-          <Link to={ROUTES.ADMIN.ORG_CREATE} className="common-button common-button--primary" style={{ background: 'var(--error)', borderColor: 'var(--error)' }}>
-            Create Organisation
+          <Link to={ROUTES.ADMIN.ORG_CREATE} className="common-button common-button--primary">
+            + Create Organization
           </Link>
         </div>
       </div>
 
       {/* Aggregate Stats */}
       <div className="dashboard-grid">
-        <StatCard label="Registered Users" value={stats.total_users} icon="👥" />
-        <StatCard label="Active Institutions" value={stats.active_organisations} icon="🎓" />
-        <StatCard label="Pending Approvals" value={stats.pending_approval} icon="⏳" />
-        <StatCard label="Assessments Conducted" value={stats.total_assessments} icon="⚡" />
+        <StatCard label="Registered Users" value={stats.total_users} icon="👥" accentColor="rgba(14, 165, 233, 0.25)" />
+        <StatCard label="Active Organizations" value={stats.active_organisations} icon="🎓" accentColor="rgba(59, 130, 246, 0.25)" />
+        <StatCard label="Pending Approvals" value={stats.pending_approval} icon="⏳" accentColor="rgba(245, 158, 11, 0.25)" />
+        <StatCard label="Assessments Conducted" value={stats.total_assessments} icon="⚡" accentColor="rgba(16, 185, 129, 0.25)" />
       </div>
 
       {/* Pending Approvals Section */}
       <div className="dashboard-section">
-        <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Pending Institution Approvals</h3>
+        <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Pending Organization Approvals</h3>
         {loading ? (
           <div className="app-loading-state">
             <span className="app-loading-state__spinner" aria-hidden="true" />
@@ -94,14 +94,14 @@ export default function Dashboard() {
               </svg>
             </div>
             <h3 className="empty-state__title">All caught up</h3>
-            <p className="empty-state__text">No pending organisation registration requests need review.</p>
+            <p className="empty-state__text">No pending organization registration requests need review. All submissions have been processed.</p>
           </div>
         ) : (
           <div className="common-table-container">
             <table className="common-table">
               <thead>
                 <tr>
-                  <th>Organisation Name</th>
+                  <th>Organization Name</th>
                   <th>Official Email</th>
                   <th>Primary Contact</th>
                   <th>Submitted Date</th>

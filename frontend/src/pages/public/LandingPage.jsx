@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import ROUTES from '../../core/routes';
 import { useAuth } from '../../core/auth/AuthContext';
+import { TiltCard } from '../../components/common/Card';
 import '../../styles/pages/public.css';
 
 export default function LandingPage() {
@@ -49,29 +50,29 @@ export default function LandingPage() {
         </div>
 
         <div className="feature-grid">
-          <div className="feature-card">
+          <TiltCard className="feature-card" accentColor="rgba(14, 165, 233, 0.28)" maxTilt={12} scale={1.03}>
             <div className="feature-card__icon">📄</div>
             <h3 className="feature-card__title">Certificate Ingestion</h3>
             <p className="feature-card__desc">
               Upload certificates in PDF or image format. The OCR engine automatically extracts issuer metadata, role scopes, and verification URLs.
             </p>
-          </div>
+          </TiltCard>
 
-          <div className="feature-card">
+          <TiltCard className="feature-card" accentColor="rgba(129, 140, 248, 0.28)" maxTilt={12} scale={1.03}>
             <div className="feature-card__icon">🤖</div>
             <h3 className="feature-card__title">Conversational AI Interview</h3>
             <p className="feature-card__desc">
-              A dynamic, adaptive voice/text interview evaluated by LLM. It grills candidates on the specific skills listed in their certificates.
+              A dynamic, adaptive voice/text interview evaluated by LLM. It assesses candidates on the specific skills listed in their certificates.
             </p>
-          </div>
+          </TiltCard>
 
-          <div className="feature-card">
+          <TiltCard className="feature-card" accentColor="rgba(16, 185, 129, 0.28)" maxTilt={12} scale={1.03}>
             <div className="feature-card__icon">👤</div>
             <h3 className="feature-card__title">Continuous Biometrics</h3>
             <p className="feature-card__desc">
               Anti-spoofing face matching, voice print validation, eye tracking, and speech detection run in real-time to prevent impersonation.
             </p>
-          </div>
+          </TiltCard>
         </div>
       </section>
     </div>

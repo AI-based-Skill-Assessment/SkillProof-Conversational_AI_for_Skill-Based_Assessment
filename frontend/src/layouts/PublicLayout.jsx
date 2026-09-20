@@ -2,13 +2,15 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import ROUTES from '../core/routes';
 import Logo from '../components/common/Logo';
 import ThemeToggle from '../components/common/ThemeToggle';
-import Grainient from '../components/common/Grainient';
+import TechBackground from '../components/common/TechBackground';
 import '../styles/pages/public.css';
 
 import { useAuth } from '../core/auth/AuthContext';
+import { useTheme } from '../core/theme';
 
 export default function PublicLayout() {
   const { isAuthenticated, role, logout } = useAuth();
+  const { isDark } = useTheme();
   const location = useLocation();
   const currentYear = new Date().getFullYear();
 
@@ -21,18 +23,8 @@ export default function PublicLayout() {
 
   return (
     <div className="public-layout">
-      {/* Grainy Gradient Background */}
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, opacity: 0.15 }}>
-        <Grainient
-          color1="#4CC9F0"
-          color2="#7209B7"
-          color3="#0D1B2A"
-          grainAmount={0.06}
-          grainScale={1.5}
-          warpSpeed={0.5}
-          zoom={1.5}
-        />
-      </div>
+      {/* Cyber Dot-Matrix & Ambient Vignette Background */}
+      <TechBackground />
 
       {/* Navbar */}
       <nav className="public-navbar" aria-label="Main Navigation">
@@ -53,7 +45,7 @@ export default function PublicLayout() {
             to={ROUTES.FOR_ORGANISATIONS}
             className={({ isActive }) => `public-navbar__link${isActive ? ' public-navbar__link--active' : ''}`}
           >
-            For Organisations
+            For Organizations
           </NavLink>
           <NavLink
             to={ROUTES.HOW_IT_WORKS}
@@ -110,7 +102,7 @@ export default function PublicLayout() {
           </div>
           <div className="public-footer__links">
             <Link to={ROUTES.HOME} className="public-footer__link">Home</Link>
-            <Link to={ROUTES.FOR_ORGANISATIONS} className="public-footer__link">For Organisations</Link>
+            <Link to={ROUTES.FOR_ORGANISATIONS} className="public-footer__link">For Organizations</Link>
             <Link to={ROUTES.HOW_IT_WORKS} className="public-footer__link">How it Works</Link>
             <Link to={ROUTES.SECURITY} className="public-footer__link">Security Policy</Link>
             <Link to={ROUTES.ADMIN.LOGIN} className="public-footer__link">Admin Login</Link>

@@ -25,31 +25,23 @@ body {
   color: var(--text-primary);
   background-color: var(--background);
   min-height: 100vh;
-  transition: background-color 700ms ease, color 700ms ease;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.common-card,
-.common-stat-card,
-.common-glass-card,
-.hub-card,
-.intake-card,
-.feature-card,
-.auth-card,
-.common-sidebar,
-.common-topbar,
-.common-button,
-.common-input__field,
-.common-select__field,
-input,
-textarea,
-select {
-  transition:
-    background-color 700ms ease,
-    color 700ms ease,
-    border-color 700ms ease,
-    box-shadow 700ms ease;
+/* ── Magic UI View Transitions API (Circular Wave) ── */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 99999;
 }
 
 #root {
