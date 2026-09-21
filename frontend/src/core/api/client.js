@@ -18,9 +18,16 @@ function getRoleFromPath(pathname) {
   return null; // Public routes have no authenticated role
 }
 
-// ── Request interceptor — attach JWT ────────────────────────────────────────────
+// ── Request interceptor — attach JWT & fix FormData boundary ────────────────
 client.interceptors.request.use(
   (config) => {
+    // If request payload is FormData, remove manual Content-Type so browser sets correct boundary
+    if (config.data instanceof FormData) {
+      if (config.headers) {
+        delete config.headers['Content-Type'];
+        delete config.headers['content-type'];
+      }
+    }
     const role = getRoleFromPath(window.location.pathname);
     if (!role) return config;
     const token = localStorage.getItem(`skillproof_${role}_access_token`);

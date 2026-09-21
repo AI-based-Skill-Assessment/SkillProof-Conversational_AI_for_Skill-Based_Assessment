@@ -251,3 +251,133 @@
   opacity: 1;
   transform: translateY(-50%) scale(1);
 }
+
+/* ── Interactive Companion Character Widget ─────────────────── */
+.common-sidebar__character-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 var(--space-3);
+  margin-top: auto;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+  z-index: 15;
+  overflow: visible;
+}
+
+.common-sidebar__character-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  width: 100%;
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 220ms ease;
+  user-select: none;
+}
+
+.common-sidebar__character-btn:hover {
+  transform: translateY(-4px) scale(1.03);
+}
+
+.common-sidebar__character-btn:hover .common-sidebar__character-img {
+  filter: drop-shadow(0 10px 22px rgba(7, 152, 212, 0.38));
+}
+
+.common-sidebar__character-btn:active {
+  transform: translateY(0) scale(0.96);
+}
+
+.common-sidebar__character-btn--wobble {
+  animation: characterGiggle 0.55s ease-in-out;
+}
+
+@keyframes characterGiggle {
+  0% { transform: rotate(0deg) scale(1); }
+  20% { transform: rotate(-7deg) scale(1.05); }
+  40% { transform: rotate(7deg) scale(1.05); }
+  60% { transform: rotate(-4deg) scale(1.03); }
+  80% { transform: rotate(3deg) scale(1.01); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+.common-sidebar__character-img {
+  max-height: clamp(140px, 22vh, 205px);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: auto;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.3));
+  transition: filter 220ms ease;
+}
+
+/* ── Comic Speech Bubble ─────────────────────────────────────── */
+.common-sidebar__speech-bubble {
+  position: absolute;
+  bottom: calc(100% - 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 215px;
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 2px solid var(--primary);
+  border-radius: 16px;
+  padding: 8px 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 0 18px rgba(7, 152, 212, 0.35);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  z-index: 60;
+  cursor: pointer;
+  user-select: none;
+  animation: speechBubblePop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.common-sidebar__speech-bubble .bubble-text {
+  display: block;
+  word-break: break-word;
+}
+
+.common-sidebar__speech-bubble .bubble-tail {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 9px solid var(--primary);
+}
+
+.common-sidebar__speech-bubble .bubble-tail::after {
+  content: '';
+  position: absolute;
+  top: -11px;
+  left: -6px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--surface);
+}
+
+@keyframes speechBubblePop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px) scale(0.82);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+

@@ -738,7 +738,6 @@ export default function InterviewSession() {
         formData.append('audio', audioBlob, 'answer.webm');
 
         const sttRes = await client.post('/interview/transcribe', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
           timeout: 30000,
         });
 

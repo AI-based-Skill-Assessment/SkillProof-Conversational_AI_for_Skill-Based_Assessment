@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Logo from '../../components/common/Logo';
 import StatusBadge from '../../components/common/StatusBadge';
+import { HoloCardLoader } from '../../components/common/LoadingAnimations';
 import { formatScore, scoreColor, scoreLabel } from '../../utils/formatScore';
 import { formatDate } from '../../utils/formatDate';
 import ROUTES from '../../core/routes';
@@ -129,9 +130,15 @@ export default function PublicReportVerify() {
         console.error('Public report lookup failed:', err);
         setError('Verification session not found or link has expired.');
       } finally {
-        setLoading(false);
+        // Guarantee at least 2.2s so the holographic/neural verification animation is experienced
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, 2200 - elapsed);
+        setTimeout(() => {
+          setLoading(false);
+        }, remaining);
       }
     }
+    const startTime = Date.now();
     fetchPublicReport();
   }, [id]);
 
@@ -140,9 +147,8 @@ export default function PublicReportVerify() {
       <>
         <style>{pvr}</style>
         <div className="pvr-root" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 'clamp(12px,3vw,14px)' }}>
-            <div className="pvr-spinner" />
-            Loading Verification Report...
+          <div style={{ background: 'var(--surface)', padding: '32px 24px', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', textAlign: 'center', maxWidth: 440, width: '100%', boxShadow: 'var(--shadow-lg)' }}>
+            <HoloCardLoader label="Verifying Cryptographic Ledger Credential..." />
           </div>
         </div>
       </>

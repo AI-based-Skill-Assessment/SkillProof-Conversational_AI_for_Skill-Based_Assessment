@@ -10,6 +10,7 @@ export const ROUTES = {
   FOR_ORGANISATIONS:  '/for-organisations',
   HOW_IT_WORKS:       '/how-it-works',
   SECURITY:           '/security',
+  LOADING_DEMOS:      '/loading-demos',
 
   // ── User (Candidate) Portal ──────────────────────────────
   USER: {

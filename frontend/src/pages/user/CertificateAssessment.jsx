@@ -36,6 +36,7 @@ export default function CertificateAssessment() {
       return;
     }
 
+    const startTime = Date.now();
     try {
       setLoading(true);
       const formData = new FormData();
@@ -54,12 +55,15 @@ export default function CertificateAssessment() {
       // Turn off demo mode instantly across topbar and app context
       if (setIsDemo) setIsDemo(false);
 
-      toast.success('Certificates Ingested', `Successfully uploaded ${files.length} certificate(s). Ready for review.`);
-      navigate(ROUTES.USER.ASSESSMENT_REVIEW(res.data.id));
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 1200 - elapsed);
+      setTimeout(() => {
+        toast.success('Certificates Ingested', `Successfully uploaded ${files.length} certificate(s). Ready for review.`);
+        navigate(ROUTES.USER.ASSESSMENT_REVIEW(res.data.id));
+      }, remaining);
     } catch (err) {
       console.error(err);
       toast.error('Upload Failed', err.response?.data?.detail || 'Failed to ingest certificates. Please check file format.');
-    } finally {
       setLoading(false);
     }
   }

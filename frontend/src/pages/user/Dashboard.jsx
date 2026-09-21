@@ -27,17 +27,17 @@ export default function Dashboard() {
         setLoading(true);
         // Call real backend endpoint to fetch candidate's sessions
         const res = await client.get('/sessions');
-        
+
         if (res.data && res.data.length > 0) {
           setSessions(res.data);
           if (setIsDemo) setIsDemo(false);
-          
+
           // Compute live stats based on actual data
           const completed = res.data.filter(s => s.status === 'scored').length;
           const verified = res.data.filter(s => s.document?.fetch_status === 'verified').length;
           const scoresList = res.data.flatMap(s => s.scores || []).map(sc => sc.overall_skill_score);
           const avgScore = scoresList.length > 0 ? (scoresList.reduce((a, b) => a + b, 0) / scoresList.length) : 0;
-          
+
           setStats({
             completed_assessments: res.data.length,
             verified_certificates: verified,
@@ -114,8 +114,8 @@ export default function Dashboard() {
               </span>
             </div>
             <div className="hub-card__title">
-              {sessions.find(s => s.status === 'ocr_done' || s.status === 'verified') 
-                ? 'Take AI Interview' 
+              {sessions.find(s => s.status === 'ocr_done' || s.status === 'verified')
+                ? 'Take AI Interview'
                 : 'Upload Certificate'}
             </div>
             <div className="hub-card__text">
@@ -294,15 +294,15 @@ export default function Dashboard() {
                             session.status === 'scored'
                               ? 'success'
                               : (session.status === 'ocr_done' || session.status === 'verified')
-                              ? 'warning'
-                              : 'info'
+                                ? 'warning'
+                                : 'info'
                           }
                         >
                           {session.status === 'scored'
                             ? 'Completed'
                             : (session.status === 'ocr_done' || session.status === 'verified')
-                            ? 'Ready for Interview'
-                            : 'Verifying'}
+                              ? 'Ready for Interview'
+                              : 'Verifying'}
                         </StatusBadge>
                       </td>
                       <td style={{ fontWeight: 700, color: scoreColor(scoreObj?.overall_skill_score) }}>

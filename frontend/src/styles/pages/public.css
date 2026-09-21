@@ -208,11 +208,13 @@
 
 /* Public Footer */
 .public-footer {
-  background: var(--surface-hover);
+  background: transparent;
   border-top: 1px solid var(--border);
   padding: var(--space-8) var(--space-6);
   text-align: center;
   margin-top: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .public-footer__content {

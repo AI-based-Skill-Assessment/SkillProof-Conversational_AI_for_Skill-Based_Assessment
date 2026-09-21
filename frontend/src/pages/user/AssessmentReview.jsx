@@ -3,6 +3,7 @@ import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { useToast } from '../../components/common/Toast';
 import client from '../../core/api/client';
 import Button from '../../components/common/Button';
+import { NeuralOrbitLoader } from '../../components/common/LoadingAnimations';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
@@ -35,6 +36,7 @@ export default function AssessmentReview() {
   }, [id, navigate, toast, setIsDemo]);
 
   async function handleVerify() {
+    const startTime = Date.now();
     try {
       setVerifying(true);
       // Run certificate lookupcrawler checks (POST /verify/{session_id})
@@ -52,7 +54,11 @@ export default function AssessmentReview() {
       const res = await client.get(`/verify/${id}`);
       setSession(res.data);
     } finally {
-      setVerifying(false);
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 1800 - elapsed);
+      setTimeout(() => {
+        setVerifying(false);
+      }, remaining);
     }
   }
 
@@ -60,7 +66,15 @@ export default function AssessmentReview() {
     navigate(ROUTES.USER.INTERVIEW_CHECK(id));
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center' }}>Loading review details...</div>;
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '36px 40px', boxShadow: 'var(--shadow-lg)' }}>
+          <NeuralOrbitLoader label="Analyzing Ingested Credential Matrix..." />
+        </div>
+      </div>
+    );
+  }
 
   const isCert = session.intake_mode === 'certificate';
   const isCrawlComplete = session.status !== 'pending';

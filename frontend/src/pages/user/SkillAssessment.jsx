@@ -22,6 +22,7 @@ export default function SkillAssessment() {
       return;
     }
 
+    const startTime = Date.now();
     try {
       setLoading(true);
       const formData = new FormData();
@@ -33,12 +34,15 @@ export default function SkillAssessment() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      toast.success('Declared Successfully', 'Skills mapped to new session.');
-      navigate(ROUTES.USER.ASSESSMENT_REVIEW(res.data.id));
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 1100 - elapsed);
+      setTimeout(() => {
+        toast.success('Declared Successfully', 'Skills mapped to new session.');
+        navigate(ROUTES.USER.ASSESSMENT_REVIEW(res.data.id));
+      }, remaining);
     } catch (err) {
       console.error(err);
       toast.error('Submission Failed', err.response?.data?.detail || 'Failed to submit skill declaration.');
-    } finally {
       setLoading(false);
     }
   }

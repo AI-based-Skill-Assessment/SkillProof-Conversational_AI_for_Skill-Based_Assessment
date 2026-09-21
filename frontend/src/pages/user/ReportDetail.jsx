@@ -9,6 +9,7 @@ import { formatScore, scoreColor, scoreLabel } from '../../utils/formatScore';
 import { formatDate } from '../../utils/formatDate';
 import Button from '../../components/common/Button';
 import Logo from '../../components/common/Logo';
+import { NeuralOrbitLoader } from '../../components/common/LoadingAnimations';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
@@ -103,13 +104,38 @@ export default function ReportDetail() {
         setReport(MOCK_REPORT);
         setIsDemo(true);
       } finally {
-        setLoading(false);
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, 1600 - elapsed);
+        setTimeout(() => {
+          setLoading(false);
+        }, remaining);
       }
     }
+    const startTime = Date.now();
     loadReport();
   }, [id]);
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center' }}>Loading report details...</div>;
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
+        <div
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '36px 40px',
+            boxShadow: 'var(--shadow-lg)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 16
+          }}
+        >
+          <NeuralOrbitLoader label="Loading Verification Report..." />
+        </div>
+      </div>
+    );
+  }
 
   const scoreObj = report.score;
   const verifyUrl = `http://${lanIp}:5173/verify/${report.session_id}`;

@@ -209,15 +209,17 @@ from fastapi import UploadFile, File
 
 @router.post("/interview/transcribe")
 async def transcribe_audio(
-    audio: UploadFile = File(...)
+    audio: UploadFile = File(None)
 ):
     """
     Transcribes candidate spoken audio to text using Groq Whisper (whisper-large-v3).
     Ensures precise spelling of Indian names, tech companies, and specialized terms.
     """
     try:
+        if not audio:
+            return {"text": ""}
         content = await audio.read()
-        if not content or len(content) < 500:
+        if not content or len(content) < 100:
             return {"text": ""}
 
         from app.config import settings

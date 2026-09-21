@@ -14,6 +14,7 @@ import OrganizationLandingPage from './pages/public/OrganizationLandingPage';
 import HowItWorks from './pages/public/HowItWorks';
 import Security from './pages/public/Security';
 import PublicReportVerify from './pages/public/PublicReportVerify';
+import LoadingDemosPage from './pages/public/LoadingDemosPage';
 
 // ── Pages: Candidate / User Portal ───────────────────────────────────────────
 import UserSignIn from './pages/user/SignIn';
@@ -68,15 +69,21 @@ import AdminSettings from './pages/admin/Settings';
 
 import NetworkStatusFallback from './components/common/NetworkStatusFallback';
 import CursorSpark from './components/common/CursorSpark';
+import AppInitialSplash from './components/common/AppInitialSplash';
+import AmbientHudRings from './components/common/AmbientHudRings';
 
 export default function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AppInitialSplash />
+      <AmbientHudRings />
       <CursorSpark />
       <NetworkStatusFallback />
       <Routes>
         {/* ── 1. Public Marketing Routes & QR Audit Verification ──────────────── */}
         <Route path="/verify/:id" element={<PublicReportVerify />} />
+        <Route path="/loading-demos" element={<LoadingDemosPage />} />
+        <Route path="/loading-demos/:animId" element={<LoadingDemosPage />} />
         <Route element={<PublicLayout />}>
           <Route path={ROUTES.HOME} element={<LandingPage />} />
           <Route path={ROUTES.FOR_ORGANISATIONS} element={<OrganizationLandingPage />} />
