@@ -8,9 +8,26 @@ import { formatScore, scoreColor } from '../../utils/formatScore';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
+const STORAGE_KEY_CANDIDATES = 'skillproof_org_candidates';
+
 export default function Dashboard() {
-  const [candidates, setCandidates] = useState(MOCK_CANDIDATES);
-  const [stats, setStats] = useState(MOCK_ORG_STATS);
+  const [candidates, setCandidates] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_CANDIDATES);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const stats = {
+    total_candidates: candidates.length,
+    verified_assessments: candidates.filter(c => c.latest_status === 'verified').length,
+    pending_assessments: candidates.filter(c => c.latest_status !== 'verified').length,
+    average_skill_score: candidates.length > 0 
+      ? Math.round(candidates.reduce((acc, c) => acc + (c.average_score || 0), 0) / candidates.length)
+      : 0,
+  };
 
   return (
     <div className="anim-fade-in">

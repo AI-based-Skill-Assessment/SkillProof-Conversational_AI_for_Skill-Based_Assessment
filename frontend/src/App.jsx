@@ -71,7 +71,7 @@ import CursorSpark from './components/common/CursorSpark';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <CursorSpark />
       <NetworkStatusFallback />
       <Routes>

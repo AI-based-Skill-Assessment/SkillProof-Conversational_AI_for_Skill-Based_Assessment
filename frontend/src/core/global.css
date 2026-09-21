@@ -167,10 +167,31 @@ button {
   background: none;
 }
 
-input, textarea, select {
+input, textarea {
   border: none;
   outline: none;
   background: none;
+}
+
+select {
+  border: none;
+  outline: none;
+  background: none;
+  color-scheme: light dark;
+}
+
+[data-theme="dark"] select,
+[data-theme="dark"] select option {
+  color-scheme: dark;
+  background-color: #102138;
+  color: #F8FAFC;
+}
+
+[data-theme="light"] select,
+[data-theme="light"] select option {
+  color-scheme: light;
+  background-color: #FFFFFF;
+  color: #0F172A;
 }
 
 textarea {
