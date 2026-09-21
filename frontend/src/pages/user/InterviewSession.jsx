@@ -303,13 +303,17 @@ export default function InterviewSession() {
     }
 
     const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+    script.src = '/face-api.min.js';
     script.async = true;
     script.onload = () => {
       loadFaceModels();
     };
     script.onerror = () => {
-      console.warn('face-api.js script failed to load. Camera active without local detection.');
+      // CDN Fallback if local not found
+      const cdnScript = document.createElement('script');
+      cdnScript.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+      cdnScript.onload = () => loadFaceModels();
+      document.body.appendChild(cdnScript);
     };
     document.body.appendChild(script);
 
@@ -323,20 +327,29 @@ export default function InterviewSession() {
 
   async function loadFaceModels() {
     if (modelsLoaded) return;
-    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
+    const LOCAL_MODEL_URL = '/models';
+    const CDN_MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
 
     try {
-      // Prioritize tinyFaceDetector for instant camera face detection
-      await window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      // Prioritize fast tinyFaceDetector from local directory
+      try {
+        await window.faceapi.nets.tinyFaceDetector.loadFromUri(LOCAL_MODEL_URL);
+      } catch (localErr) {
+        await window.faceapi.nets.tinyFaceDetector.loadFromUri(CDN_MODEL_URL);
+      }
       setModelsLoaded(true);
 
       // Load landmarks and recognition descriptors in background asynchronously
       Promise.all([
-        window.faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
-        window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        window.faceapi.nets.faceLandmark68TinyNet.loadFromUri(LOCAL_MODEL_URL).catch(() =>
+          window.faceapi.nets.faceLandmark68TinyNet.loadFromUri(CDN_MODEL_URL)
+        ),
+        window.faceapi.nets.faceRecognitionNet.loadFromUri(LOCAL_MODEL_URL).catch(() =>
+          window.faceapi.nets.faceRecognitionNet.loadFromUri(CDN_MODEL_URL)
+        )
       ]).catch(err => console.warn('Background model load warning:', err));
     } catch (err) {
-      console.warn('Fast face model load warning:', err);
+      console.warn('Face model load warning:', err);
       setModelsLoaded(true);
     }
   }

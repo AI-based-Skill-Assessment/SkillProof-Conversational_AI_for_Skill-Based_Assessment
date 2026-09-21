@@ -52,16 +52,17 @@ export default function FaceRegistration() {
       return;
     }
     const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+    script.src = '/face-api.min.js';
     script.async = true;
     script.onload = () => {
       console.log('face-api.js script loaded successfully.');
       setFaceApiLoaded(true);
     };
-    script.onerror = (e) => {
-      console.error('Failed to load face-api.js script:', e);
-      setStatusMessage('Error: Failed to load face-api.js script from CDN.');
-      setStatusClass('err');
+    script.onerror = () => {
+      const cdnScript = document.createElement('script');
+      cdnScript.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+      cdnScript.onload = () => setFaceApiLoaded(true);
+      document.body.appendChild(cdnScript);
     };
     document.body.appendChild(script);
 
@@ -79,28 +80,31 @@ export default function FaceRegistration() {
     }
   }, [location.pathname, location.search, navigate, toast]);
 
-  // Load models from CDN - using highly reliable jsDelivr CDN linking directly to the official repository weights
+  // Load models from local folder (with CDN fallback)
   async function loadFaceModels() {
     if (modelsLoaded) return;
     setStatusMessage('Loading neural face recognition models...');
     setStatusClass('info');
     setProgress(15);
-    
-    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
+
+    const LOCAL_MODEL_URL = '/models';
+    const CDN_MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
     try {
-      await window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-      await window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-      await window.faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
-      await window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+      try {
+        await window.faceapi.nets.tinyFaceDetector.loadFromUri(LOCAL_MODEL_URL);
+        await window.faceapi.nets.faceLandmark68Net.loadFromUri(LOCAL_MODEL_URL);
+        await window.faceapi.nets.faceLandmark68TinyNet.loadFromUri(LOCAL_MODEL_URL);
+        await window.faceapi.nets.faceRecognitionNet.loadFromUri(LOCAL_MODEL_URL);
+      } catch (localErr) {
+        await window.faceapi.nets.tinyFaceDetector.loadFromUri(CDN_MODEL_URL);
+        await window.faceapi.nets.faceLandmark68Net.loadFromUri(CDN_MODEL_URL);
+        await window.faceapi.nets.faceLandmark68TinyNet.loadFromUri(CDN_MODEL_URL);
+        await window.faceapi.nets.faceRecognitionNet.loadFromUri(CDN_MODEL_URL);
+      }
       setModelsLoaded(true);
       setProgress(25);
     } catch (err) {
-      console.warn('Primary model load failed, attempting fallback URL...', err);
-      const FALLBACK_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-      await window.faceapi.nets.tinyFaceDetector.loadFromUri(FALLBACK_URL);
-      await window.faceapi.nets.faceLandmark68Net.loadFromUri(FALLBACK_URL);
-      await window.faceapi.nets.faceLandmark68TinyNet.loadFromUri(FALLBACK_URL);
-      await window.faceapi.nets.faceRecognitionNet.loadFromUri(FALLBACK_URL);
+      console.warn('Face model load warning:', err);
       setModelsLoaded(true);
       setProgress(25);
     }
@@ -152,10 +156,10 @@ export default function FaceRegistration() {
 
   function startFaceDetectionLoop() {
     loopActiveRef.current = true;
-    
+
     async function loop() {
       if (!loopActiveRef.current || !videoRef.current || !canvasRef.current) return;
-      
+
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
@@ -315,7 +319,7 @@ export default function FaceRegistration() {
         });
 
         if (updateUserCache) {
-          updateUserCache({ 
+          updateUserCache({
             face_registered: true,
             onboarding_step: 'voice_registration'
           });
@@ -365,7 +369,7 @@ export default function FaceRegistration() {
 
   function handleNext() {
     if (updateUserCache) {
-      updateUserCache({ 
+      updateUserCache({
         face_registered: true,
         onboarding_step: 'voice_registration'
       });
@@ -384,21 +388,21 @@ export default function FaceRegistration() {
 
   return (
     <div className="biometric-page" style={{ background: 'var(--background)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
-      <div className="biometric-card anim-scale-in" 
-           style={{ 
-             maxWidth: 580, 
-             width: '100%',
-             background: 'var(--surface)', 
-             borderRadius: 24,
-             border: '1px solid var(--border)', 
-             boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
-             padding: 32,
-             color: 'var(--text-primary)',
-             display: 'flex',
-             flexDirection: 'column',
-             alignItems: 'center'
-           }}>
-        
+      <div className="biometric-card anim-scale-in"
+        style={{
+          maxWidth: 580,
+          width: '100%',
+          background: 'var(--surface)',
+          borderRadius: 24,
+          border: '1px solid var(--border)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+          padding: 32,
+          color: 'var(--text-primary)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
+        }}>
+
         <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>Face Registration</h2>
           {complete && (
@@ -410,7 +414,7 @@ export default function FaceRegistration() {
 
         {/* Modern Circular Camera Frame with Curved Directional Indicators */}
         <div style={{ position: 'relative', width: 320, height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-          
+
           {/* Left Curved Directional Indicator Arc */}
           <div style={{
             position: 'absolute',
@@ -448,12 +452,12 @@ export default function FaceRegistration() {
           </div>
 
           {/* Main 3D Circular Camera Container */}
-          <div style={{ 
-            width: 290, 
-            height: 290, 
-            borderRadius: '50%', 
-            overflow: 'hidden', 
-            background: '#0a0a16', 
+          <div style={{
+            width: 290,
+            height: 290,
+            borderRadius: '50%',
+            overflow: 'hidden',
+            background: '#0a0a16',
             position: 'relative',
             border: `4px solid ${complete ? '#22c55e' : captureStep === 2 || captureStep === 3 ? '#38bdf8' : 'var(--primary)'}`,
             boxShadow: complete ? '0 0 35px rgba(34, 197, 94, 0.4)' : '0 0 35px rgba(108, 99, 255, 0.3)',
@@ -469,8 +473,8 @@ export default function FaceRegistration() {
             ) : !cameraActive ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', gap: 10, padding: 20, textAlign: 'center' }}>
                 <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--primary)' }}>
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                  <circle cx="12" cy="13" r="4"/>
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
                 </svg>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Click Start Scan Below</p>
               </div>
@@ -523,11 +527,11 @@ export default function FaceRegistration() {
         </div>
 
         {/* Dynamic Status Message Banner */}
-        <div style={{ 
-          fontSize: '14px', 
-          fontWeight: 700, 
-          color: currentColor, 
-          marginBottom: 24, 
+        <div style={{
+          fontSize: '14px',
+          fontWeight: 700,
+          color: currentColor,
+          marginBottom: 24,
           textAlign: 'center',
           minHeight: '1.5em',
           transition: 'color 0.2s ease'

@@ -51,12 +51,14 @@ export default function BiometricCheckPage() {
       return;
     }
     const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+    script.src = '/face-api.min.js';
     script.async = true;
     script.onload = () => setFaceApiLoaded(true);
     script.onerror = () => {
-      setFaceStatus('Error: Failed to load face-api.js script from CDN.');
-      setFaceStatusClass('err');
+      const cdnScript = document.createElement('script');
+      cdnScript.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+      cdnScript.onload = () => setFaceApiLoaded(true);
+      document.body.appendChild(cdnScript);
     };
     document.body.appendChild(script);
   }, []);
@@ -66,11 +68,18 @@ export default function BiometricCheckPage() {
     setFaceStatus('Loading face verification models...');
     setFaceStatusClass('info');
     
-    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
+    const LOCAL_MODEL_URL = '/models';
+    const CDN_MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
     try {
-      await window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-      await window.faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
-      await window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+      try {
+        await window.faceapi.nets.tinyFaceDetector.loadFromUri(LOCAL_MODEL_URL);
+        await window.faceapi.nets.faceLandmark68TinyNet.loadFromUri(LOCAL_MODEL_URL);
+        await window.faceapi.nets.faceRecognitionNet.loadFromUri(LOCAL_MODEL_URL);
+      } catch (localErr) {
+        await window.faceapi.nets.tinyFaceDetector.loadFromUri(CDN_MODEL_URL);
+        await window.faceapi.nets.faceLandmark68TinyNet.loadFromUri(CDN_MODEL_URL);
+        await window.faceapi.nets.faceRecognitionNet.loadFromUri(CDN_MODEL_URL);
+      }
       setModelsLoaded(true);
     } catch (err) {
       console.error(err);
