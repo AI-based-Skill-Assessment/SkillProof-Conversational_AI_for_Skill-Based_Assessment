@@ -8,32 +8,32 @@
 /* ── PURE LUMINOUS SLATE (Light Theme, Default) ── */
 :root {
   /* Core brand */
-  --background:        #F8FAFC;
-  --primary:           #0284C7;
+  --background:        #F1F7FC;
+  --primary:           #0798D4;
   --accent:            #6366F1;
-  --text-primary:      #0F172A;
-  --text-secondary:    #475569;
-  --glass:             rgba(255, 255, 255, 0.88);
-  --border:            rgba(226, 232, 240, 0.95);
+  --text-primary:      #10243A;
+  --text-secondary:    #60758A;
+  --glass:             rgba(248, 251, 255, 0.88);
+  --border:            #D5E5F2;
 
   /* Surfaces */
-  --surface:           #FFFFFF;
-  --surface-elevated:  #F8FAFC;
-  --surface-hover:     #F1F5F9;
-  --surface-active:    #E2E8F0;
+  --surface:           #F8FBFF;
+  --surface-elevated:  #FFFFFF;
+  --surface-hover:     #EBF4FB;
+  --surface-active:    #E0EFF9;
 
   /* Navigation */
-  --sidebar-bg:        #FFFFFF;
-  --sidebar-border:    transparent;
-  --topbar-bg:         rgba(255, 255, 255, 0.88);
-  --nav-active-bg:     rgba(2, 132, 199, 0.08);
-  --nav-active-text:   #0284C7;
+  --sidebar-bg:        #E8F2FA;
+  --sidebar-border:    #D5E5F2;
+  --topbar-bg:         rgba(241, 247, 252, 0.92);
+  --nav-active-bg:     rgba(7, 152, 212, 0.10);
+  --nav-active-text:   #0798D4;
 
   /* Input */
   --input-bg:          #FFFFFF;
-  --input-border:      rgba(203, 213, 225, 0.9);
-  --input-focus:       #0284C7;
-  --input-placeholder: #94A3B8;
+  --input-border:      #D5E5F2;
+  --input-focus:       #0798D4;
+  --input-placeholder: #8A9EAF;
 
   /* Semantic status (WCAG AA compliant against light surfaces) */
   --success:           #059669;
@@ -42,22 +42,22 @@
   --warning-bg:        rgba(217, 119, 6, 0.08);
   --error:             #DC2626;
   --error-bg:          rgba(220, 38, 38, 0.08);
-  --info:              #0284C7;
-  --info-bg:           rgba(2, 132, 199, 0.08);
+  --info:              #0798D4;
+  --info-bg:           rgba(7, 152, 212, 0.08);
 
   /* Shadows (Subtle, elegant, modern enterprise SaaS elevation) */
-  --shadow-xs:   0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-sm:   0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
-  --shadow-md:   0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 4px -1px rgba(15, 23, 42, 0.03);
-  --shadow-lg:   0 12px 28px -4px rgba(15, 23, 42, 0.08), 0 4px 8px -2px rgba(15, 23, 42, 0.04);
-  --shadow-xl:   0 24px 48px -8px rgba(15, 23, 42, 0.10);
+  --shadow-xs:   0 1px 2px rgba(16, 36, 58, 0.04);
+  --shadow-sm:   0 1px 3px rgba(16, 36, 58, 0.05), 0 1px 2px rgba(16, 36, 58, 0.03);
+  --shadow-md:   0 4px 12px -2px rgba(16, 36, 58, 0.06), 0 2px 4px -1px rgba(16, 36, 58, 0.03);
+  --shadow-lg:   0 12px 28px -4px rgba(16, 36, 58, 0.08), 0 4px 8px -2px rgba(16, 36, 58, 0.04);
+  --shadow-xl:   0 24px 48px -8px rgba(16, 36, 58, 0.10);
 
   /* 3D / glow accents */
-  --glow-primary:    0 0 20px rgba(2, 132, 199, 0.15);
+  --glow-primary:    0 0 20px rgba(7, 152, 212, 0.15);
   --glow-accent:     0 0 20px rgba(99, 102, 241, 0.15);
 
   /* Chart / data colors */
-  --chart-1: #0284C7;
+  --chart-1: #0798D4;
   --chart-2: #6366F1;
   --chart-3: #059669;
   --chart-4: #D97706;

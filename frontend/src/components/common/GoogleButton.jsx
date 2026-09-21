@@ -12,20 +12,29 @@ export default function GoogleButton({ onSuccess, label = "Sign in with Google" 
     ? ""
     : configuredClientId;
 
+  const successCallbackRef = useRef(onSuccess);
+  useEffect(() => {
+    successCallbackRef.current = onSuccess;
+  }, [onSuccess]);
+
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) {
       setUseMock(true);
       return;
     }
 
+    let timer = null;
+    let cancelled = false;
+
     const initGoogleSignIn = () => {
+      if (cancelled) return;
       if (window.google && containerRef.current) {
         try {
           window.google.accounts.id.initialize({
             client_id: GOOGLE_CLIENT_ID,
             callback: (response) => {
               if (response.credential) {
-                onSuccess(response.credential);
+                if (successCallbackRef.current) successCallbackRef.current(response.credential);
               } else {
                 toast.error('Google Auth Failed', 'No credentials returned.');
               }
@@ -44,12 +53,17 @@ export default function GoogleButton({ onSuccess, label = "Sign in with Google" 
           setUseMock(true);
         }
       } else {
-        setTimeout(initGoogleSignIn, 500);
+        timer = setTimeout(initGoogleSignIn, 400);
       }
     };
 
     initGoogleSignIn();
-  }, [GOOGLE_CLIENT_ID, onSuccess, toast]);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [GOOGLE_CLIENT_ID, toast]);
 
   const handleMockClick = () => {
     const email = prompt("Enter mock Gmail address for testing:", "candidate@gmail.com");

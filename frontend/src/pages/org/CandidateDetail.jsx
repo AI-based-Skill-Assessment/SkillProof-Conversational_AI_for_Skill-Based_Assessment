@@ -10,8 +10,34 @@ export default function CandidateDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  // Find candidate by mock ID
-  const candidate = MOCK_CANDIDATES.find(c => c.id === id) || MOCK_CANDIDATES[0];
+  // Find candidate by localStorage or mock ID
+  const candidate = (() => {
+    try {
+      const saved = localStorage.getItem('skillproof_org_candidates');
+      if (saved) {
+        const list = JSON.parse(saved);
+        const match = list.find(c => c.id === id);
+        if (match) return match;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return MOCK_CANDIDATES.find(c => c.id === id) || null;
+  })();
+
+  if (!candidate) {
+    return (
+      <div className="anim-fade-in" style={{ maxWidth: 600, margin: '40px auto', textAlign: 'center' }}>
+        <Card>
+          <CardBody style={{ padding: 40, display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
+            <h3 style={{ fontSize: 20, fontWeight: 700 }}>Candidate Profile Not Found</h3>
+            <p style={{ color: 'var(--text-secondary)' }}>The requested student candidate could not be found or has not linked with your institution.</p>
+            <Button onClick={() => navigate(ROUTES.ORG.CANDIDATES)}>Back to Candidates List</Button>
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="anim-fade-in" style={{ maxWidth: 720, margin: '0 auto' }}>

@@ -281,13 +281,13 @@ async def list_assessments(
     return [
         {
             "id": str(s.id),
-            "candidate_name": s.candidate_name,
-            "candidate_email": s.candidate_email,
-            "intake_mode": s.intake_mode.value,
-            "status": s.status.value,
+            "candidate_name": s.candidate_name or "Candidate",
+            "candidate_email": s.candidate_email or "candidate@skillproof.ai",
+            "intake_mode": getattr(s.intake_mode, "value", str(s.intake_mode) if s.intake_mode else "certificate"),
+            "status": getattr(s.status, "value", str(s.status) if s.status else "pending"),
             "extracted_role": s.extracted_role,
-            "extracted_skills": s.extracted_skills,
-            "created_at": s.created_at.isoformat(),
+            "extracted_skills": s.extracted_skills or [],
+            "created_at": s.created_at.isoformat() if s.created_at else "",
         }
         for s in sessions
     ]
@@ -312,9 +312,9 @@ async def get_activity(
     return [
         {
             "session_id": str(s.id),
-            "candidate": s.candidate_name or "Unknown",
-            "event": f"Status changed to {s.status.value}",
-            "timestamp": s.updated_at.isoformat(),
+            "candidate": s.candidate_name or "Candidate",
+            "event": f"Status changed to {getattr(s.status, 'value', str(s.status))}",
+            "timestamp": s.updated_at.isoformat() if s.updated_at else "",
         }
         for s in sessions
     ]
