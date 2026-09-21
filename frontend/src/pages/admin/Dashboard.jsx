@@ -41,6 +41,8 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  const toast = useToast();
+
   async function handleApprove(orgId) {
     try {
       await client.post(`/admin/organisations/${orgId}/approve`);
@@ -49,10 +51,12 @@ export default function Dashboard() {
       setStats(prev => ({
         ...prev,
         active_organisations: prev.active_organisations + 1,
-        pending_approval: prev.pending_approval - 1
+        pending_approval: Math.max(0, prev.pending_approval - 1)
       }));
+      toast.success('Organization Approved', 'Institution status changed to active.');
     } catch (err) {
       console.error(err);
+      toast.error('Approval Failed', err.response?.data?.detail || 'Could not approve organization.');
     }
   }
 
