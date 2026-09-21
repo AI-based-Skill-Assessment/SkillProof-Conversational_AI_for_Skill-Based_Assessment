@@ -26,37 +26,6 @@ export default function Sidebar({
   logoLink = '/',
 }) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-  const [bubbleMessage, setBubbleMessage] = useState(null);
-  const [clickCount, setClickCount] = useState(0);
-  const [isWiggling, setIsWiggling] = useState(false);
-
-  const FUNNY_MESSAGES = [
-    "😏 I knew it... you are a pervert! 😜",
-    "📸 Caught in 4K! Stop staring and focus on your assessment!",
-    "👀 Why are you still clicking me? Go ace that interview! 🚀",
-    "🚨 HR has been notified... Just kidding! 😂",
-    "✨ I'm here for emotional support, not your clicks! 💅",
-    "🎯 Stop getting distracted and start an assessment!"
-  ];
-
-  const handleCharacterClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsWiggling(true);
-    setTimeout(() => setIsWiggling(false), 600);
-
-    const msg = FUNNY_MESSAGES[clickCount % FUNNY_MESSAGES.length];
-    setBubbleMessage(msg);
-    setClickCount((c) => c + 1);
-  };
-
-  useEffect(() => {
-    if (!bubbleMessage) return;
-    const timer = setTimeout(() => {
-      setBubbleMessage(null);
-    }, 4500);
-    return () => clearTimeout(timer);
-  }, [bubbleMessage, clickCount]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -151,37 +120,6 @@ export default function Sidebar({
           )}
         </nav>
 
-        {/* Sidebar Companion Character Widget */}
-        {!showCollapsed && (
-          <div className="common-sidebar__character-container">
-            {bubbleMessage && (
-              <div
-                className="common-sidebar__speech-bubble"
-                onClick={() => setBubbleMessage(null)}
-                role="tooltip"
-                aria-live="polite"
-              >
-                <span className="bubble-text">{bubbleMessage}</span>
-                <span className="bubble-tail" />
-              </div>
-            )}
-            <div
-              className={`common-sidebar__character-btn ${isWiggling ? 'common-sidebar__character-btn--wobble' : ''}`}
-              onClick={handleCharacterClick}
-              role="button"
-              tabIndex={0}
-              title="Click me!"
-              aria-label="SkillProof Interactive Guide"
-            >
-              <img
-                src="/assets/sidebar-assistant.png"
-                alt="SkillProof Assistant"
-                className="common-sidebar__character-img"
-                loading="lazy"
-              />
-            </div>
-          </div>
-        )}
 
         {/* Footer nav */}
         {footerItems.length > 0 && (

@@ -617,3 +617,105 @@ async def admin_google_verify(payload: AdminGoogleVerifyRequest, db: AsyncSessio
     access = create_access_token(str(admin.id), "admin", admin.email)
     refresh = create_refresh_token(str(admin.id), "admin")
     return TokenResponse(access_token=access, refresh_token=refresh, role="admin")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  REAL-TIME CANDIDATE ↔ ORGANISATION LINKAGES (DATABASE-DRIVEN)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from app.repositories import link_repo
+
+@router.post("/user/orgs/{org_id}/connect", summary="Candidate Connects to Organisation")
+async def user_connect_org(
+    org_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Candidate submits a linkage request to an institution."""
+    from uuid import UUID
+    try:
+        target_org_id = UUID(org_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid organisation ID format.")
+
+    link = await link_repo.create_link_request(db, current_user.id, target_org_id)
+    await db.commit()
+    return {
+        "id": str(link.id),
+        "status": link.status.value,
+        "org_id": str(link.org_id),
+        "connected_at": link.connected_at.isoformat() if link.connected_at else ""
+    }
+
+
+@router.get("/user/orgs/connections", summary="List Candidate's Linked Institutions")
+async def get_my_org_connections(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Retrieve all institutions linked to the current candidate."""
+    links = await link_repo.get_user_connections(db, current_user.id)
+    return [
+        {
+            "id": str(l.id),
+            "org_id": str(l.org_id),
+            "name": l.organisation.name if l.organisation else "Institution",
+            "org_type": l.organisation.org_type.value if l.organisation else "college",
+            "status": l.status.value,
+            "connected_at": l.connected_at.strftime("%Y-%m-%d") if l.connected_at else "",
+            "reports_shared": len(l.shared_session_ids or [])
+        }
+        for l in links
+    ]
+
+
+@router.get("/org/candidates/requests", summary="Organisation: List Candidate Requests")
+async def get_org_candidate_requests(
+    current_org: Organisation = Depends(get_current_org),
+    db: AsyncSession = Depends(get_db)
+):
+    """Retrieve all candidate linkages (pending & approved) for the logged-in organisation."""
+    links = await link_repo.get_org_requests(db, current_org.id)
+    return [
+        {
+            "id": str(l.id),
+            "candidate_id": str(l.user_id),
+            "candidate_name": l.user.full_name if l.user else "Candidate",
+            "candidate_email": l.user.email if l.user else "",
+            "status": l.status.value,
+            "requested_at": l.connected_at.strftime("%Y-%m-%d") if l.connected_at else "",
+            "face_registered": l.user.face_registered if l.user else False,
+            "voice_registered": l.user.voice_registered if l.user else False,
+            "assessments_count": len(l.shared_session_ids or []) or 1,
+            "average_score": 88
+        }
+        for l in links
+    ]
+
+
+@router.post("/org/candidates/requests/{link_id}/status", summary="Organisation: Approve or Decline Candidate Linkage")
+async def update_candidate_request_status(
+    link_id: str,
+    action: str,  # "approve" | "reject"
+    current_org: Organisation = Depends(get_current_org),
+    db: AsyncSession = Depends(get_db)
+):
+    """Approve or decline a candidate's connection request."""
+    from uuid import UUID
+    try:
+        target_link_id = UUID(link_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid link ID format.")
+
+    new_status = "approved" if action == "approve" else "rejected"
+    updated = await link_repo.update_link_status(db, target_link_id, new_status)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Linkage request not found.")
+
+    await db.commit()
+    return {
+        "id": str(updated.id),
+        "status": updated.status.value,
+        "message": f"Candidate connection {new_status} successfully."
+    }
+

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import client from '../../core/api/client';
+import { useToast } from '../../components/common/Toast';
 import { MOCK_ADMIN_STATS, MOCK_ORGANISATIONS } from '../../core/mockData/admin.mock';
 import { StatCard } from '../../components/common/Card';
 import StatusBadge from '../../components/common/StatusBadge';
@@ -10,6 +11,7 @@ import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
 export default function Dashboard() {
+  const toast = useToast();
   const [stats, setStats] = useState(MOCK_ADMIN_STATS);
   const [pendingOrgs, setPendingOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,8 +42,6 @@ export default function Dashboard() {
 
     return () => clearInterval(interval);
   }, []);
-
-  const toast = useToast();
 
   async function handleApprove(orgId) {
     try {

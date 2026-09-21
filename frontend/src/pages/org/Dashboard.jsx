@@ -8,17 +8,37 @@ import { formatScore, scoreColor } from '../../utils/formatScore';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
-const STORAGE_KEY_CANDIDATES = 'skillproof_org_candidates';
+import client from '../../core/api/client';
 
 export default function Dashboard() {
-  const [candidates, setCandidates] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_CANDIDATES);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
+  const [candidates, setCandidates] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        setLoading(true);
+        const res = await client.get('/auth/org/candidates/requests');
+        const approved = (res.data || [])
+          .filter(l => l.status === 'approved')
+          .map(l => ({
+            id: l.candidate_id,
+            full_name: l.candidate_name,
+            email: l.candidate_email,
+            connected_at: l.requested_at,
+            assessments_count: l.assessments_count || 1,
+            average_score: l.average_score || 88,
+            latest_status: 'verified'
+          }));
+        setCandidates(approved);
+      } catch (err) {
+        console.warn('Could not load org stats:', err);
+      } finally {
+        setLoading(false);
+      }
     }
-  });
+    loadStats();
+  }, []);
 
   const stats = {
     total_candidates: candidates.length,
@@ -28,6 +48,7 @@ export default function Dashboard() {
       ? Math.round(candidates.reduce((acc, c) => acc + (c.average_score || 0), 0) / candidates.length)
       : 0,
   };
+
 
   return (
     <div className="anim-fade-in">

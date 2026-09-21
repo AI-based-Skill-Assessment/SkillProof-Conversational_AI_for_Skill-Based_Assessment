@@ -16,22 +16,24 @@ export default function Organizations() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [connections, setConnections] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [connections, setConnections] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_CONNS);
-      if (!saved) return [];
-      const parsed = JSON.parse(saved);
-      // Clean up legacy dummy org records
-      return parsed.filter(c => c.name !== 'TechCorp Solutions Pvt Ltd');
-    } catch {
-      return [];
-    }
-  });
-
+  // Load candidate's real linkages from PostgreSQL
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_CONNS, JSON.stringify(connections));
-  }, [connections]);
+    async function loadConnections() {
+      try {
+        setLoading(true);
+        const res = await client.get('/auth/user/orgs/connections');
+        setConnections(res.data);
+      } catch (err) {
+        console.warn('Failed to load DB connections, falling back to local state:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadConnections();
+  }, []);
 
   async function handleSearch(e) {
     e.preventDefault();
@@ -51,49 +53,31 @@ export default function Organizations() {
     }
   }
 
-  function handleConnect(org) {
-    // Check if already connected or pending
-    if (connections.some(c => c.id === org.id || c.name === org.name)) {
-      toast.info('Already Requested', `You already have a connection with ${org.name}.`);
+  async function handleConnect(org) {
+    const existing = connections.find(c => c.org_id === org.id || c.name === org.name);
+    if (existing && existing.status !== 'rejected' && existing.status !== 'revoked') {
+      toast.info('Already Requested', `You already have an active/pending connection request with ${org.name}.`);
       return;
     }
 
-    const newConnection = {
-      id: org.id || `org-${Date.now()}`,
-      name: org.name,
-      org_type: org.org_type || 'college',
-      status: 'pending',
-      reports_shared: 0,
-      connected_at: new Date().toISOString().split('T')[0],
-    };
-
-    const newRequest = {
-      id: `req-${Date.now()}`,
-      candidate_id: user?.id || 'cand-current',
-      candidate_name: user?.full_name || 'Current Student Candidate',
-      candidate_email: user?.email || 'candidate@student.edu',
-      org_id: org.id,
-      org_name: org.name,
-      status: 'pending',
-      requested_at: new Date().toISOString().split('T')[0],
-      assessments_count: 1,
-      face_registered: user?.face_registered ?? true,
-      voice_registered: user?.voice_registered ?? true,
-      average_score: 85,
-    };
-
-    // Save to org incoming requests
     try {
-      const existingReqs = JSON.parse(localStorage.getItem(STORAGE_KEY_REQUESTS) || '[]');
-      existingReqs.unshift(newRequest);
-      localStorage.setItem(STORAGE_KEY_REQUESTS, JSON.stringify(existingReqs));
-    } catch (e) {
-      console.error(e);
+      const res = await client.post(`/auth/user/orgs/${org.id}/connect`);
+      const updatedConnection = {
+        id: res.data.id,
+        org_id: org.id,
+        name: org.name,
+        org_type: org.org_type || 'college',
+        status: res.data.status || 'pending',
+        reports_shared: 0,
+        connected_at: new Date().toISOString().split('T')[0],
+      };
+      setConnections(prev => [updatedConnection, ...prev.filter(c => c.org_id !== org.id && c.name !== org.name)]);
+      toast.success('Connection Request Sent', `Submitted to ${org.name} for placement cell authorization.`);
+    } catch (err) {
+      toast.error('Connection Failed', err.response?.data?.detail || 'Could not send connection request.');
     }
-
-    setConnections(prev => [newConnection, ...prev]);
-    toast.success('Connection Request Sent', `Submitted to ${org.name} for placement cell authorization.`);
   }
+
 
   return (
     <div className="anim-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

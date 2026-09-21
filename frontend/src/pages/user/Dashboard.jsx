@@ -4,7 +4,6 @@ import client from '../../core/api/client';
 import { useToast } from '../../components/common/Toast';
 import { EP } from '../../core/api/endpoints';
 import { MOCK_SESSIONS, MOCK_DASHBOARD_STATS } from '../../core/mockData/user.mock';
-import { TiltCard } from '../../components/common/Card';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
 import { formatScore, scoreColor, verdictVariant } from '../../utils/formatScore';
@@ -99,12 +98,7 @@ export default function Dashboard() {
       {/* Candidate Action Hub Cards */}
       <div className="dashboard-grid">
         {/* Card 1: Primary Action */}
-        <TiltCard
-          className="hub-card hub-card--primary"
-          accentColor="rgba(14, 165, 233, 0.3)"
-          maxTilt={12}
-          scale={1.03}
-        >
+        <div className="hub-card hub-card--primary">
           <div>
             <div className="hub-card__icon" aria-hidden="true">+</div>
             <div className="hub-card__top">
@@ -135,15 +129,10 @@ export default function Dashboard() {
               </Link>
             )}
           </div>
-        </TiltCard>
+        </div>
 
         {/* Card 2: Active Pipeline Tracker */}
-        <TiltCard
-          className="hub-card hub-card--info"
-          accentColor="rgba(59, 130, 246, 0.3)"
-          maxTilt={12}
-          scale={1.03}
-        >
+        <div className="hub-card hub-card--info">
           <div>
             <div className="hub-card__icon" aria-hidden="true">≡</div>
             <div className="hub-card__top">
@@ -164,15 +153,10 @@ export default function Dashboard() {
               View Reports
             </Link>
           </div>
-        </TiltCard>
+        </div>
 
         {/* Card 3: Camera & Mic Security Check */}
-        <TiltCard
-          className="hub-card hub-card--success"
-          accentColor="rgba(16, 185, 129, 0.3)"
-          maxTilt={12}
-          scale={1.03}
-        >
+        <div className="hub-card hub-card--success">
           <div>
             <div className="hub-card__icon" aria-hidden="true">◉</div>
             <div className="hub-card__top">
@@ -193,15 +177,10 @@ export default function Dashboard() {
               Test Devices
             </Link>
           </div>
-        </TiltCard>
+        </div>
 
         {/* Card 4: Certificates & Badges */}
-        <TiltCard
-          className="hub-card hub-card--purple"
-          accentColor="rgba(139, 92, 246, 0.3)"
-          maxTilt={12}
-          scale={1.03}
-        >
+        <div className="hub-card hub-card--purple">
           <div>
             <div className="hub-card__icon" aria-hidden="true">◇</div>
             <div className="hub-card__top">
@@ -222,7 +201,7 @@ export default function Dashboard() {
               My Badges
             </Link>
           </div>
-        </TiltCard>
+        </div>
       </div>
 
       <div className="dashboard-pipeline" aria-label="Assessment pipeline summary">

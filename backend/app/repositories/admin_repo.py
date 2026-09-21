@@ -12,15 +12,26 @@ from passlib.context import CryptContext
 
 from app.models.admin import Admin
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+try:
+    import bcrypt
 
+    def hash_password(plain: str) -> str:
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(plain.encode("utf-8"), salt).decode("utf-8")
 
-def hash_password(plain: str) -> str:
-    return _pwd_context.hash(plain)
+    def verify_password(plain: str, hashed: str) -> bool:
+        try:
+            return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+        except Exception:
+            return False
+except ImportError:
+    _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+    def hash_password(plain: str) -> str:
+        return _pwd_context.hash(plain)
 
-def verify_password(plain: str, hashed: str) -> bool:
-    return _pwd_context.verify(plain, hashed)
+    def verify_password(plain: str, hashed: str) -> bool:
+        return _pwd_context.verify(plain, hashed)
 
 
 async def get_admin_by_email(db: AsyncSession, email: str) -> Optional[Admin]:

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/common/Button';
-import { TiltCard } from '../../components/common/Card';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
@@ -26,33 +25,27 @@ export default function NewAssessment() {
       </div>
 
       <div className="intake-selector page-shell__grid" style={{ marginBottom: 32 }}>
-        <TiltCard
+        <div
           className={`intake-card${selected === 'certificate' ? ' intake-card--selected' : ''}`}
           onClick={() => setSelected('certificate')}
-          maxTilt={12}
-          scale={1.03}
-          accentColor="rgba(14, 165, 233, 0.35)"
         >
           <div className="intake-card__icon">📄</div>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Certificate Upload</h3>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
             Upload a PDF or image of your course/internship certificate. Our AI will automatically parse the issuer, role, and skills.
           </p>
-        </TiltCard>
+        </div>
 
-        <TiltCard
+        <div
           className={`intake-card${selected === 'skill_only' ? ' intake-card--selected' : ''}`}
           onClick={() => setSelected('skill_only')}
-          maxTilt={12}
-          scale={1.03}
-          accentColor="rgba(14, 165, 233, 0.35)"
         >
           <div className="intake-card__icon">⚡</div>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Skill-only Declaration</h3>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
             Directly enter the programming languages and skills you possess. No files or certificates required.
           </p>
-        </TiltCard>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginBottom: 48 }}>

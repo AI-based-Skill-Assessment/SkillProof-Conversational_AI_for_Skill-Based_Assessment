@@ -7,90 +7,68 @@ import { useToast } from '../../components/common/Toast';
 import { formatDate } from '../../utils/formatDate';
 import ROUTES from '../../core/routes';
 
-const STORAGE_KEY_REQUESTS = 'skillproof_org_requests';
-const STORAGE_KEY_CONNS = 'skillproof_user_connections';
-const STORAGE_KEY_CANDIDATES = 'skillproof_org_candidates';
+import client from '../../core/api/client';
 
 export default function Candidates() {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState('active'); // 'active' | 'requests'
+  const [loading, setLoading] = useState(true);
+  const [candidates, setCandidates] = useState([]);
+  const [requests, setRequests] = useState([]);
 
-  // Active candidates list (only real approved linkages)
-  const [candidates, setCandidates] = useState(() => {
+  async function loadData() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_CANDIDATES);
-      if (!saved) return [];
-      const parsed = JSON.parse(saved);
-      const mockNames = ['Arjun Sharma', 'Priya Nair', 'Rohan Mehta', 'Sneha Iyer'];
-      return parsed.filter(c => !mockNames.includes(c.full_name));
-    } catch {
-      return [];
-    }
-  });
+      setLoading(true);
+      const res = await client.get('/auth/org/candidates/requests');
+      const allLinks = res.data || [];
+      
+      const pending = allLinks.filter(l => l.status === 'pending');
+      const approved = allLinks.filter(l => l.status === 'approved').map(l => ({
+        id: l.candidate_id,
+        full_name: l.candidate_name,
+        email: l.candidate_email,
+        connected_at: l.requested_at,
+        reports_shared: 1,
+        assessments_count: l.assessments_count || 1,
+        average_score: l.average_score || 88,
+        face_registered: l.face_registered,
+        voice_registered: l.voice_registered,
+        latest_status: 'verified'
+      }));
 
-  // Pending incoming requests (only real student connection requests)
-  const [requests, setRequests] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_REQUESTS);
-      if (!saved) return [];
-      const parsed = JSON.parse(saved);
-      const mockReqNames = ['Aditi Rao', 'Karthik Raja'];
-      return parsed.filter(r => !mockReqNames.includes(r.candidate_name));
-    } catch {
-      return [];
+      setRequests(pending);
+      setCandidates(approved);
+    } catch (err) {
+      console.warn('Could not load org candidate requests:', err);
+    } finally {
+      setLoading(false);
     }
-  });
+  }
 
   useEffect(() => {
-    localStorage.setItem('skillproof_org_candidates', JSON.stringify(candidates));
-  }, [candidates]);
+    loadData();
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_REQUESTS, JSON.stringify(requests));
-  }, [requests]);
-
-  const handleApprove = (req) => {
-    // 1. Remove from pending requests
-    const updatedRequests = requests.filter(r => r.id !== req.id);
-    setRequests(updatedRequests);
-
-    // 2. Add to active candidates
-    const newCandidate = {
-      id: req.candidate_id || `cand-${Date.now()}`,
-      full_name: req.candidate_name,
-      email: req.candidate_email,
-      connected_at: new Date().toISOString().split('T')[0],
-      reports_shared: 1,
-      assessments_count: req.assessments_count || 1,
-      average_score: req.average_score || 85,
-      face_registered: req.face_registered ?? true,
-      voice_registered: req.voice_registered ?? true,
-      latest_status: 'verified',
-    };
-    setCandidates(prev => [newCandidate, ...prev]);
-
-    // 3. Update candidate's connection status in localStorage
+  const handleApprove = async (req) => {
     try {
-      const userConns = JSON.parse(localStorage.getItem(STORAGE_KEY_CONNS) || '[]');
-      const updatedConns = userConns.map(c => {
-        if (c.id === req.org_id || c.name === req.org_name || req.org_name?.includes(c.name)) {
-          return { ...c, status: 'approved' };
-        }
-        return c;
-      });
-      localStorage.setItem(STORAGE_KEY_CONNS, JSON.stringify(updatedConns));
-    } catch (e) {
-      console.error(e);
+      await client.post(`/auth/org/candidates/requests/${req.id}/status?action=approve`);
+      toast.success('Linkage Approved', `${req.candidate_name} is now an active linked candidate.`);
+      loadData();
+    } catch (err) {
+      toast.error('Approval Failed', err.response?.data?.detail || 'Could not approve candidate linkage.');
     }
-
-    toast.success('Linkage Approved', `${req.candidate_name} is now an active linked candidate.`);
   };
 
-  const handleDecline = (req) => {
-    const updatedRequests = requests.filter(r => r.id !== req.id);
-    setRequests(updatedRequests);
-    toast.info('Request Declined', `Connection request from ${req.candidate_name} was removed.`);
+  const handleDecline = async (req) => {
+    try {
+      await client.post(`/auth/org/candidates/requests/${req.id}/status?action=reject`);
+      toast.info('Request Declined', `Connection request from ${req.candidate_name} was declined.`);
+      loadData();
+    } catch (err) {
+      toast.error('Decline Failed', err.response?.data?.detail || 'Could not decline candidate linkage.');
+    }
   };
+
 
   return (
     <div className="anim-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

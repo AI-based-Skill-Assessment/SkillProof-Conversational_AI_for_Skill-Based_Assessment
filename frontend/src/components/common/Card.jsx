@@ -4,10 +4,10 @@ import '../../styles/common/card.css';
 export { TiltCard };
 
 export function Card({ children, hoverable, tilt = false, className = '', style = {}, ...props }) {
-  if (hoverable || tilt) {
+  if (tilt) {
     return (
       <TiltCard
-        className={`common-card common-card--hoverable ${className}`}
+        className={`common-card ${hoverable ? 'common-card--hoverable' : ''} ${className}`}
         style={style}
         maxTilt={8}
         scale={1.02}
@@ -19,7 +19,11 @@ export function Card({ children, hoverable, tilt = false, className = '', style 
   }
 
   return (
-    <div className={`common-card ${className}`} style={style} {...props}>
+    <div
+      className={`common-card ${hoverable ? 'common-card--hoverable' : ''} ${className}`}
+      style={style}
+      {...props}
+    >
       {children}
     </div>
   );
@@ -71,18 +75,32 @@ export function StatCard({
   deltaType = 'up',
   className = '',
   style = {},
-  maxTilt = 12,
-  accentColor,
+  tilt = false,
   ...props
 }) {
+  if (tilt) {
+    return (
+      <TiltCard
+        className={`common-stat-card ${className}`}
+        style={style}
+        {...props}
+      >
+        {icon && <div className="common-stat-card__icon" aria-hidden="true">{icon}</div>}
+        <div className="common-stat-card__value">{value ?? '—'}</div>
+        <div className="common-stat-card__label">{label}</div>
+        {delta !== undefined && (
+          <div className={`common-stat-card__delta common-stat-card__delta--${deltaType}`}>
+            {deltaType === 'up' ? '↑' : '↓'} {delta}
+          </div>
+        )}
+      </TiltCard>
+    );
+  }
+
   return (
-    <TiltCard
+    <div
       className={`common-stat-card ${className}`}
       style={style}
-      maxTilt={maxTilt}
-      scale={1.03}
-      glare={false}
-      accentColor={accentColor}
       {...props}
     >
       {icon && <div className="common-stat-card__icon" aria-hidden="true">{icon}</div>}
@@ -93,6 +111,7 @@ export function StatCard({
           {deltaType === 'up' ? '↑' : '↓'} {delta}
         </div>
       )}
-    </TiltCard>
+    </div>
   );
 }
+

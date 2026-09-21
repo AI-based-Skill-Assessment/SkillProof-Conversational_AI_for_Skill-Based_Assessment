@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import ROUTES from '../../core/routes';
 import { useAuth } from '../../core/auth/AuthContext';
-import { TiltCard } from '../../components/common/Card';
 import '../../styles/pages/public.css';
 
 export default function OrganizationLandingPage() {
@@ -50,29 +49,29 @@ export default function OrganizationLandingPage() {
         </div>
 
         <div className="feature-grid">
-          <TiltCard className="feature-card" accentColor="rgba(59, 130, 246, 0.28)" maxTilt={12} scale={1.03}>
+          <div className="feature-card">
             <div className="feature-card__icon">🎓</div>
             <h3 className="feature-card__title">For Placement Cells</h3>
             <p className="feature-card__desc">
               Verify all student certificates before sharing resume books with companies. Ensure your college's credential trust is unassailable.
             </p>
-          </TiltCard>
+          </div>
 
-          <TiltCard className="feature-card" accentColor="rgba(129, 140, 248, 0.28)" maxTilt={12} scale={1.03}>
+          <div className="feature-card">
             <div className="feature-card__icon">🏢</div>
-            <h3 className="feature-card__title">For Hiring Teams</h3>
+            <h3 className="feature-card__title">For HR & Recruiters</h3>
             <p className="feature-card__desc">
-              Pre-screen incoming applications automatically. Send custom skill assessments to candidates with built-in voice/face biometric tracking.
+              Screen candidates before round-1 interviews with automated skill tests designed directly from their submitted internship achievements.
             </p>
-          </TiltCard>
+          </div>
 
-          <TiltCard className="feature-card" accentColor="rgba(16, 185, 129, 0.28)" maxTilt={12} scale={1.03}>
-            <div className="feature-card__icon">🔍</div>
-            <h3 className="feature-card__title">Instant QR Auditing</h3>
+          <div className="feature-card">
+            <div className="feature-card__icon">🔒</div>
+            <h3 className="feature-card__title">Proctored Authenticity</h3>
             <p className="feature-card__desc">
-              Scan report QR codes to fetch live cryptographically secure verification states straight from the database. No account required.
+              Real-time video, audio, tab-focus and biometric anti-impersonation logs ensure every test is genuinely taken by the certificate holder.
             </p>
-          </TiltCard>
+          </div>
         </div>
       </section>
     </div>
