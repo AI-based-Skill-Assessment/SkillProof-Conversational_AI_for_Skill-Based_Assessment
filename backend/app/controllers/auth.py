@@ -473,11 +473,9 @@ async def update_org_me(
 
 
 @router.get("/orgs/search", summary="Search Organisations (for candidate connection)")
-async def search_orgs(q: str = "", limit: int = 10, db: AsyncSession = Depends(get_db)):
+async def search_orgs(q: str = "", limit: int = 15, db: AsyncSession = Depends(get_db)):
     """Find approved organisations by name. Used by candidates to connect."""
-    if len(q) < 2:
-        return []
-    orgs = await org_repo.search_orgs(db, q, limit=limit)
+    orgs = await org_repo.search_orgs(db, q.strip(), limit=limit)
     return [
         {
             "id": str(o.id),
