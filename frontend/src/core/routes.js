@@ -11,6 +11,9 @@ export const ROUTES = {
   HOW_IT_WORKS:       '/how-it-works',
   SECURITY:           '/security',
   LOADING_DEMOS:      '/loading-demos',
+  AMBIENT_DEMOS:      '/ambient-demos',
+  CREDENTIAL:         (hash = ':hash') => `/credential/${hash}`,
+  VERIFY_CREDENTIAL:  (hash = ':hash') => `/verify/credential/${hash}`,
 
   // ── User (Candidate) Portal ──────────────────────────────
   USER: {

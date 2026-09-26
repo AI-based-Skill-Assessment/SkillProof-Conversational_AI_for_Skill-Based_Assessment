@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import Logo from './Logo';
 import '../../styles/common/topbar.css';
 import ThemeToggle from './ThemeToggle';
+import soundEffects from '../../core/audio/soundEffects';
 import ROUTES from '../../core/routes';
 
 export default function Topbar({
@@ -23,6 +24,7 @@ export default function Topbar({
   const [showEndModal, setShowEndModal] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(soundEffects.isMuted());
 
   // Avatar Display Logic:
   // 1. Use Google profile picture if present
@@ -227,6 +229,39 @@ export default function Topbar({
             <span style={{ fontSize: 8 }}>⚡</span> DEMO MODE
           </span>
         )}
+
+        {/* Command Palette Trigger Pill */}
+        <button
+          type="button"
+          onClick={() => {
+            soundEffects.playClick();
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
+          }}
+          className="common-topbar__search-btn"
+          title="Command Palette (Ctrl + K / Cmd + K)"
+        >
+          <span style={{ fontSize: 13 }}>🔍</span>
+          <span className="hide-on-mobile">Search</span>
+          <kbd className="common-topbar__search-kbd">
+            Ctrl+K
+          </kbd>
+        </button>
+
+        {/* Futuristic Sound Effects Toggle */}
+        <button
+          type="button"
+          onClick={() => {
+            const muted = soundEffects.toggleMute();
+            // Trigger state re-render
+            setSoundMuted(muted);
+          }}
+          className="common-topbar__action-btn"
+          style={{ cursor: 'pointer' }}
+          title={soundMuted ? 'Unmute Futuristic UI Sounds' : 'Mute UI Sounds'}
+          aria-label="Toggle Sound Effects"
+        >
+          <span style={{ fontSize: 16 }}>{soundMuted ? '🔇' : '🔊'}</span>
+        </button>
 
         {/* Theme toggle */}
         <ThemeToggle />

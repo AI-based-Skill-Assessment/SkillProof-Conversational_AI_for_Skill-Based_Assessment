@@ -218,6 +218,34 @@ async def realtime_interview_ws(
                     await websocket.send_json({"type": "pong"})
                     continue
 
+                # Full-Duplex Barge-in & Interruption Event
+                if msg_type in ("barge_in", "interrupt"):
+                    await websocket.send_json({
+                        "type": "barge_in_ack",
+                        "status": "listening",
+                        "message": "AI interviewer paused. Candidate speech active."
+                    })
+                    continue
+
+                # Live Candidate Speech State / VAD Event
+                if msg_type == "speech_state":
+                    state = msg.get("state", "speaking")
+                    await websocket.send_json({
+                        "type": "speech_state_ack",
+                        "state": state
+                    })
+                    continue
+
+                # Live Audio Spectrum & Telemetry Stream
+                if msg_type == "audio_telemetry":
+                    energy = msg.get("energy", 0.0)
+                    await websocket.send_json({
+                        "type": "audio_telemetry_ack",
+                        "energy": energy,
+                        "status": "synchronized"
+                    })
+                    continue
+
                 # Process answer
                 if msg_type == "answer":
                     answer_text = (msg.get("text") or "").strip()

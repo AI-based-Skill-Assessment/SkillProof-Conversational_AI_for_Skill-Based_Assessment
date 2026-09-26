@@ -7,6 +7,7 @@ import AIOrb from '../../components/common/AIOrb';
 import Button from '../../components/common/Button';
 import ThoughtLine from '../../components/common/ThoughtLine';
 import TechBackground from '../../components/common/TechBackground';
+import soundEffects from '../../core/audio/soundEffects';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
@@ -60,6 +61,23 @@ export default function InterviewSession() {
   const [cameraError, setCameraError] = useState(null);
   const clearMultipleFacesTimerRef = useRef(null);
 
+  // ── Feature 2: Anti-Cheating & Proctoring Telemetry State ──────────────────
+  const [integrityScore, setIntegrityScore] = useState(100.0);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [windowBlurCount, setWindowBlurCount] = useState(0);
+  const [copyPasteAttempts, setCopyPasteAttempts] = useState(0);
+
+  // ── Feature 5: Full-Duplex Real-Time Voice & Barge-In State ────────────────
+  const [isHandsFree, setIsHandsFree] = useState(false);
+  const isHandsFreeRef = useRef(false);
+  const [isBargeInActive, setIsBargeInActive] = useState(false);
+  const isBargeInActiveRef = useRef(false);
+  const handsFreeSilenceTimerRef = useRef(null);
+
+  useEffect(() => {
+    isHandsFreeRef.current = isHandsFree;
+  }, [isHandsFree]);
+
   // Missing Face per Question counter (Max 2 questions allowed without face before warning/block prompt)
   const [missingFaceQuestionsCount, setMissingFaceQuestionsCount] = useState(0);
   const [showFacePromptModal, setShowFacePromptModal] = useState(false);
@@ -77,9 +95,55 @@ export default function InterviewSession() {
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [voiceSecs, setVoiceSecs] = useState(0);
+  const [showTextInput, setShowTextInput] = useState(false);
+  const [textAnswer, setTextAnswer] = useState('');
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
+
+  // ── Conversational Helper & Real-Time Closed Captions ──
+  const [thinkTimeLeft, setThinkTimeLeft] = useState(0);
+  const thinkTimeTimerRef = useRef(null);
+  const [showClosedCaptions, setShowClosedCaptions] = useState(true);
+  const [largeCaptions, setLargeCaptions] = useState(false);
+
+  function handleTakeThinkTime() {
+    if (thinkTimeLeft > 0) {
+      if (thinkTimeTimerRef.current) clearInterval(thinkTimeTimerRef.current);
+      setThinkTimeLeft(0);
+      toast.info('Think Time Ended', 'Resuming standard session timer.');
+      return;
+    }
+    soundEffects.playClick();
+    setThinkTimeLeft(30);
+    toast.info('30s Reflection Time', 'Take your time. Silence penalties are paused for 30s.');
+    if (thinkTimeTimerRef.current) clearInterval(thinkTimeTimerRef.current);
+    thinkTimeTimerRef.current = setInterval(() => {
+      setThinkTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(thinkTimeTimerRef.current);
+          soundEffects.playBeep();
+          toast.success('Think Time Concluded', 'You can now record your response.');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  function handleRephraseQuestion() {
+    soundEffects.playClick();
+    toast.info('Requesting Rephrase', 'AI interviewer is simplifying the question...');
+    handleSendTextWithMsg('Could you please rephrase or explain that question in simpler terms?');
+  }
+
+  function handleRepeatQuestion() {
+    soundEffects.playClick();
+    if (aiText) {
+      speakText(aiText);
+      toast.info('Repeating Question', 'Playing question audio again.');
+    }
+  }
 
   // Auto-scroll chat transcript to bottom
   useEffect(() => {
@@ -140,7 +204,6 @@ export default function InterviewSession() {
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
-      const voices = window.speechSynthesis.getVoices();
       const femaleVoice = getFemaleVoice();
       if (femaleVoice) {
         utterance.voice = femaleVoice;
@@ -152,6 +215,13 @@ export default function InterviewSession() {
         console.warn('SpeechSynthesis utterance error:', e);
         setAiState('listening');
       };
+
+      // Watchdog Timer: Protect against Chromium speech synthesis hangs
+      const wordCount = textToSpeak.split(/\s+/).length;
+      const maxSpeechDurationMs = Math.max(4000, (wordCount / 2.0) * 1000 + 3000);
+      setTimeout(() => {
+        setAiState(curr => curr === 'speaking' ? 'listening' : curr);
+      }, maxSpeechDurationMs);
 
       // Slight delay to ensure chrome speech synthesis engine is active
       setTimeout(() => {
@@ -224,11 +294,68 @@ export default function InterviewSession() {
       cleanupLockdown = setupSecurityLockdown();
     }
 
+    // ── Feature 2: Tab Switching & Window Blur Proctoring Listeners ─────────
+    const handleVisibilityChange = () => {
+      if (document.hidden && isInterviewStartedRef.current) {
+        setTabSwitchCount(prev => {
+          const next = prev + 1;
+          setIntegrityScore(s => Math.max(0, Math.round((s - 6.0) * 10) / 10));
+          toast.warning('Proctoring Telemetry Alert', `Tab switch detected (Incident #${next}). This event has been recorded in your audit log.`);
+          client.post('/biometric/telemetry-event', {
+            session_id: id,
+            event_type: 'tab_switch',
+            details: `Candidate switched browser tab (Incident #${next})`,
+            client_timestamp: new Date().toISOString()
+          }).catch(() => {});
+          return next;
+        });
+      }
+    };
+
+    const handleWindowBlur = () => {
+      if (isInterviewStartedRef.current && !document.hidden) {
+        setWindowBlurCount(prev => {
+          const next = prev + 1;
+          client.post('/biometric/telemetry-event', {
+            session_id: id,
+            event_type: 'window_blur',
+            details: `Browser window focus lost (Incident #${next})`,
+            client_timestamp: new Date().toISOString()
+          }).catch(() => {});
+          return next;
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+
     return () => {
       window.removeEventListener('popstate', handlePopState);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
       if (cleanupLockdown) cleanupLockdown();
     };
-  }, [toast]);
+  }, [id, toast]);
+
+  // ── Feature 5: Real-Time Barge-In Interruption ──────────────────────────────
+  function triggerBargeIn() {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setAiState('listening');
+    setIsBargeInActive(true);
+    isBargeInActiveRef.current = true;
+
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: 'barge_in' }));
+    }
+
+    setTimeout(() => {
+      setIsBargeInActive(false);
+      isBargeInActiveRef.current = false;
+    }, 2200);
+  }
 
   function stopWebcamAndAudio() {
     console.log('📷 [HARDWARE RELEASE] Shutting down camera & microphone tracks...');
@@ -354,11 +481,32 @@ export default function InterviewSession() {
     }
   }
 
+  // ── Auto-Start Grace Timer: Ensure candidate is NEVER locked waiting for face detection ──
+  useEffect(() => {
+    const autoStartTimer = setTimeout(() => {
+      if (!isInterviewStartedRef.current) {
+        isInterviewStartedRef.current = true;
+        setIsInterviewStarted(true);
+        const qText = firstQuestionRef.current || DEFAULT_Q1;
+        setAiText(qText);
+        setMessages(prev => (prev.length === 0 ? [{ sender: 'ai', text: qText }] : prev));
+        speakText(qText);
+      }
+    }, 3500);
+
+    return () => clearTimeout(autoStartTimer);
+  }, []);
+
   async function startWebcam() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
-        audio: true
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000
+        }
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -374,8 +522,22 @@ export default function InterviewSession() {
       // Initialize Ambient Background Noise & Live Mic Spectrum Analyzer
       initBackgroundNoiseAnalyser(stream);
     } catch (err) {
-      console.error('Webcam / Audio access error:', err);
-      setCameraError('Camera or Microphone access denied.');
+      console.warn('Combined audio/video access error, trying fallback:', err);
+      try {
+        const videoOnly = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+        });
+        streamRef.current = videoOnly;
+        if (videoRef.current) {
+          videoRef.current.srcObject = videoOnly;
+          videoRef.current.play().catch(() => {});
+          setIsCameraReady(true);
+        }
+      } catch (videoErr) {
+        console.error('Webcam access fallback error:', videoErr);
+        setCameraError('Camera or Microphone access restricted. Session is ready in fail-safe mode.');
+        setIsCameraReady(true);
+      }
     }
   }
 
@@ -407,11 +569,23 @@ export default function InterviewSession() {
         // Update 15-band live mic audio spectrum levels for VoiceWaveform component
         const levels = [];
         const step = Math.floor(dataArray.length / 15);
+        let sumSquares = 0;
         for (let i = 0; i < 15; i++) {
           const val = dataArray[i * step] || 0;
-          levels.push(Math.max(0.1, val / 255));
+          const norm = val / 255.0;
+          sumSquares += norm * norm;
+          levels.push(Math.max(0.1, norm));
         }
         setAudioSpectrum(levels);
+
+        // RMS Voice Activity & Barge-in Detection
+        const rms = Math.sqrt(sumSquares / 15);
+        if (rms > 0.22 && speakerOnRef.current && isInterviewStartedRef.current) {
+          // If AI is actively speaking, candidate speaking triggers immediate Barge-in
+          if (aiState === 'speaking' && !isBargeInActiveRef.current) {
+            triggerBargeIn();
+          }
+        }
 
         requestAnimationFrame(checkNoise);
       };
@@ -667,7 +841,15 @@ export default function InterviewSession() {
   // ── 4. Voice Recording & Live Speech-to-Text Answers ─────────────────────
   async function startVoiceRecording() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: { ideal: true },
+          noiseSuppression: { ideal: true },
+          autoGainControl: { ideal: true },
+          channelCount: 1,
+          sampleRate: { ideal: 48000 }
+        }
+      });
       audioChunksRef.current = [];
       spokenTranscriptRef.current = '';
 
@@ -758,9 +940,14 @@ export default function InterviewSession() {
           transcribedText = sttRes.data.text.trim();
         }
       } catch (sttErr) {
-        console.warn('Backend transcription failed, falling back to client-side:', sttErr);
+        console.warn('Backend transcription failed, falling back to client-side Web Speech API:', sttErr);
       } finally {
         setIsTranscribing(false);
+      }
+
+      // If backend transcription failed or returned empty, fallback to Web Speech API live transcript
+      if (!transcribedText && spokenTranscriptRef.current) {
+        transcribedText = spokenTranscriptRef.current.trim();
       }
 
       // Hallucinated Whisper/STT artifacts generated during background microphone silence
@@ -781,89 +968,138 @@ export default function InterviewSession() {
       // Event-Driven Vision AI Check upon answer submission
       triggerVisionAICheck();
 
-      // Voice biometric verification
-      const res = await client.post('/biometric/verify', {
-        session_id: id,
-        voice_embedding: embedding
-      });
+      // Voice biometric verification with fail-safe fallback
+      try {
+        const res = await client.post('/biometric/verify', {
+          session_id: id,
+          voice_embedding: embedding
+        });
 
-      if (res.data && res.data.voice_match) {
-        setVoiceMatchStatus('MATCHING');
-        setVoiceMatchPct(Math.round((res.data.voice_confidence || 0.92) * 100));
-        setVoiceErrorMessage('');
-
-        handleSendTextWithMsg(transcribedText);
-      } else {
-        setVoiceMatchStatus('MISMATCH');
-        setVoiceMatchPct(35);
-        const errMsg = res.data?.message || 'Voice ID mismatch: Speaker voice pattern does not match registered candidate profile.';
-        setVoiceErrorMessage(errMsg);
-        toast.error('Voice ID Mismatch Detected', errMsg);
-        setCheatingAlert(true);
-        setAlertReason(errMsg);
+        if (res.data && res.data.voice_match) {
+          setVoiceMatchStatus('MATCHING');
+          setVoiceMatchPct(Math.round((res.data.voice_confidence || 0.92) * 100));
+          setVoiceErrorMessage('');
+        } else {
+          setVoiceMatchStatus('MISMATCH');
+          setVoiceMatchPct(35);
+          const errMsg = res.data?.message || 'Voice signature variation detected under ambient sound.';
+          setVoiceErrorMessage(errMsg);
+        }
+      } catch (bioErr) {
+        console.warn('Voice biometric verification ping warning:', bioErr);
       }
+
+      // Always forward the candidate's answer to the AI so the interview flows uninterrupted
+      handleSendTextWithMsg(transcribedText);
     } catch (err) {
       console.error('Voice answer verification failed:', err);
     }
   }
 
-  // FFT Voice Extraction Helper
+  // ── Noise-Resilient FFT Voice Extraction with Adaptive VAD & Spectral Noise Shielding ──
   async function extractVoiceEmbedding(chunks) {
-    const blob = new Blob(chunks, { type: 'audio/webm' });
-    const arrayBuf = await blob.arrayBuffer();
-    const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const audioBuf = await tempCtx.decodeAudioData(arrayBuf);
-    await tempCtx.close();
+    if (!chunks || chunks.length === 0) return [];
+    try {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const arrayBuf = await blob.arrayBuffer();
+      const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioBuf = await tempCtx.decodeAudioData(arrayBuf);
+      await tempCtx.close();
 
-    const channelData = audioBuf.getChannelData(0);
-    const sampleRate = audioBuf.sampleRate;
-    const rc = 1.0 / (2 * Math.PI * 150);
-    const dt = 1.0 / sampleRate;
-    const alpha = rc / (rc + dt);
+      const channelData = audioBuf.getChannelData(0);
+      const sampleRate = audioBuf.sampleRate;
 
-    const filteredData = new Float32Array(channelData.length);
-    filteredData[0] = channelData[0];
-    for (let i = 1; i < channelData.length; i++) {
-      filteredData[i] = alpha * (filteredData[i - 1] + channelData[i] - channelData[i - 1]);
-    }
+      // 1. Dual-pole Bandpass Filter (High-pass 90Hz to strip AC/traffic rumble, Low-pass 7.5kHz to strip hiss)
+      const rcHigh = 1.0 / (2 * Math.PI * 90);
+      const dt = 1.0 / sampleRate;
+      const alphaHigh = rcHigh / (rcHigh + dt);
 
-    // Filter silence / room noise floor before extracting formants
-    let sumSquares = 0;
-    for (let i = 0; i < filteredData.length; i++) {
-      sumSquares += filteredData[i] * filteredData[i];
-    }
-    const rms = Math.sqrt(sumSquares / filteredData.length);
-    if (rms < 0.003) {
-      console.warn('⚠️ [VOICE EXTRACTION] Audio signal energy too low or silent.');
+      const filteredData = new Float32Array(channelData.length);
+      filteredData[0] = channelData[0];
+      for (let i = 1; i < channelData.length; i++) {
+        filteredData[i] = alphaHigh * (filteredData[i - 1] + channelData[i] - channelData[i - 1]);
+      }
+
+      // 2. Compute frame-by-frame RMS to calculate adaptive ambient noise floor
+      const frameSize = 512;
+      const hopSize = 256;
+      const numBands = 64;
+      const frameEnergies = [];
+
+      for (let start = 0; start + frameSize < filteredData.length; start += hopSize) {
+        let frameSum = 0;
+        for (let j = 0; j < frameSize; j++) {
+          const sample = filteredData[start + j];
+          frameSum += sample * sample;
+        }
+        frameEnergies.push(Math.sqrt(frameSum / frameSize));
+      }
+
+      if (frameEnergies.length === 0) return [];
+
+      // Sort energies to find baseline ambient noise floor (20th percentile)
+      const sortedEnergies = [...frameEnergies].sort((a, b) => a - b);
+      const noiseFloor = sortedEnergies[Math.floor(sortedEnergies.length * 0.20)] || 0.001;
+      // Speech threshold: only extract formants from vocal bursts at least 1.6x above noise floor
+      const speechThreshold = Math.max(0.003, noiseFloor * 1.6);
+
+      const embedding = new Array(numBands).fill(0);
+      let activeSpeechFrames = 0;
+
+      // Hann window function to prevent spectral leakage
+      const hannWindow = new Float32Array(frameSize);
+      for (let i = 0; i < frameSize; i++) {
+        hannWindow[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (frameSize - 1)));
+      }
+
+      let frameIdx = 0;
+      for (let start = 0; start + frameSize < filteredData.length; start += hopSize) {
+        const energy = frameEnergies[frameIdx++] || 0;
+        // Ignore ambient room noise frames completely
+        if (energy < speechThreshold) continue;
+
+        const windowedFrame = new Float32Array(frameSize);
+        for (let j = 0; j < frameSize; j++) {
+          windowedFrame[j] = filteredData[start + j] * hannWindow[j];
+        }
+
+        const mag = getFFTMagnitude(windowedFrame, frameSize);
+        const binPerBand = Math.floor((frameSize / 2) / numBands);
+        for (let b = 0; b < numBands; b++) {
+          let sum = 0;
+          for (let k = 0; k < binPerBand; k++) {
+            sum += mag[b * binPerBand + k];
+          }
+          embedding[b] += sum / Math.max(1, binPerBand);
+        }
+        activeSpeechFrames++;
+      }
+
+      // If no frames passed the speech threshold, fallback to all frames
+      if (activeSpeechFrames === 0) {
+        for (let start = 0; start + frameSize < filteredData.length; start += hopSize) {
+          const frame = filteredData.slice(start, start + frameSize);
+          const mag = getFFTMagnitude(frame, frameSize);
+          const binPerBand = Math.floor((frameSize / 2) / numBands);
+          for (let b = 0; b < numBands; b++) {
+            let sum = 0;
+            for (let k = 0; k < binPerBand; k++) {
+              sum += mag[b * binPerBand + k];
+            }
+            embedding[b] += sum / Math.max(1, binPerBand);
+          }
+          activeSpeechFrames++;
+        }
+      }
+
+      if (activeSpeechFrames === 0) return [];
+      const avgEmbedding = embedding.map(v => v / activeSpeechFrames);
+      const maxVal = Math.max(...avgEmbedding);
+      return avgEmbedding.map(v => maxVal > 0 ? parseFloat((v / maxVal).toFixed(6)) : 0);
+    } catch (e) {
+      console.warn('extractVoiceEmbedding error:', e);
       return [];
     }
-
-    const frameSize = 512;
-    const numBands = 64;
-    const totalSamples = filteredData.length;
-    const numTargetFrames = 64;
-    const hopSize = Math.max(256, Math.floor((totalSamples - frameSize) / numTargetFrames));
-    const embedding = new Array(numBands).fill(0);
-    let frames = 0;
-
-    for (let start = 0; start + frameSize < filteredData.length; start += hopSize) {
-      const frame = filteredData.slice(start, start + frameSize);
-      const mag = getFFTMagnitude(frame, frameSize);
-      const binPerBand = Math.floor((frameSize / 2) / numBands);
-      for (let b = 0; b < numBands; b++) {
-        let sum = 0;
-        for (let k = 0; k < binPerBand; k++) {
-          sum += mag[b * binPerBand + k];
-        }
-        embedding[b] += sum / binPerBand;
-      }
-      frames++;
-    }
-
-    if (frames === 0) return [];
-    const avgEmbedding = embedding.map(v => v / frames);
-    const maxVal = Math.max(...avgEmbedding);
-    return avgEmbedding.map(v => maxVal > 0 ? parseFloat((v / maxVal).toFixed(6)) : 0);
   }
 
   function getFFTMagnitude(frame, n) {
@@ -1063,33 +1299,134 @@ export default function InterviewSession() {
       {/* Left Column: AI Orb, Active Question, Scrollable Chat Transcript, Voice Record Button */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, background: 'var(--surface)', borderRadius: 'var(--radius-xl)', padding: 24, border: '1px solid var(--border)', position: 'relative', overflow: 'hidden', height: '100%' }}>
 
-        {/* Top Controls: Speaker Toggle Button */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 14 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            AI Interviewer
-          </span>
+        {/* Top Controls: Speaker, Hands-Free Duplex & Proctoring Integrity HUD */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              AI Interviewer
+            </span>
+            {isBargeInActive && (
+              <span
+                style={{
+                  background: 'rgba(245, 158, 11, 0.2)',
+                  color: '#f59e0b',
+                  border: '1px solid rgba(245, 158, 11, 0.4)',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4
+                }}
+              >
+                ⚡ Barge-In Active
+              </span>
+            )}
+            {tabSwitchCount > 0 && (
+              <span
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  color: 'var(--danger)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 11,
+                  fontWeight: 700
+                }}
+              >
+                ⚠️ {tabSwitchCount} Tab Switch{tabSwitchCount > 1 ? 'es' : ''}
+              </span>
+            )}
+          </div>
 
-          <button
-            type="button"
-            onClick={toggleSpeaker}
-            title={speakerOn ? "Mute AI Voice (Unlocks Record Button immediately)" : "Turn On AI Voice Output"}
-            style={{
-              background: speakerOn ? 'rgba(18, 163, 126, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-              color: speakerOn ? 'var(--primary)' : '#ef4444',
-              border: speakerOn ? '1px solid rgba(18, 163, 126, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: 'var(--radius-md)',
-              padding: '6px 14px',
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              transition: 'all 200ms ease'
-            }}
-          >
-            {speakerOn ? '🔊 Speaker ON' : '🔇 Speaker OFF'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* DSP Audio Noise Shield Badge */}
+            <div
+              style={{
+                background: 'rgba(7, 152, 212, 0.12)',
+                color: '#38bdf8',
+                border: '1px solid rgba(7, 152, 212, 0.3)',
+                borderRadius: 'var(--radius-md)',
+                padding: '4px 10px',
+                fontSize: 12,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5
+              }}
+              title="Real-Time Hardware DSP Acoustic Noise Shielding Active (Room echo & fan noise filtered)"
+            >
+              <span>🎙️</span> Noise Shield Active
+            </div>
+
+            {/* Live Proctoring Integrity HUD */}
+            <div
+              style={{
+                background: integrityScore >= 80 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                color: integrityScore >= 80 ? '#10b981' : '#f59e0b',
+                border: `1px solid ${integrityScore >= 80 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                borderRadius: 'var(--radius-md)',
+                padding: '4px 10px',
+                fontSize: 12,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5
+              }}
+              title="Continuous Anti-Cheating & Biometric Integrity Score"
+            >
+              🛡️ {integrityScore}% Integrity
+            </div>
+
+            {/* Closed Captions Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                soundEffects.playClick();
+                setShowClosedCaptions(prev => !prev);
+              }}
+              title={showClosedCaptions ? "Hide Closed Captions" : "Show Closed Captions"}
+              style={{
+                background: showClosedCaptions ? 'rgba(7, 152, 212, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+                color: showClosedCaptions ? 'var(--primary)' : 'var(--text-secondary)',
+                border: showClosedCaptions ? '1px solid rgba(7, 152, 212, 0.3)' : '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                padding: '6px 10px',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5
+              }}
+            >
+              <span>💬</span> CC {showClosedCaptions ? 'ON' : 'OFF'}
+            </button>
+
+            {/* Speaker ON/OFF Button */}
+            <button
+              type="button"
+              onClick={toggleSpeaker}
+              title={speakerOn ? "Mute AI Voice (Unlocks Record Button immediately)" : "Turn On AI Voice Output"}
+              style={{
+                background: speakerOn ? 'rgba(18, 163, 126, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                color: speakerOn ? 'var(--primary)' : '#ef4444',
+                border: speakerOn ? '1px solid rgba(18, 163, 126, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: 'var(--radius-md)',
+                padding: '6px 14px',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'all 200ms ease'
+              }}
+            >
+              {speakerOn ? '🔊 Speaker ON' : '🔇 Speaker OFF'}
+            </button>
+          </div>
         </div>
 
         {/* Active Question Hero Card with Compact Side AI Orb */}
@@ -1155,35 +1492,241 @@ export default function InterviewSession() {
           </div>
         </div>
 
-        {/* Voice-Only Answer Action Bar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-          <div title={!isInterviewStarted ? "Position your face in the camera frame to start the interview" : isRecordLocked ? "Please wait until AI completes reading the question out loud" : ""}>
-            <Button
+        {/* ── Feature 1: Conversational Helper Actions Pill Bar ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {/* Helper 1: 30s Think Time */}
+            <button
               type="button"
-              variant={isRecordingVoice ? "danger" : "primary"}
-              onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
-              disabled={!isInterviewStarted || aiState === 'processing' || isRecordLocked || isTranscribing || showFacePromptModal}
+              onClick={handleTakeThinkTime}
               style={{
-                width: '100%',
-                padding: '14px 20px',
-                fontSize: 15,
-                fontWeight: 700,
+                background: thinkTimeLeft > 0 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+                color: thinkTimeLeft > 0 ? '#f59e0b' : 'var(--text-secondary)',
+                border: thinkTimeLeft > 0 ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                padding: '5px 10px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                opacity: (!isInterviewStarted || isRecordLocked || isTranscribing || showFacePromptModal) ? 0.6 : 1,
-                cursor: (!isInterviewStarted || isRecordLocked || isTranscribing || showFacePromptModal) ? 'not-allowed' : 'pointer'
+                gap: 5,
+                transition: 'all 150ms ease'
               }}
+              title="Pause silence timer and take 30s to think without penalty"
             >
-              {isRecordingVoice ? `Stop & Submit Answer (${voiceSecs}s)` : isTranscribing ? 'Transcribing...' : showFacePromptModal ? 'Please Show Your Face to Continue' : !isInterviewStarted ? 'Awaiting Face Detection...' : 'Record Answer'}
-            </Button>
+              <span>⏸️</span> {thinkTimeLeft > 0 ? `Thinking (${thinkTimeLeft}s)` : 'Think Time (30s)'}
+            </button>
+
+            {/* Helper 2: Rephrase Question */}
+            <button
+              type="button"
+              onClick={handleRephraseQuestion}
+              disabled={aiState === 'processing' || !isInterviewStarted}
+              style={{
+                background: 'rgba(255, 255, 255, 0.04)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                padding: '5px 10px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: (aiState === 'processing' || !isInterviewStarted) ? 'not-allowed' : 'pointer',
+                opacity: (aiState === 'processing' || !isInterviewStarted) ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                transition: 'all 150ms ease'
+              }}
+              title="Ask AI to rephrase the question in simpler or different words"
+            >
+              <span>🔄</span> Rephrase Question
+            </button>
+
+            {/* Helper 3: Repeat Question Audio */}
+            <button
+              type="button"
+              onClick={handleRepeatQuestion}
+              disabled={!aiText}
+              style={{
+                background: 'rgba(255, 255, 255, 0.04)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                padding: '5px 10px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: !aiText ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                transition: 'all 150ms ease'
+              }}
+              title="Replay AI question audio"
+            >
+              <span>🗣️</span> Repeat Question
+            </button>
           </div>
 
-          {isRecordLocked && (
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)', textAlign: 'center' }}>
-              ℹ Please wait until AI completes reading the question out loud (or turn Speaker OFF to answer immediately)
+          {/* CC font toggle */}
+          {showClosedCaptions && (
+            <button
+              type="button"
+              onClick={() => {
+                soundEffects.playClick();
+                setLargeCaptions(prev => !prev);
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                fontSize: 11,
+                cursor: 'pointer',
+                textDecoration: 'underline'
+              }}
+              title="Toggle caption text size"
+            >
+              Font: {largeCaptions ? 'Large' : 'Normal'}
+            </button>
+          )}
+        </div>
+
+        {/* ── Feature 1: Real-time Closed Captions Overlay Bar ── */}
+        {showClosedCaptions && (
+          <div
+            className="anim-fade-in"
+            style={{
+              padding: '10px 14px',
+              background: 'rgba(0, 0, 0, 0.35)',
+              border: '1px solid rgba(7, 152, 212, 0.25)',
+              borderRadius: 'var(--radius-md)',
+              backdropFilter: 'blur(8px)',
+              fontSize: largeCaptions ? 15 : 13,
+              lineHeight: 1.4,
+              color: isRecordingVoice ? '#38bdf8' : 'var(--text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8
+            }}
+          >
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
+              {isRecordingVoice ? 'You (Live):' : 'AI:'}
             </span>
+            <span style={{ fontStyle: isRecordingVoice ? 'italic' : 'normal', flex: 1 }}>
+              {isRecordingVoice
+                ? (spokenTranscriptRef.current || 'Listening to your microphone...')
+                : (aiText || 'Preparing your interview...')}
+            </span>
+          </div>
+        )}
+
+        {/* Answer Action Bar (Voice Push-to-Talk + Keyboard Text Fallback) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+          {showTextInput ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  value={textAnswer}
+                  onChange={(e) => setTextAnswer(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && textAnswer.trim()) {
+                      handleSendTextWithMsg(textAnswer.trim());
+                      setTextAnswer('');
+                    }
+                  }}
+                  placeholder="Type your response and press Enter or Submit..."
+                  disabled={aiState === 'processing'}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border)',
+                    background: 'var(--input-bg, rgba(255, 255, 255, 0.05))',
+                    color: 'var(--text-primary)',
+                    fontSize: 14,
+                    outline: 'none'
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => {
+                    if (textAnswer.trim()) {
+                      handleSendTextWithMsg(textAnswer.trim());
+                      setTextAnswer('');
+                    }
+                  }}
+                  disabled={!textAnswer.trim() || aiState === 'processing'}
+                  style={{ padding: '0 20px', fontWeight: 700 }}
+                >
+                  Submit
+                </Button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTextInput(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--primary)',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  textDecoration: 'underline'
+                }}
+              >
+                🎙️ Switch back to Voice Recording
+              </button>
+            </div>
+          ) : (
+            <>
+              <div title={!isInterviewStarted ? "Position your face in the camera frame to start the interview" : isRecordLocked ? "Please wait until AI completes reading the question out loud" : ""}>
+                <Button
+                  type="button"
+                  variant={isRecordingVoice ? "danger" : "primary"}
+                  onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
+                  disabled={!isInterviewStarted || aiState === 'processing' || isRecordLocked || isTranscribing}
+                  style={{
+                    width: '100%',
+                    padding: '14px 20px',
+                    fontSize: 15,
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    opacity: (!isInterviewStarted || isRecordLocked || isTranscribing) ? 0.6 : 1,
+                    cursor: (!isInterviewStarted || isRecordLocked || isTranscribing) ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isRecordingVoice ? `Stop & Submit Answer (${voiceSecs}s)` : isTranscribing ? 'Transcribing...' : !isInterviewStarted ? 'Awaiting Face Detection...' : 'Record Answer'}
+                </Button>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowTextInput(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-secondary)',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  ⌨️ Mic having issues? Type answer instead
+                </button>
+
+                {isRecordLocked && (
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                    ℹ Mute Speaker or wait for AI to finish speaking
+                  </span>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>

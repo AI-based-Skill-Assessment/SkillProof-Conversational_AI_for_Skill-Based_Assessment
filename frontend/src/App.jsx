@@ -14,7 +14,9 @@ import OrganizationLandingPage from './pages/public/OrganizationLandingPage';
 import HowItWorks from './pages/public/HowItWorks';
 import Security from './pages/public/Security';
 import PublicReportVerify from './pages/public/PublicReportVerify';
+import PublicCredentialVerify from './pages/public/PublicCredentialVerify';
 import LoadingDemosPage from './pages/public/LoadingDemosPage';
+import AmbientEffectsDemoPage from './pages/public/AmbientEffectsDemoPage';
 
 // ── Pages: Candidate / User Portal ───────────────────────────────────────────
 import UserSignIn from './pages/user/SignIn';
@@ -71,19 +73,24 @@ import NetworkStatusFallback from './components/common/NetworkStatusFallback';
 import CursorSpark from './components/common/CursorSpark';
 import AppInitialSplash from './components/common/AppInitialSplash';
 import AmbientHudRings from './components/common/AmbientHudRings';
+import CommandPalette from './components/common/CommandPalette';
 
 export default function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AppInitialSplash />
       <AmbientHudRings />
+      <CommandPalette />
       <CursorSpark />
       <NetworkStatusFallback />
       <Routes>
         {/* ── 1. Public Marketing Routes & QR Audit Verification ──────────────── */}
         <Route path="/verify/:id" element={<PublicReportVerify />} />
+        <Route path="/credential/:hash" element={<PublicCredentialVerify />} />
+        <Route path="/verify/credential/:hash" element={<PublicCredentialVerify />} />
         <Route path="/loading-demos" element={<LoadingDemosPage />} />
         <Route path="/loading-demos/:animId" element={<LoadingDemosPage />} />
+        <Route path="/ambient-demos" element={<AmbientEffectsDemoPage />} />
         <Route element={<PublicLayout />}>
           <Route path={ROUTES.HOME} element={<LandingPage />} />
           <Route path={ROUTES.FOR_ORGANISATIONS} element={<OrganizationLandingPage />} />

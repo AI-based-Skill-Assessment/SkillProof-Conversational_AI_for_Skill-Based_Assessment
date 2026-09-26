@@ -63,7 +63,15 @@ export default function VoiceRegistration() {
     chunksRef.current = [];
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: { ideal: true },
+          noiseSuppression: { ideal: true },
+          autoGainControl: { ideal: true },
+          channelCount: 1,
+          sampleRate: { ideal: 48000 }
+        }
+      });
       streamRef.current = stream;
 
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();

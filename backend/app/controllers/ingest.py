@@ -29,7 +29,7 @@ async def ingest_credentials(
     candidate_name: Optional[str] = Form(None, description="Full name of the candidate"),
     candidate_email: Optional[str] = Form(None, description="Email address of the candidate"),
     file: Optional[UploadFile] = File(None, description="Single certificate PDF, JPG, or PNG"),
-    files: List[UploadFile] = File(default=[], description="Multiple certificate files (up to 10)"),
+    files: Optional[List[UploadFile]] = File(default=None, description="Multiple certificate files (up to 10)"),
     # ── Path B: Skill-only declaration ──────────────────────────────
     skill_text: Optional[str] = Form(None, description="Comma-separated skill declaration e.g. 'React, Python, Docker' (Path B only)"),
     role: Optional[str] = Form(None, description="Target role/designation e.g. 'Frontend Developer' (required for Path B)"),

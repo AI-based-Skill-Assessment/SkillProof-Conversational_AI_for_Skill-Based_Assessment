@@ -5,7 +5,7 @@ gaze violations, camera interruptions, and interview integrity tracking.
 """
 
 import uuid
-from sqlalchemy import Column, String, DateTime, JSON, Boolean, Integer, ForeignKey, Text, func
+from sqlalchemy import Column, String, DateTime, JSON, Boolean, Integer, Float, ForeignKey, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -38,7 +38,7 @@ class BiometricProfile(Base):
     # Stores the competing session_id (UUID string) that matched
     duplicate_of_session     = Column(String(64), nullable=True)
 
-    # ── Interview Integrity Tracking ─────────────────────────────────────────
+    # ── Interview Integrity & Anti-Cheating Telemetry ───────────────────────
     # Gaze / attention violations (face not detected during interview)
     gaze_violations         = Column(Integer, nullable=False, default=0)
     # Camera feed interruptions (tab hidden, video paused, etc.)
@@ -49,6 +49,14 @@ class BiometricProfile(Base):
     # Running count of all integrity checks passed
     face_verify_pass        = Column(Integer, nullable=False, default=0)
     voice_verify_pass       = Column(Integer, nullable=False, default=0)
+
+    # Advanced Anti-Cheating Telemetry
+    tab_switch_count        = Column(Integer, nullable=False, default=0)
+    window_blur_count       = Column(Integer, nullable=False, default=0)
+    copy_paste_attempts     = Column(Integer, nullable=False, default=0)
+    secondary_speaker_count = Column(Integer, nullable=False, default=0)
+    integrity_score         = Column(Float, nullable=False, default=100.0)   # 0.0 - 100.0
+    proctoring_timeline     = Column(JSON, nullable=True, default=list)      # List[Dict] with event log
 
     # ── Overall Fraud Status ─────────────────────────────────────────────────
     # Computed from all the above sub-counters

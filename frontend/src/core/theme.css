@@ -23,9 +23,9 @@
   --surface-active:    #E0EFF9;
 
   /* Navigation */
-  --sidebar-bg:        #E8F2FA;
+  --sidebar-bg:        transparent;
   --sidebar-border:    #D5E5F2;
-  --topbar-bg:         rgba(241, 247, 252, 0.92);
+  --topbar-bg:         transparent;
   --nav-active-bg:     rgba(7, 152, 212, 0.10);
   --nav-active-text:   #0798D4;
 
@@ -82,9 +82,9 @@
   --surface-active:    #1F416E;
 
   /* Navigation */
-  --sidebar-bg:        #091220;
+  --sidebar-bg:        transparent;
   --sidebar-border:    transparent;
-  --topbar-bg:         rgba(10, 19, 34, 0.92);
+  --topbar-bg:         transparent;
   --nav-active-bg:     rgba(56, 189, 248, 0.12);
   --nav-active-text:   #38BDF8;
 

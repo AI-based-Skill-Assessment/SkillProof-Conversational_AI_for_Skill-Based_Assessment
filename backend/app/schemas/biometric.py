@@ -114,6 +114,9 @@ class InterviewVerifyResponse(BaseModel):
     multi_face_detected: Optional[bool] = False
     gaze_direction:      Optional[str] = "center"
     specific_flags:      List[str] = []
+    integrity_score:     Optional[float] = 100.0
+    tab_switch_count:    Optional[int] = 0
+    window_blur_count:   Optional[int] = 0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -123,10 +126,10 @@ class InterviewVerifyResponse(BaseModel):
 class ViolationReportRequest(BaseModel):
     """
     Sent from the frontend when a gaze or camera violation is detected.
-    violation_type: "gaze" | "camera"
+    violation_type: "gaze" | "camera" | "tab_switch" | "window_blur" | "copy_paste" | "secondary_speaker"
     """
     session_id:     UUID
-    violation_type: str = Field(..., pattern="^(gaze|camera)$")
+    violation_type: str
     details:        Optional[str] = None
 
 
@@ -140,3 +143,31 @@ class ViolationReportResponse(BaseModel):
     warning_level:       str   # "warn" | "flag"
     message:             str
     flag_reasons:        List[str] = []
+    integrity_score:     Optional[float] = 100.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Anti-Cheating & Proctoring Telemetry Event
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TelemetryEventRequest(BaseModel):
+    session_id:       UUID
+    event_type:       str = Field(..., description="tab_switch, window_blur, copy_paste, secondary_speaker, periodic_face_check, gaze_loss, multi_face")
+    details:          Optional[str] = None
+    client_timestamp: Optional[str] = None
+    metadata:         Optional[dict] = None
+
+
+class TelemetryEventResponse(BaseModel):
+    session_id:             UUID
+    event_type:             str
+    integrity_score:        float
+    fraud_flags:            int
+    fraud_status:           str
+    interview_flagged:      bool
+    tab_switch_count:       int
+    window_blur_count:      int
+    copy_paste_attempts:    int
+    secondary_speaker_count: int
+    timeline_event_count:   int
+    message:                str

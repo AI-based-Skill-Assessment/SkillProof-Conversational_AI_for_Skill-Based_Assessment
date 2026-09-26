@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import client from '../../core/api/client';
 import Input from '../../components/common/Input';
@@ -10,6 +11,7 @@ import '../../styles/pages/portal.css';
 export default function SkillAssessment() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
 
   const [role, setRole] = useState('');
   const [skills, setSkills] = useState('');
@@ -28,11 +30,11 @@ export default function SkillAssessment() {
       const formData = new FormData();
       formData.append('role', role);
       formData.append('skill_text', skills);
+      if (user?.full_name) formData.append('candidate_name', user.full_name);
+      if (user?.email) formData.append('candidate_email', user.email);
 
       // Trigger ingest endpoint with skill_text + role
-      const res = await client.post('/ingest', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await client.post('/ingest', formData);
 
       const elapsed = Date.now() - startTime;
       const remaining = Math.max(0, 1100 - elapsed);

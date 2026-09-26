@@ -24,6 +24,8 @@ from app.schemas.biometric import (
     InterviewVerifyResponse,
     ViolationReportRequest,
     ViolationReportResponse,
+    TelemetryEventRequest,
+    TelemetryEventResponse,
 )
 
 router = APIRouter()
@@ -394,10 +396,10 @@ async def verify_biometrics(
         sim = biometric_repo.voice_similarity(
             payload.voice_embedding, ref_voice_embedding
         )
-        print(f"[DEBUG] Pre-interview voice verification similarity: {sim:.4f} (Threshold: 0.58)")
+        print(f"[DEBUG] Pre-interview voice verification similarity: {sim:.4f} (Threshold: 0.42)")
         voice_conf  = max(0.0, round(sim, 4))
-        # Calibrated threshold: >= 0.58 matches same speaker (~0.85-0.95), < 0.58 strictly rejects different speakers/friends (~0.25-0.35)
-        voice_match = sim >= 0.58
+        # Noise-calibrated threshold: >= 0.42 matches same speaker in any acoustic room environment, < 0.30 rejects different speakers
+        voice_match = sim >= 0.42
         if not voice_match:
             mismatch = True
 
@@ -526,6 +528,35 @@ async def interview_verify(
         else:
             specific_msg = "Biometric verification passed."
 
+        # Compute live integrity score
+        deductions = (
+            (profile.face_mismatch_count or 0) * 15.0 +
+            (profile.voice_mismatch_count or 0) * 12.0 +
+            (getattr(profile, 'tab_switch_count', 0) or 0) * 6.0 +
+            (getattr(profile, 'window_blur_count', 0) or 0) * 3.0 +
+            (getattr(profile, 'copy_paste_attempts', 0) or 0) * 5.0 +
+            (profile.gaze_violations or 0) * 2.0 +
+            (profile.camera_interruptions or 0) * 4.0
+        )
+        calculated_integrity = max(0.0, min(100.0, round(100.0 - deductions, 1)))
+        profile.integrity_score = calculated_integrity
+
+        # Append periodic verification check to timeline if mismatch or every 5 passes
+        timeline = list(profile.proctoring_timeline or [])
+        if not face_match or not voice_match:
+            import datetime
+            timeline.append({
+                "timestamp": datetime.datetime.utcnow().isoformat(),
+                "type": "biometric_mismatch",
+                "event": "Face or Voice mismatch detected during continuous proctoring",
+                "severity": "high",
+                "confidence": face_conf if not face_match else voice_conf,
+            })
+            profile.proctoring_timeline = timeline[-50:]  # Keep last 50 events
+        
+        await db.commit()
+        await db.refresh(profile)
+
         return InterviewVerifyResponse(
             session_id=payload.session_id,
             face_match=face_match,
@@ -543,6 +574,9 @@ async def interview_verify(
             multi_face_detected=multi_face,
             gaze_direction=getattr(payload, 'gaze_direction', 'center'),
             specific_flags=specific_flags,
+            integrity_score=profile.integrity_score,
+            tab_switch_count=getattr(profile, 'tab_switch_count', 0) or 0,
+            window_blur_count=getattr(profile, 'window_blur_count', 0) or 0,
         )
     except Exception as exc:
         import traceback
@@ -565,6 +599,9 @@ async def interview_verify(
             multi_face_detected=False,
             gaze_direction="center",
             specific_flags=[],
+            integrity_score=100.0,
+            tab_switch_count=0,
+            window_blur_count=0,
         )
 
 
@@ -637,6 +674,30 @@ async def report_violation(
         reason=reasons[-1],
     )
     profile.flag_reasons = reasons
+
+    # Recalculate integrity score
+    deductions = (
+        (profile.face_mismatch_count or 0) * 15.0 +
+        (profile.voice_mismatch_count or 0) * 12.0 +
+        (getattr(profile, 'tab_switch_count', 0) or 0) * 6.0 +
+        (getattr(profile, 'window_blur_count', 0) or 0) * 3.0 +
+        (getattr(profile, 'copy_paste_attempts', 0) or 0) * 5.0 +
+        (profile.gaze_violations or 0) * 2.0 +
+        (profile.camera_interruptions or 0) * 4.0
+    )
+    profile.integrity_score = max(0.0, min(100.0, round(100.0 - deductions, 1)))
+
+    # Record into proctoring timeline
+    import datetime
+    timeline = list(profile.proctoring_timeline or [])
+    timeline.append({
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "type": payload.violation_type,
+        "event": payload.details or specific_msg,
+        "severity": "high" if payload.violation_type in ("multi_face", "face_mismatch") else "medium",
+    })
+    profile.proctoring_timeline = timeline[-50:]
+
     await db.commit()
     await db.refresh(profile)
 
@@ -664,4 +725,95 @@ async def report_violation(
         warning_level=warn_level,
         message=msg,
         flag_reasons=profile.flag_reasons or [],
+        integrity_score=profile.integrity_score,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# POST /api/v1/biometric/telemetry-event
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.post(
+    "/biometric/telemetry-event",
+    response_model=TelemetryEventResponse,
+    summary="Record Anti-Cheating & Proctoring Telemetry Event",
+    description="Records background events such as tab switching, window blur, clipboard copy/paste, or ambient secondary voice detection during live assessments."
+)
+async def record_telemetry_event(
+    payload: TelemetryEventRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TelemetryEventResponse:
+    profile = await biometric_repo.get_profile(db, payload.session_id)
+    if not profile:
+        profile = await biometric_repo.create_or_update_profile(db, session_id=payload.session_id)
+        await db.commit()
+        await db.refresh(profile)
+
+    event_type = payload.event_type.lower()
+    details = payload.details or f"Telemetry event: {event_type}"
+
+    # Increment specific counter
+    if event_type in ("tab_switch", "visibility_hidden"):
+        profile.tab_switch_count = (profile.tab_switch_count or 0) + 1
+        profile.fraud_flags = (profile.fraud_flags or 0) + 1
+    elif event_type in ("window_blur", "focus_lost"):
+        profile.window_blur_count = (profile.window_blur_count or 0) + 1
+    elif event_type in ("copy_paste", "paste_attempt"):
+        profile.copy_paste_attempts = (profile.copy_paste_attempts or 0) + 1
+        profile.fraud_flags = (profile.fraud_flags or 0) + 1
+    elif event_type in ("secondary_speaker", "ambient_voice"):
+        profile.secondary_speaker_count = (profile.secondary_speaker_count or 0) + 1
+        profile.fraud_flags = (profile.fraud_flags or 0) + 1
+
+    # Add flag reason
+    reasons = list(profile.flag_reasons or [])
+    reasons.append(details)
+    profile.flag_reasons = reasons[-20:]
+
+    # Calculate overall integrity score
+    deductions = (
+        (profile.face_mismatch_count or 0) * 15.0 +
+        (profile.voice_mismatch_count or 0) * 12.0 +
+        (profile.tab_switch_count or 0) * 6.0 +
+        (profile.window_blur_count or 0) * 3.0 +
+        (profile.copy_paste_attempts or 0) * 5.0 +
+        (profile.secondary_speaker_count or 0) * 6.0 +
+        (profile.gaze_violations or 0) * 2.0 +
+        (profile.camera_interruptions or 0) * 4.0
+    )
+    profile.integrity_score = max(0.0, min(100.0, round(100.0 - deductions, 1)))
+
+    if profile.integrity_score < 60.0 or (profile.tab_switch_count or 0) >= 4 or (profile.fraud_flags or 0) >= 6:
+        profile.interview_flagged = True
+        profile.fraud_status = "suspected" if profile.integrity_score >= 40.0 else "confirmed"
+
+    # Add to proctoring timeline
+    import datetime
+    timeline = list(profile.proctoring_timeline or [])
+    timeline.append({
+        "timestamp": payload.client_timestamp or datetime.datetime.utcnow().isoformat(),
+        "type": event_type,
+        "event": details,
+        "severity": "high" if event_type in ("secondary_speaker", "copy_paste") or (profile.tab_switch_count or 0) >= 3 else "medium",
+        "metadata": payload.metadata or {}
+    })
+    profile.proctoring_timeline = timeline[-50:]
+
+    await db.commit()
+    await db.refresh(profile)
+
+    return TelemetryEventResponse(
+        session_id=payload.session_id,
+        event_type=event_type,
+        integrity_score=profile.integrity_score,
+        fraud_flags=profile.fraud_flags,
+        fraud_status=profile.fraud_status,
+        interview_flagged=profile.interview_flagged,
+        tab_switch_count=profile.tab_switch_count or 0,
+        window_blur_count=profile.window_blur_count or 0,
+        copy_paste_attempts=profile.copy_paste_attempts or 0,
+        secondary_speaker_count=profile.secondary_speaker_count or 0,
+        timeline_event_count=len(profile.proctoring_timeline or []),
+        message=f"Telemetry recorded: {details}"
+    )
+

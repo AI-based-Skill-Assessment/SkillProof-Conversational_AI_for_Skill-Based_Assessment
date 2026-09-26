@@ -57,6 +57,10 @@ export default function ReportDetail() {
           const avgScore = metrics.average_skill_score ?? sc.overall_skill_score ?? 0;
           const isZeroAnswer = userAnswersCount === 0 || metrics.questions_answered_count === 0;
 
+          const bioAudit = scoreData?.biometric_audit || {};
+          const verCred = scoreData?.verifiable_credential || {};
+          const verificationHash = verCred?.verificationHash || `SP-${s.id.slice(0, 8).toUpperCase()}-${s.id.slice(9, 13).toUpperCase()}`;
+
           setReport({
             session_id: s.id,
             candidate: { name: s.candidate_name || 'Candidate', email: s.candidate_email || '' },
@@ -81,18 +85,25 @@ export default function ReportDetail() {
               score: metrics.document_score ?? s.document?.document_score ?? 0.0
             },
             biometric: {
-              face_verified: true,
-              voice_verified: true,
-              integrity_score: 100,
-              violations: 0
+              face_verified: bioAudit.face_verified ?? true,
+              voice_verified: bioAudit.voice_verified ?? true,
+              integrity_score: bioAudit.integrity_score ?? 100.0,
+              tab_switch_count: bioAudit.tab_switch_count ?? 0,
+              window_blur_count: bioAudit.window_blur_count ?? 0,
+              copy_paste_attempts: bioAudit.copy_paste_attempts ?? 0,
+              fraud_status: bioAudit.fraud_status ?? 'clean',
+              timeline: bioAudit.proctoring_timeline || [],
+              violations: (bioAudit.tab_switch_count || 0) + (bioAudit.copy_paste_attempts || 0)
             },
+            verifiable_credential: verCred,
+            verification_hash: verificationHash,
             ai_summary: isZeroAnswer 
               ? 'Assessment concluded early by candidate without submitting answers to technical questions.' 
               : (firstDetail.llm_reasoning || sc.llm_reasoning || scoreData?.explanation || 'Candidate completed technical verification.'),
             strengths: scoreData?.strengths || (s.interview?.skill_context?.strengths) || (isZeroAnswer ? ['Source document ingested'] : ['Technical Skill Proficiency']),
             improvements: scoreData?.improvements || (s.interview?.skill_context?.improvements) || (isZeroAnswer ? ['Complete technical interview drills'] : ['Advanced Optimization']),
             transcript: transcriptList,
-            qr_verification_id: `SP-${s.id.slice(0, 8).toUpperCase()}`
+            qr_verification_id: verificationHash
           });
           setIsDemo(false);
         } else {
@@ -167,6 +178,9 @@ export default function ReportDetail() {
         <div className="page-header__actions">
           <Button variant="secondary" onClick={() => navigate(ROUTES.USER.DASHBOARD)}>
             Back to Dashboard
+          </Button>
+          <Button variant="outline" onClick={() => navigate(ROUTES.CREDENTIAL(report.verification_hash || report.qr_verification_id))}>
+            📜 View Verifiable Credential
           </Button>
           <Button onClick={() => window.print()}>
             Print / Export PDF
@@ -308,32 +322,64 @@ export default function ReportDetail() {
           </div>
         </div>
 
-        {/* Right sidebar: screen-only QR code card and checklist */}
+        {/* Right sidebar: screen-only QR code card, Verifiable Credential & Proctoring Telemetry */}
         <div className="report-non-printable" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {/* QR Code */}
           <QRDisplay value={verifyUrl} label={report.qr_verification_id} />
 
-          {/* Verification Data & Integrity Audit — sidebar */}
+          {/* Feature 4: Cryptographic Verifiable Credential Card */}
           <Card>
-            <CardHeader><CardTitle>Verification Data & Integrity Audit</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Cryptographic Credential</CardTitle></CardHeader>
+            <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                W3C Verifiable Credential with HMAC-SHA256 digital proof signature.
+              </div>
+              <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: 'var(--radius-md)', padding: '10px 12px', fontSize: 11, fontFamily: 'monospace', color: '#38bdf8', wordBreak: 'break-all' }}>
+                {report.verification_hash}
+              </div>
+              <Button
+                variant="outline"
+                style={{ width: '100%', fontSize: 12 }}
+                onClick={() => navigate(ROUTES.CREDENTIAL(report.verification_hash))}
+              >
+                🔗 Open Public Proof Page
+              </Button>
+            </CardBody>
+          </Card>
+
+          {/* Feature 2: Verification Data & Anti-Cheating Proctoring Audit */}
+          <Card>
+            <CardHeader><CardTitle>Proctoring & Integrity Audit</CardTitle></CardHeader>
             <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Document Authenticity:</span>
-                <span style={{ color: report.document_verification.status === 'verified' ? 'var(--success)' : 'var(--warning)', fontWeight: 600, fontSize: 12 }}>
-                  {report.document_verification.status.toUpperCase()} ({Math.round(report.document_verification.score)}%)
+                <span style={{ color: 'var(--text-secondary)' }}>Integrity Trust Index:</span>
+                <span style={{ color: (report.biometric.integrity_score || 100) >= 80 ? 'var(--success)' : '#f59e0b', fontWeight: 700, fontSize: 13 }}>
+                  {report.biometric.integrity_score || 100}% Trust
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Face Matching:</span>
-                <span style={{ color: 'var(--success)', fontWeight: 600, fontSize: 12 }}>PASSED</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Tab Switches Logged:</span>
+                <span style={{ color: (report.biometric.tab_switch_count || 0) === 0 ? 'var(--success)' : 'var(--warning)', fontWeight: 600, fontSize: 12 }}>
+                  {report.biometric.tab_switch_count || 0} Incident{(report.biometric.tab_switch_count || 0) !== 1 ? 's' : ''}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Voice Matching:</span>
-                <span style={{ color: 'var(--success)', fontWeight: 600, fontSize: 12 }}>PASSED</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Face Identity Match:</span>
+                <span style={{ color: report.biometric.face_verified ? 'var(--success)' : 'var(--danger)', fontWeight: 600, fontSize: 12 }}>
+                  {report.biometric.face_verified ? 'PASSED (ArcFace)' : 'FLAGGED'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Voice Acoustic Match:</span>
+                <span style={{ color: report.biometric.voice_verified ? 'var(--success)' : 'var(--danger)', fontWeight: 600, fontSize: 12 }}>
+                  {report.biometric.voice_verified ? 'PASSED (ECAPA)' : 'FLAGGED'}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Violations:</span>
-                <span style={{ color: 'var(--success)', fontWeight: 600, fontSize: 12 }}>0 FLAGGED</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Anti-Cheating Status:</span>
+                <span style={{ color: report.biometric.fraud_status === 'clean' ? 'var(--success)' : 'var(--danger)', fontWeight: 700, fontSize: 12, textTransform: 'uppercase' }}>
+                  {report.biometric.fraud_status || 'CLEAN'}
+                </span>
               </div>
             </CardBody>
           </Card>

@@ -248,3 +248,89 @@ async def delete_verification_session(
     await session_repo.delete_session(db, session_id)
     await db.commit()
     return {"message": "Session deleted successfully."}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Verifiable Credential Public Verification Endpoints (Feature 4)
+# ─────────────────────────────────────────────────────────────────────────────
+
+from app.services.credential_service import CredentialService
+
+credential_service = CredentialService()
+
+
+@router.get(
+    "/verify/credential/session/{session_id}",
+    summary="Get Verifiable Credential for Session",
+    description="Returns the W3C-compatible Verifiable Credential with cryptographic proof signature for a completed session."
+)
+async def get_session_verifiable_credential(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    credential = await credential_service.issue_verifiable_credential(db, session_id)
+    if "error" in credential:
+        raise HTTPException(status_code=404, detail=credential["error"])
+    return credential
+
+
+@router.get(
+    "/verify/credential/public/{verification_hash}",
+    summary="Public Cryptographic Credential Verification",
+    description="Publicly verifies a candidate's SkillProof credential hash (e.g. SP-XXXX-XXXX) and returns authenticity status."
+)
+async def verify_public_credential_hash(
+    verification_hash: str,
+    db: AsyncSession = Depends(get_db)
+):
+    # Find matching session by hash or session ID prefix
+    from sqlalchemy import select
+    from app.models.session import VerificationSession
+    
+    clean_hash = verification_hash.strip().upper()
+    
+    # Try finding session directly if UUID was passed
+    matched_session_id = None
+    try:
+        uuid_candidate = UUID(clean_hash)
+        matched_session_id = uuid_candidate
+    except Exception:
+        pass
+
+    if not matched_session_id:
+        # Search recent sessions to match generated verification hash
+        stmt = select(VerificationSession).order_by(VerificationSession.created_at.desc()).limit(100)
+        res = await db.execute(stmt)
+        sessions = res.scalars().all()
+        
+        for s in sessions:
+            cand_name = s.candidate_name or "Candidate"
+            date_iso = (s.created_at or datetime.utcnow()).isoformat()[:10]
+            scores = await score_repo.get_scores_by_session(db, s.id)
+            avg = round(sum(sc.overall_skill_score or 0.0 for sc in scores) / len(scores), 2) if scores else 0.0
+            gen_hash = credential_service.generate_verification_hash(s.id, cand_name, avg, date_iso)
+            
+            if gen_hash == clean_hash or clean_hash in gen_hash or str(s.id).upper().startswith(clean_hash.replace("SP-", "")):
+                matched_session_id = s.id
+                break
+
+    if not matched_session_id:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Cryptographic credential with hash '{verification_hash}' was not found or has expired."
+        )
+
+    credential = await credential_service.issue_verifiable_credential(db, matched_session_id)
+    if "error" in credential:
+        raise HTTPException(status_code=404, detail=credential["error"])
+
+    return {
+        "valid": True,
+        "verification_status": "AUTHENTIC_VERIFIED_CREDENTIAL",
+        "verification_hash": credential.get("verificationHash"),
+        "issuer": credential.get("issuer"),
+        "issuanceDate": credential.get("issuanceDate"),
+        "credentialSubject": credential.get("credentialSubject"),
+        "proof": credential.get("proof"),
+    }
+

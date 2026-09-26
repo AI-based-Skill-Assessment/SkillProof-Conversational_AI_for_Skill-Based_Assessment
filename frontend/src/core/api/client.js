@@ -24,6 +24,10 @@ client.interceptors.request.use(
     // If request payload is FormData, remove manual Content-Type so browser sets correct boundary
     if (config.data instanceof FormData) {
       if (config.headers) {
+        if (typeof config.headers.delete === 'function') {
+          config.headers.delete('Content-Type');
+          config.headers.delete('content-type');
+        }
         delete config.headers['Content-Type'];
         delete config.headers['content-type'];
       }

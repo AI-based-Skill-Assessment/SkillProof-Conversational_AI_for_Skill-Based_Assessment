@@ -2,15 +2,16 @@ from uuid import UUID
 from typing import Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories import session_repo, score_repo, document_repo
+from app.repositories import session_repo, score_repo, document_repo, biometric_repo
+from app.services.credential_service import CredentialService
 
 class ReportService:
     def __init__(self) -> None:
-        pass
+        self.credential_service = CredentialService()
 
     async def generate_verdict(self, db: AsyncSession, session_id: UUID) -> Dict[str, Any]:
         """
-        Aggregate certificate validation data and candidate interview scores
+        Aggregate certificate validation data, biometric audit telemetry, and candidate interview scores
         to formulate a final skill verification verdict report.
         """
         session = await session_repo.get_session(db, session_id)
@@ -19,6 +20,7 @@ class ReportService:
 
         document = await document_repo.get_document_by_session(db, session_id)
         scores = await score_repo.get_scores_by_session(db, session_id)
+        profile = await biometric_repo.get_profile(db, session_id)
 
         # Base document validation assessment
         doc_valid = (document.fetch_status.name == "verified") if (document and document.fetch_status) else False
@@ -103,6 +105,26 @@ class ReportService:
                     "Articulate complete technical problem-solving workflows"
                 ]
 
+        # Biometric & Proctoring Integrity Summary
+        integrity_score = getattr(profile, 'integrity_score', 100.0) if profile else 100.0
+        biometric_audit = {
+            "face_verified": bool(profile and profile.face_registered and (profile.face_mismatch_count or 0) <= 2),
+            "voice_verified": bool(profile and profile.voice_registered and (profile.voice_mismatch_count or 0) <= 2),
+            "integrity_score": integrity_score,
+            "fraud_status": getattr(profile, 'fraud_status', 'clean') if profile else 'clean',
+            "interview_flagged": getattr(profile, 'interview_flagged', False) if profile else False,
+            "tab_switch_count": getattr(profile, 'tab_switch_count', 0) if profile else 0,
+            "window_blur_count": getattr(profile, 'window_blur_count', 0) if profile else 0,
+            "copy_paste_attempts": getattr(profile, 'copy_paste_attempts', 0) if profile else 0,
+            "secondary_speaker_count": getattr(profile, 'secondary_speaker_count', 0) if profile else 0,
+            "gaze_violations": profile.gaze_violations if profile else 0,
+            "camera_interruptions": profile.camera_interruptions if profile else 0,
+            "proctoring_timeline": getattr(profile, 'proctoring_timeline', []) or [],
+        }
+
+        # Verifiable Credential Payload
+        verifiable_credential = await self.credential_service.issue_verifiable_credential(db, session_id)
+
         # Compile JSON scorecard
         report = {
             "session_id": session_id,
@@ -118,8 +140,11 @@ class ReportService:
                 "average_skill_score": avg_score,
                 "minimum_skill_score": min_score,
                 "skills_assessed_count": len(scores),
-                "questions_answered_count": user_turns_count
+                "questions_answered_count": user_turns_count,
+                "proctoring_integrity_score": integrity_score
             },
+            "biometric_audit": biometric_audit,
+            "verifiable_credential": verifiable_credential,
             "strengths": strengths,
             "improvements": improvements,
             "detailed_scores": scores_list,
@@ -127,3 +152,4 @@ class ReportService:
         }
 
         return report
+

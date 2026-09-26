@@ -48,9 +48,7 @@ export default function CertificateAssessment() {
       if (user?.full_name) formData.append('candidate_name', user.full_name);
       if (user?.email) formData.append('candidate_email', user.email);
 
-      const res = await client.post('/ingest', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await client.post('/ingest', formData);
 
       // Turn off demo mode instantly across topbar and app context
       if (setIsDemo) setIsDemo(false);
