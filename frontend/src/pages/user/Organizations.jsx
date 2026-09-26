@@ -91,7 +91,7 @@ export default function Organizations() {
       </div>
 
       {/* 1. Full-Width Top Card: Discover & Connect with Institutions */}
-      <Card tilt hoverable style={{ width: '100%' }}>
+      <Card style={{ width: '100%' }}>
         <CardHeader>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: 12 }}>
             <div>
@@ -233,7 +233,7 @@ export default function Organizations() {
       </Card>
 
       {/* 2. Full-Width Bottom Card: Linked Institutions */}
-      <Card tilt hoverable style={{ width: '100%' }}>
+      <Card style={{ width: '100%' }}>
         <CardHeader>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <CardTitle>Linked Institutions ({connections.length})</CardTitle>
