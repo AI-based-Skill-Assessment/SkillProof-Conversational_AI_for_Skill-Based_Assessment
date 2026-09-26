@@ -84,132 +84,209 @@ export default function Organizations() {
   }
 
   return (
-    <div className="anim-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div className="anim-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%' }}>
       <div className="page-header">
         <h2 className="page-header__title">Connected Organizations</h2>
-        <p className="page-header__subtitle">Manage institution linkages and permit placement cells to access your verified reports</p>
+        <p className="page-header__subtitle">Discover institutions, request placement authorizations, and manage your linked verified credentials</p>
       </div>
 
-      <div className="grid-2">
-        {/* Connected orgs */}
-        <Card tilt hoverable>
-          <CardHeader>
-            <CardTitle>Linked Institutions ({connections.length})</CardTitle>
-          </CardHeader>
-          <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {loading ? (
-              <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px 0' }}>
-                Loading your institution linkages...
+      {/* 1. Full-Width Top Card: Discover & Connect with Institutions */}
+      <Card tilt hoverable style={{ width: '100%' }}>
+        <CardHeader>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <CardTitle>Discover & Connect with Institutions</CardTitle>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
+                Search accredited universities, colleges, and enterprise hiring partners to authorize report access
               </div>
-            ) : connections.length === 0 ? (
-              <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px 0', fontSize: 13 }}>
-                No connected institutions yet. Search on the right to link your university or company.
-              </div>
-            ) : (
-              connections.map(c => (
-                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-                  <div>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{c.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      {c.connected_at ? `Requested on: ${c.connected_at}` : 'Connected'} • {c.reports_shared} reports shared
-                    </div>
-                  </div>
-                  <span style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: '3px 10px',
-                    borderRadius: 12,
-                    background: c.status === 'approved' ? 'rgba(16, 185, 129, 0.15)' : c.status === 'rejected' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                    color: c.status === 'approved' ? '#10b981' : c.status === 'rejected' ? '#ef4444' : '#f59e0b',
-                    border: `1px solid ${c.status === 'approved' ? 'rgba(16, 185, 129, 0.3)' : c.status === 'rejected' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
-                  }}>
-                    {c.status.toUpperCase()}
-                  </span>
-                </div>
-              ))
-            )}
-          </CardBody>
-        </Card>
-
-        {/* Search & connect */}
-        <Card tilt hoverable>
-          <CardHeader>
-            <CardTitle>Discover & Connect with Institutions</CardTitle>
-          </CardHeader>
-          <CardBody>
-            <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'var(--surface-hover)', padding: '4px 10px', borderRadius: 8 }}>
+              {searchResults.length} {searchResults.length === 1 ? 'institution' : 'institutions'} available
+            </div>
+          </div>
+        </CardHeader>
+        <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: 12, width: '100%' }}>
+            <div style={{ flex: 1 }}>
               <Input
                 id="org-search-q"
-                placeholder="Search college, university, or company..."
+                placeholder="Search by college, university, or company name..."
                 value={searchQuery}
                 onChange={handleQueryChange}
+                style={{ width: '100%' }}
               />
-              <Button type="submit" loading={searching}>
-                Search
-              </Button>
-            </form>
+            </div>
+            <Button type="submit" loading={searching} style={{ padding: '0 24px' }}>
+              Search
+            </Button>
+          </form>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {searching ? (
-                <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '16px 0' }}>
-                  Searching institutions...
-                </div>
-              ) : searchResults.length === 0 ? (
-                <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '16px 0' }}>
-                  {searchQuery ? 'No matching approved institutions found.' : 'No institutions available at this time.'}
-                </div>
-              ) : (
-                searchResults.map(org => {
-                  const conn = connections.find(c => c.org_id === org.id || c.name === org.name);
-                  const isPending = conn && conn.status === 'pending';
-                  const isApproved = conn && conn.status === 'approved';
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              marginTop: 4,
+              maxHeight: '335px',
+              overflowY: 'auto',
+              paddingRight: 6
+            }}
+          >
+            {searching ? (
+              <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
+                Searching institutions...
+              </div>
+            ) : searchResults.length === 0 ? (
+              <div style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
+                {searchQuery ? 'No matching approved institutions found.' : 'No institutions available at this time.'}
+              </div>
+            ) : (
+              searchResults.map(org => {
+                const conn = connections.find(c => c.org_id === org.id || c.name === org.name);
+                const isPending = conn && conn.status === 'pending';
+                const isApproved = conn && conn.status === 'approved';
 
-                  return (
-                    <div key={org.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+                return (
+                  <div
+                    key={org.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '14px 18px',
+                      background: 'var(--surface-hover)',
+                      borderRadius: 'var(--radius-lg)',
+                      border: '1px solid var(--border)',
+                      gap: 16,
+                      transition: 'border-color 150ms ease, background 150ms ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 'var(--radius-md)',
+                          background: 'rgba(7, 152, 212, 0.12)',
+                          color: 'var(--primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 18,
+                          fontWeight: 700,
+                          flexShrink: 0
+                        }}
+                      >
+                        🏛️
+                      </div>
                       <div>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{org.name}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 15 }}>{org.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'capitalize', marginTop: 2 }}>
                           {org.org_type || 'college'} {org.website ? `• ${org.website}` : ''}
                         </div>
                       </div>
+                    </div>
 
+                    <div>
                       {isApproved ? (
                         <span style={{
                           fontSize: 11,
                           fontWeight: 700,
-                          padding: '3px 10px',
+                          padding: '5px 14px',
                           borderRadius: 12,
                           background: 'rgba(16, 185, 129, 0.15)',
                           color: '#10b981',
-                          border: '1px solid rgba(16, 185, 129, 0.3)'
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5
                         }}>
-                          CONNECTED
+                          <span>✓</span> CONNECTED
                         </span>
                       ) : isPending ? (
                         <span style={{
                           fontSize: 11,
                           fontWeight: 700,
-                          padding: '3px 10px',
+                          padding: '5px 14px',
                           borderRadius: 12,
                           background: 'rgba(245, 158, 11, 0.15)',
                           color: '#f59e0b',
-                          border: '1px solid rgba(245, 158, 11, 0.3)'
+                          border: '1px solid rgba(245, 158, 11, 0.3)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5
                         }}>
-                          REQUESTED
+                          <span>⏳</span> REQUESTED
                         </span>
                       ) : (
-                        <Button size="sm" onClick={() => handleConnect(org)}>
+                        <Button size="sm" onClick={() => handleConnect(org)} style={{ padding: '7px 18px' }}>
                           Connect
                         </Button>
                       )}
                     </div>
-                  );
-                })
-              )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* 2. Full-Width Bottom Card: Linked Institutions */}
+      <Card tilt hoverable style={{ width: '100%' }}>
+        <CardHeader>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <CardTitle>Linked Institutions ({connections.length})</CardTitle>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+              Active Placement Cell & Enterprise Linkages
             </div>
-          </CardBody>
-        </Card>
-      </div>
+          </div>
+        </CardHeader>
+        <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '335px', overflowY: 'auto', paddingRight: 6 }}>
+          {loading ? (
+            <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px 0' }}>
+              Loading your institution linkages...
+            </div>
+          ) : connections.length === 0 ? (
+            <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '32px 0', fontSize: 13 }}>
+              No connected institutions yet. Use the search bar above to discover and link your university or company.
+            </div>
+          ) : (
+            connections.map(c => (
+              <div
+                key={c.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '14px 18px',
+                  background: 'var(--surface-hover)',
+                  borderRadius: 'var(--radius-lg)',
+                  border: '1px solid var(--border)'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 15 }}>{c.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    {c.connected_at ? `Requested on: ${c.connected_at}` : 'Connected'} • {c.reports_shared} reports shared
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '4px 12px',
+                  borderRadius: 12,
+                  background: c.status === 'approved' ? 'rgba(16, 185, 129, 0.15)' : c.status === 'rejected' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                  color: c.status === 'approved' ? '#10b981' : c.status === 'rejected' ? '#ef4444' : '#f59e0b',
+                  border: `1px solid ${c.status === 'approved' ? 'rgba(16, 185, 129, 0.3)' : c.status === 'rejected' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+                }}>
+                  {c.status.toUpperCase()}
+                </span>
+              </div>
+            ))
+          )}
+        </CardBody>
+      </Card>
     </div>
   );
 }
