@@ -59,39 +59,38 @@ export default function PublicReportVerify() {
         setLoading(true);
         setError(null);
 
-        // When accessed from a phone/external device via LAN, use the backend directly on port 8000.
-        // When on localhost (dev laptop), use relative URLs that go through the Vite proxy.
-        const isExternalDevice = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-        const apiBase = isExternalDevice
-          ? `${window.location.protocol}//${window.location.hostname}:8000/api/v1`
-          : '/api/v1';
-
-        const fetchWithTimeout = (url, timeoutMs = 10000) => {
+        // Try Vite proxy first (/api/v1) which works on both localhost and phone (Vite dev server proxies it).
+        // If that fails (e.g. static hosting or direct backend access), fallback to direct backend URL.
+        const fetchWithTimeout = (url, timeoutMs = 6000) => {
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), timeoutMs);
           return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
         };
 
-        let sessionData = null;
-        let scoreData = null;
-
-        try {
-          const sRes = await fetchWithTimeout(`${apiBase}/verify/${id}`);
-          if (sRes.ok) {
-            sessionData = await sRes.json();
+        const tryFetch = async (endpoint) => {
+          // 1. Try relative path (Vite proxy handles it on port 5173 for all connected devices)
+          try {
+            const res = await fetchWithTimeout(`/api/v1${endpoint}`);
+            if (res.ok) return await res.json();
+          } catch (e) {
+            console.warn(`Proxy fetch /api/v1${endpoint} failed, trying direct backend...`, e);
           }
-        } catch (e) {
-          console.warn('Fetch verify endpoint error:', e);
-        }
 
-        try {
-          const scRes = await fetchWithTimeout(`${apiBase}/score/${id}`);
-          if (scRes.ok) {
-            scoreData = await scRes.json();
+          // 2. Fallback to direct backend on port 8000 using current hostname
+          if (window.location.hostname) {
+            try {
+              const res = await fetchWithTimeout(`${window.location.protocol}//${window.location.hostname}:8000/api/v1${endpoint}`);
+              if (res.ok) return await res.json();
+            } catch (e) {
+              console.warn(`Direct backend fetch on port 8000${endpoint} failed:`, e);
+            }
           }
-        } catch (e) {
-          console.warn('Fetch score endpoint error:', e);
-        }
+
+          return null;
+        };
+
+        let sessionData = await tryFetch(`/verify/${id}`);
+        let scoreData = await tryFetch(`/score/${id}`);
 
         if (sessionData || scoreData) {
           const s = sessionData || {};

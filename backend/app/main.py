@@ -105,17 +105,29 @@ async def server_info():
     """Returns the server's LAN IP so the frontend can generate correct QR codes."""
     import socket
     lan_ip = "localhost"
+
     try:
-        # Connect to external address to discover which local interface is used for LAN
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        lan_ip = s.getsockname()[0]
-        s.close()
+        # Check hostname IPs
+        hostname = socket.gethostname()
+        ip_list = socket.gethostbyname_ex(hostname)[2]
+        for ip in ip_list:
+            if not ip.startswith("127.") and not ip.startswith("169.254.") and not ip.startswith("26.") and not ip.startswith("172.16."):
+                lan_ip = ip
+                break
+        if lan_ip == "localhost" and ip_list:
+            lan_ip = [ip for ip in ip_list if not ip.startswith("127.")][0]
     except Exception:
+        pass
+
+    if lan_ip == "localhost":
         try:
-            lan_ip = socket.gethostbyname(socket.gethostname())
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            lan_ip = s.getsockname()[0]
+            s.close()
         except Exception:
             lan_ip = "localhost"
+
     return {"lan_ip": lan_ip, "port": 8000, "frontend_port": 5173}
 
 

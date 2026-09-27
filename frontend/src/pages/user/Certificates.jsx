@@ -52,9 +52,11 @@ export default function Certificates() {
 
   // Construct QR URL helper
   const getVerifyUrl = (sessionId) => {
-    const isExternal = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-    const host = isExternal ? window.location.hostname : lanIp;
-    return `http://${host}:5173/verify/${sessionId}`;
+    // If the browser is currently accessing via a non-localhost IP (e.g. 172.50.10.177 or 192.168.137.1),
+    // use that exact same hostname for the QR code so devices on the same network reach it reliably.
+    const isExternal = window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    const host = isExternal ? window.location.hostname : (lanIp !== 'localhost' ? lanIp : window.location.hostname);
+    return `${window.location.protocol}//${host}:5173/verify/${sessionId}`;
   };
 
   return (

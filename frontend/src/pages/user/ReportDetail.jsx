@@ -25,7 +25,7 @@ export default function ReportDetail() {
     // Fetch the server's real LAN IP so the QR code always has the correct URL
     fetch('/server-info').then(r => r.ok ? r.json() : null).then(info => {
       if (info?.lan_ip) setLanIp(info.lan_ip);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -86,8 +86,8 @@ export default function ReportDetail() {
               integrity_score: 100,
               violations: 0
             },
-            ai_summary: isZeroAnswer 
-              ? 'Assessment concluded early by candidate without submitting answers to technical questions.' 
+            ai_summary: isZeroAnswer
+              ? 'Assessment concluded early by candidate without submitting answers to technical questions.'
               : (firstDetail.llm_reasoning || sc.llm_reasoning || scoreData?.explanation || 'Candidate completed technical verification.'),
             strengths: scoreData?.strengths || (s.interview?.skill_context?.strengths) || (isZeroAnswer ? ['Source document ingested'] : ['Technical Skill Proficiency']),
             improvements: scoreData?.improvements || (s.interview?.skill_context?.improvements) || (isZeroAnswer ? ['Complete technical interview drills'] : ['Advanced Optimization']),
