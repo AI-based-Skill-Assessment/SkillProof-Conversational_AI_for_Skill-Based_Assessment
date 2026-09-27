@@ -37,6 +37,13 @@ async def lifespan(app: FastAPI):
     print(f"Starting {settings.APP_NAME} in environment: {settings.APP_ENV}")
     await init_redis()
 
+    # Run auto migrations to ensure tables and all columns exist
+    try:
+        from app.database_migration import run_auto_migrations
+        await run_auto_migrations()
+    except Exception as e:
+        print(f"[Startup] DB migration warning: {e}")
+
     # Seed default admin account (no-op if already exists)
     try:
         from app.database import async_session_factory
@@ -46,7 +53,7 @@ async def lifespan(app: FastAPI):
             await db.commit()
         print(f"[Auth] Admin account ready: {settings.ADMIN_EMAIL}")
     except Exception as e:
-        print(f"[Auth] Admin seed skipped (tables may not exist yet): {e}")
+        print(f"[Auth] Admin seed skipped: {e}")
 
     yield
 

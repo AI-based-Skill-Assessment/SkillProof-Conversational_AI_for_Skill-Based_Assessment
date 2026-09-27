@@ -34,7 +34,16 @@ export default function InterviewSession() {
 
   const [messages, setMessages] = useState([]);
   const [aiState, setAiState] = useState('speaking'); // speaking | listening | processing | idle
+  const aiStateRef = useRef(aiState);
+  useEffect(() => {
+    aiStateRef.current = aiState;
+  }, [aiState]);
   const [aiText, setAiText] = useState(DEFAULT_Q1);
+
+  const currentUtteranceRef = useRef(null);
+  const speechKeepAliveTimerRef = useRef(null);
+  const lastSpokenTextRef = useRef('');
+  const isSpeakingRef = useRef(false);
 
   // Speaker ON/OFF control state
   const [speakerOn, setSpeakerOn] = useState(true);
@@ -189,6 +198,7 @@ export default function InterviewSession() {
     if (!speakerOnRef.current || !textToSpeak || !('speechSynthesis' in window)) {
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       setAiState('listening');
+      isSpeakingRef.current = false;
       return;
     }
 
@@ -197,10 +207,35 @@ export default function InterviewSession() {
       return;
     }
 
+    // Clean speech text (strip markdown asterisks, hashtags, code ticks)
+    const cleaned = textToSpeak
+      .replace(/[*#_`~]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleaned) return;
+
+    // Prevent duplicate speech cancellation/restart if already actively speaking the same question
+    if (isSpeakingRef.current && lastSpokenTextRef.current === cleaned && window.speechSynthesis && window.speechSynthesis.speaking) {
+      console.log('🗣️ [SpeechSynthesis] Already speaking this text, skipping duplicate trigger.');
+      return;
+    }
+
     try {
+      if (speechKeepAliveTimerRef.current) {
+        clearInterval(speechKeepAliveTimerRef.current);
+        speechKeepAliveTimerRef.current = null;
+      }
+      
       window.speechSynthesis.cancel(); // Cancel previous speech
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.rate = 0.95;
+      lastSpokenTextRef.current = cleaned;
+      isSpeakingRef.current = true;
+
+      const utterance = new SpeechSynthesisUtterance(cleaned);
+      currentUtteranceRef.current = utterance;
+      window.__skillproof_utterance = utterance; // Prevent Chromium garbage collection bug from cutting off speech
+
+      utterance.rate = 1.0;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
@@ -209,26 +244,52 @@ export default function InterviewSession() {
         utterance.voice = femaleVoice;
       }
 
-      utterance.onstart = () => setAiState('speaking');
-      utterance.onend = () => setAiState('listening');
-      utterance.onerror = (e) => {
-        console.warn('SpeechSynthesis utterance error:', e);
-        setAiState('listening');
+      utterance.onstart = () => {
+        isSpeakingRef.current = true;
+        setAiState('speaking');
+        // Chromium keep-alive interval (resumes speech synthesis if browser pauses it mid-speech)
+        if (speechKeepAliveTimerRef.current) clearInterval(speechKeepAliveTimerRef.current);
+        speechKeepAliveTimerRef.current = setInterval(() => {
+          if (window.speechSynthesis && window.speechSynthesis.speaking) {
+            window.speechSynthesis.pause();
+            window.speechSynthesis.resume();
+          } else {
+            clearInterval(speechKeepAliveTimerRef.current);
+            speechKeepAliveTimerRef.current = null;
+          }
+        }, 8000);
       };
 
-      // Watchdog Timer: Protect against Chromium speech synthesis hangs
-      const wordCount = textToSpeak.split(/\s+/).length;
-      const maxSpeechDurationMs = Math.max(4000, (wordCount / 2.0) * 1000 + 3000);
-      setTimeout(() => {
-        setAiState(curr => curr === 'speaking' ? 'listening' : curr);
-      }, maxSpeechDurationMs);
+      utterance.onend = () => {
+        isSpeakingRef.current = false;
+        if (speechKeepAliveTimerRef.current) {
+          clearInterval(speechKeepAliveTimerRef.current);
+          speechKeepAliveTimerRef.current = null;
+        }
+        setAiState('listening');
+        currentUtteranceRef.current = null;
+        window.__skillproof_utterance = null;
+      };
 
-      // Slight delay to ensure chrome speech synthesis engine is active
+      utterance.onerror = (e) => {
+        console.warn('SpeechSynthesis utterance error:', e);
+        isSpeakingRef.current = false;
+        if (speechKeepAliveTimerRef.current) {
+          clearInterval(speechKeepAliveTimerRef.current);
+          speechKeepAliveTimerRef.current = null;
+        }
+        setAiState('listening');
+        currentUtteranceRef.current = null;
+        window.__skillproof_utterance = null;
+      };
+
+      // Slight delay to ensure chrome speech synthesis engine is active after cancel
       setTimeout(() => {
         window.speechSynthesis.speak(utterance);
-      }, 50);
+      }, 100);
     } catch (err) {
       console.warn('SpeechSynthesis error:', err);
+      isSpeakingRef.current = false;
       setAiState('listening');
     }
   }
@@ -578,11 +639,11 @@ export default function InterviewSession() {
         }
         setAudioSpectrum(levels);
 
-        // RMS Voice Activity & Barge-in Detection
+        // RMS Voice Activity & Barge-in Detection (Only in Hands-Free mode when candidate deliberately speaks over AI)
         const rms = Math.sqrt(sumSquares / 15);
-        if (rms > 0.22 && speakerOnRef.current && isInterviewStartedRef.current) {
-          // If AI is actively speaking, candidate speaking triggers immediate Barge-in
-          if (aiState === 'speaking' && !isBargeInActiveRef.current) {
+        if (rms > 0.50 && isHandsFreeRef.current && speakerOnRef.current && isInterviewStartedRef.current) {
+          // If AI is actively speaking, candidate speaking in hands-free mode triggers Barge-in
+          if (aiStateRef.current === 'speaking' && !isBargeInActiveRef.current) {
             triggerBargeIn();
           }
         }
@@ -1206,10 +1267,10 @@ export default function InterviewSession() {
             const qText = data.first_question || data.content || DEFAULT_Q1;
             firstQuestionRef.current = qText;
             setAiText(qText);
-            if (isInterviewStartedRef.current) {
+            setMessages(prev => (prev.length === 0 ? [{ sender: 'ai', text: qText }] : prev));
+            if (isInterviewStartedRef.current && !isSpeakingRef.current) {
               setAiState('speaking');
               speakText(qText);
-              setMessages(prev => (prev.length === 0 ? [{ sender: 'ai', text: qText }] : prev));
             }
           } else if (data.type === 'question' || data.role === 'assistant') {
             setAiState('speaking');

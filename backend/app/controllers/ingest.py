@@ -186,6 +186,7 @@ async def ingest_credentials(
             )
             await db.commit()
         except Exception as bio_err:
+            await db.rollback()
             print(f"[Ingest Controller] Biometric profile sync warning: {bio_err}")
 
     # 4. Run ingestion service processing across validated files
