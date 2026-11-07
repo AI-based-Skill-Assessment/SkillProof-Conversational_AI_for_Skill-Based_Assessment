@@ -418,8 +418,43 @@ export default function InterviewSession() {
     }, 2200);
   }
 
+  // Registry of EVERY camera/mic stream this page opens. getUserMedia is async,
+  // so a stream can arrive after the page was unmounted (or, in React StrictMode,
+  // after the first of two mounts was cleaned up). Tracking all of them means
+  // nothing can be left running with the camera light on.
+  const mediaStreamsRef = useRef(new Set());
+  // Bumped on every mount/unmount of the webcam effect; a stream that resolves
+  // for an outdated generation is stopped immediately instead of being used.
+  const mediaGenerationRef = useRef(0);
+
+  function stopStream(stream) {
+    if (!stream) return;
+    try {
+      stream.getTracks().forEach(t => {
+        try { t.stop(); t.enabled = false; } catch (e) {}
+      });
+    } catch (e) {}
+    mediaStreamsRef.current.delete(stream);
+  }
+
+  // Returns the stream if it should be used, or null if it was already stopped
+  // because the page that requested it is gone.
+  function adoptStream(stream, generation) {
+    if (generation !== mediaGenerationRef.current) {
+      stopStream(stream);
+      return null;
+    }
+    mediaStreamsRef.current.add(stream);
+    return stream;
+  }
+
   function stopWebcamAndAudio() {
     console.log('📷 [HARDWARE RELEASE] Shutting down camera & microphone tracks...');
+    // Invalidate any getUserMedia request still in flight — when it resolves,
+    // adoptStream() will see the old generation and stop it immediately.
+    mediaGenerationRef.current++;
+    // Stop every stream we ever opened, not just the current one
+    Array.from(mediaStreamsRef.current).forEach(stopStream);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => {
         try {
@@ -457,7 +492,8 @@ export default function InterviewSession() {
 
   // ── 1. Start Webcam & Load face-api.js Models ──────────────────────────────
   useEffect(() => {
-    startWebcam();
+    const generation = ++mediaGenerationRef.current;
+    startWebcam(generation);
 
     // Auto-resume AudioContext on page interaction if browser suspended audio stream on refresh
     const handleUserGesture = () => {
@@ -558,9 +594,9 @@ export default function InterviewSession() {
     return () => clearTimeout(autoStartTimer);
   }, []);
 
-  async function startWebcam() {
+  async function startWebcam(generation = mediaGenerationRef.current) {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const rawStream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
         audio: {
           echoCancellation: true,
@@ -569,6 +605,9 @@ export default function InterviewSession() {
           sampleRate: 48000
         }
       });
+      // Page already left / remounted while waiting for permission → stream was stopped
+      const stream = adoptStream(rawStream, generation);
+      if (!stream) return;
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -585,9 +624,10 @@ export default function InterviewSession() {
     } catch (err) {
       console.warn('Combined audio/video access error, trying fallback:', err);
       try {
-        const videoOnly = await navigator.mediaDevices.getUserMedia({
+        const videoOnly = adoptStream(await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
-        });
+        }), generation);
+        if (!videoOnly) return;
         streamRef.current = videoOnly;
         if (videoRef.current) {
           videoRef.current.srcObject = videoOnly;
@@ -901,8 +941,9 @@ export default function InterviewSession() {
 
   // ── 4. Voice Recording & Live Speech-to-Text Answers ─────────────────────
   async function startVoiceRecording() {
+    const generation = mediaGenerationRef.current;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = adoptStream(await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: { ideal: true },
           noiseSuppression: { ideal: true },
@@ -910,7 +951,8 @@ export default function InterviewSession() {
           channelCount: 1,
           sampleRate: { ideal: 48000 }
         }
-      });
+      }), generation);
+      if (!stream) return;
       audioChunksRef.current = [];
       spokenTranscriptRef.current = '';
 
@@ -946,6 +988,9 @@ export default function InterviewSession() {
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
       };
+      // Each answer opens its own mic stream — release it when the recording ends,
+      // otherwise the microphone stays on after every answer.
+      recorder.onstop = () => stopStream(stream);
 
       recorder.start(250);
       setIsRecordingVoice(true);

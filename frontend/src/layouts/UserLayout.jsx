@@ -8,6 +8,7 @@ import ROUTES from '../core/routes';
 import { buildNotificationsFromData } from '../utils/notificationService';
 import { useTheme } from '../core/theme';
 import TechBackground from '../components/common/TechBackground';
+import { isMediaRoute, stopAllMedia } from '../utils/mediaRegistry';
 import '../styles/layouts/app-layout.css';
 
 // Nav icons
@@ -72,7 +73,10 @@ export default function UserLayout({ pageTitle = 'SkillProof' }) {
   // Global Hardware Media Stream Safety Net:
   // When leaving interview or biometric routes, ensure all webcam & mic tracks are closed at browser hardware level.
   useEffect(() => {
-    if (!isInterview && !location.pathname.includes('/face-registration') && !location.pathname.includes('/voice-registration')) {
+    if (!isMediaRoute(location.pathname)) {
+      // Stop every camera/mic stream the app opened — including ones that were
+      // never attached to a <video> element (those were missed before).
+      stopAllMedia();
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         // Query active DOM video elements or open streams and shut them down
         document.querySelectorAll('video').forEach(videoEl => {

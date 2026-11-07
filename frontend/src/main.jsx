@@ -5,6 +5,10 @@ import App from './App';
 import { ThemeProvider } from './core/theme';
 import { AuthProvider } from './core/auth/AuthContext';
 import { ToastProvider } from './components/common/Toast';
+import { installMediaRegistry } from './utils/mediaRegistry';
+
+// Track every camera/mic stream so none can be left running (see mediaRegistry.js)
+installMediaRegistry();
 
 import './core/theme.css';
 import './core/variables.css';
