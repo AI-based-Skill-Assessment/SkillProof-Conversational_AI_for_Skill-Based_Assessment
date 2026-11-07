@@ -697,8 +697,6 @@ async def get_org_candidate_requests(
             "requested_at": l.connected_at.strftime("%Y-%m-%d") if l.connected_at else "",
             "face_registered": l.user.face_registered if l.user else False,
             "voice_registered": l.user.voice_registered if l.user else False,
-            "assessments_count": len(l.shared_session_ids or []) or 1,
-            "average_score": 88
         }
         for l in links
     ]
@@ -717,6 +715,15 @@ async def update_candidate_request_status(
         target_link_id = UUID(link_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid link ID format.")
+
+    if action not in ("approve", "reject"):
+        raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'.")
+
+    # The link must belong to THIS organisation — otherwise any org could
+    # approve itself into another organisation's candidates (or reject them).
+    link = await link_repo.get_link(db, target_link_id)
+    if not link or link.org_id != current_org.id:
+        raise HTTPException(status_code=404, detail="Linkage request not found.")
 
     new_status = "approved" if action == "approve" else "rejected"
     updated = await link_repo.update_link_status(db, target_link_id, new_status)

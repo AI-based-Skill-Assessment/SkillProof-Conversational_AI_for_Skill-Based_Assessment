@@ -85,6 +85,11 @@ async def get_user_connections(
     return list(res.scalars().all())
 
 
+async def get_link(db: AsyncSession, link_id: UUID) -> Optional[UserOrganisationLink]:
+    res = await db.execute(select(UserOrganisationLink).where(UserOrganisationLink.id == link_id))
+    return res.scalar_one_or_none()
+
+
 async def update_link_status(
     db: AsyncSession,
     link_id: UUID,

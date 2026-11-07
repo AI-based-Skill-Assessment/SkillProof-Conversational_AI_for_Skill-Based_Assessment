@@ -27,6 +27,7 @@ from app.controllers.voice_interview import router as voice_router
 from app.controllers.biometric import router as biometric_router
 from app.controllers.auth import router as auth_router
 from app.controllers.admin_mgmt import router as admin_mgmt_router
+from app.controllers.org_portal import router as org_portal_router
 
 
 @asynccontextmanager
@@ -92,6 +93,7 @@ app.add_middleware(
 # Auth
 app.include_router(auth_router,       prefix="/api/v1", tags=["Authentication"])
 app.include_router(admin_mgmt_router, prefix="/api/v1", tags=["Admin Management"])
+app.include_router(org_portal_router, prefix="/api/v1", tags=["Organisation Portal"])
 
 # Assessment pipeline (existing)
 app.include_router(ingest_router,     prefix="/api/v1", tags=["Ingest"])

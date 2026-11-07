@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MOCK_CANDIDATES } from '../../core/mockData/org.mock';
 import StatusBadge from '../../components/common/StatusBadge';
 import Button from '../../components/common/Button';
 import { useToast } from '../../components/common/Toast';
 import { formatDate } from '../../utils/formatDate';
+import Alert from '../../components/common/Alert';
+import { formatScore, scoreColor } from '../../utils/formatScore';
+import { apiErrorMessage } from '../../utils/apiError';
+import { statusLabel, statusVariant } from '../../utils/assessmentLabels';
 import ROUTES from '../../core/routes';
 
 import client from '../../core/api/client';
@@ -15,31 +18,21 @@ export default function Candidates() {
   const [loading, setLoading] = useState(true);
   const [candidates, setCandidates] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
 
   async function loadData() {
     try {
       setLoading(true);
-      const res = await client.get('/auth/org/candidates/requests');
-      const allLinks = res.data || [];
-      
-      const pending = allLinks.filter(l => l.status === 'pending');
-      const approved = allLinks.filter(l => l.status === 'approved').map(l => ({
-        id: l.candidate_id,
-        full_name: l.candidate_name,
-        email: l.candidate_email,
-        connected_at: l.requested_at,
-        reports_shared: 1,
-        assessments_count: l.assessments_count || 1,
-        average_score: l.average_score || 88,
-        face_registered: l.face_registered,
-        voice_registered: l.voice_registered,
-        latest_status: 'verified'
-      }));
-
-      setRequests(pending);
-      setCandidates(approved);
+      setError('');
+      const [linksRes, candidatesRes] = await Promise.all([
+        client.get('/auth/org/candidates/requests'),
+        client.get('/org/candidates'),
+      ]);
+      setRequests((linksRes.data || []).filter(l => l.status === 'pending'));
+      setCandidates(candidatesRes.data || []);
     } catch (err) {
-      console.warn('Could not load org candidate requests:', err);
+      setError(apiErrorMessage(err, 'candidates'));
     } finally {
       setLoading(false);
     }
@@ -48,6 +41,11 @@ export default function Candidates() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? candidates.filter(c => `${c.full_name} ${c.email}`.toLowerCase().includes(q))
+    : candidates;
 
   const handleApprove = async (req) => {
     try {
@@ -79,6 +77,8 @@ export default function Candidates() {
         </div>
       </div>
 
+      {error && <Alert type="error">{error}</Alert>}
+
       {/* Filter Tabs */}
       <div style={{ display: 'flex', gap: 12, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
         <button
@@ -90,7 +90,7 @@ export default function Candidates() {
             fontWeight: 600,
             fontSize: '14px',
             background: activeTab === 'active' ? 'var(--primary)' : 'transparent',
-            color: activeTab === 'active' ? '#FFFFFF' : 'var(--text-secondary)',
+            color: activeTab === 'active' ? 'var(--text-on-fill)' : 'var(--text-secondary)',
             border: activeTab === 'active' ? '1px solid var(--primary)' : '1px solid var(--border)',
             cursor: 'pointer',
             transition: 'all 180ms ease'
@@ -108,7 +108,7 @@ export default function Candidates() {
             fontWeight: 600,
             fontSize: '14px',
             background: activeTab === 'requests' ? 'var(--primary)' : 'transparent',
-            color: activeTab === 'requests' ? '#FFFFFF' : 'var(--text-secondary)',
+            color: activeTab === 'requests' ? 'var(--text-on-fill)' : 'var(--text-secondary)',
             border: activeTab === 'requests' ? '1px solid var(--primary)' : '1px solid var(--border)',
             cursor: 'pointer',
             display: 'flex',
@@ -120,8 +120,8 @@ export default function Candidates() {
           Incoming Connection Requests
           {requests.length > 0 && (
             <span style={{
-              background: activeTab === 'requests' ? 'rgba(255,255,255,0.25)' : 'var(--error)',
-              color: '#FFFFFF',
+              background: activeTab === 'requests' ? 'color-mix(in srgb, var(--text-on-fill) 20%, transparent)' : 'var(--error)',
+              color: 'var(--text-on-fill)',
               fontSize: '11px',
               fontWeight: 700,
               padding: '2px 7px',
@@ -134,6 +134,18 @@ export default function Candidates() {
       </div>
 
       {/* Tab Content: Active Candidates */}
+      {activeTab === 'active' && candidates.length > 0 && (
+        <input
+          type="search"
+          className="common-input__field"
+          placeholder="Search by name or email…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          style={{ maxWidth: 360 }}
+          aria-label="Search candidates"
+        />
+      )}
+
       {activeTab === 'active' && (
         <div className="common-table-container">
           <table className="common-table">
@@ -142,35 +154,46 @@ export default function Candidates() {
                 <th>Candidate Name</th>
                 <th>Email</th>
                 <th>Connected At</th>
-                <th>Assessments Taken</th>
-                <th>Biometrics Ready</th>
+                <th>Assessments</th>
+                <th>Avg Score</th>
+                <th>Biometrics</th>
                 <th>Latest Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {candidates.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>Loading…</td>
+                </tr>
+              ) : candidates.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
                     No connected candidates yet. Approve incoming connection requests to link students.
                   </td>
                 </tr>
               ) : (
-                candidates.map(c => (
+                filtered.map(c => (
                   <tr key={c.id}>
                     <td style={{ fontWeight: 600 }}>{c.full_name}</td>
                     <td>{c.email}</td>
                     <td>{formatDate(c.connected_at)}</td>
-                    <td style={{ fontWeight: 600 }}>{c.assessments_count} assessments</td>
+                    <td style={{ fontWeight: 600 }}>{c.completed_count} completed / {c.assessments_count}</td>
+                    <td style={{ fontWeight: 700, color: scoreColor(c.average_score) }}>
+                      {c.average_score != null ? `${formatScore(c.average_score)}%` : '—'}
+                    </td>
                     <td>
                       <span style={{ fontSize: 12 }}>
                         Face: {c.face_registered ? '✅' : '❌'} • Voice: {c.voice_registered ? '✅' : '❌'}
                       </span>
                     </td>
                     <td>
-                      <StatusBadge variant={c.latest_status === 'verified' ? 'success' : 'info'}>
-                        {c.latest_status.toUpperCase()}
+                      <StatusBadge variant={statusVariant(c.latest_status)}>
+                        {statusLabel(c.latest_status)}
                       </StatusBadge>
+                      {c.flagged && (
+                        <div style={{ marginTop: 4 }}><StatusBadge variant="error">Flagged</StatusBadge></div>
+                      )}
                     </td>
                     <td>
                       <Link
