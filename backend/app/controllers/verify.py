@@ -15,7 +15,7 @@ from datetime import datetime
 
 from app.database import get_db, get_redis
 from app.schemas.session import VerificationSessionResponse
-from app.repositories import session_repo, document_repo
+from app.repositories import session_repo, document_repo, score_repo
 from app.schemas.document import DocumentVerificationResultCreate
 from app.core.verification_engine import run_verification
 
