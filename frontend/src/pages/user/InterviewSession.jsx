@@ -1353,7 +1353,7 @@ export default function InterviewSession() {
   const isRecordLocked = speakerOn && aiState === 'speaking';
 
   return (
-    <div className="anim-fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 370px', gap: 24, height: 'calc(100vh - 100px)', overflow: 'hidden' }}>
+    <div className="interview-room-grid anim-fade-in">
       {/* Cyber Dot-Matrix & Ambient Vignette Background */}
       <TechBackground />
 

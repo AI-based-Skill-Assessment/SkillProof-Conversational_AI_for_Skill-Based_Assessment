@@ -530,6 +530,36 @@
 }
 
 /* ─────────────────────────────────────────────────────────────
+   Responsive Live AI Interview Room Layout
+   ───────────────────────────────────────────────────────────── */
+.interview-room-grid {
+  display: grid;
+  grid-template-columns: 1fr 370px;
+  gap: 24px;
+  height: calc(100vh - 100px);
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .interview-room-grid {
+    grid-template-columns: 1fr 320px;
+    gap: 16px;
+    height: auto;
+    min-height: calc(100vh - 90px);
+  }
+}
+
+@media (max-width: 860px) {
+  .interview-room-grid {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 16px;
+    height: auto;
+    overflow-y: auto;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
    Dedicated Clean Single-Page Print / PDF Export Styles
    ───────────────────────────────────────────────────────────── */
 @media print {
