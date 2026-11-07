@@ -33,6 +33,19 @@ async def technical_interview_websocket(
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
         
+        # Owned sessions require the owner's access token: ws://.../interview/{id}?token=<JWT>
+        if session.owner_id:
+            from app.security.jwt import verify_access_token
+            token_payload = verify_access_token(websocket.query_params.get("token") or "")
+            if (
+                not token_payload
+                or token_payload.get("role") != "user"
+                or token_payload.get("sub") != str(session.owner_id)
+            ):
+                await websocket.send_json({"role": "system", "content": "Not authorised for this interview. Closing connection."})
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return
+
         # Check if session is in failed status
         if session.status.name == "failed":
             await websocket.send_json({"role": "system", "content": "Verification has failed. Interview blocked. Closing connection."})
@@ -205,45 +218,9 @@ async def technical_interview_websocket(
             pass
 
 
-from fastapi import UploadFile, File
-
-@router.post("/interview/transcribe")
-async def transcribe_audio(
-    audio: UploadFile = File(None)
-):
-    """
-    Transcribes candidate spoken audio to text using Groq Whisper (whisper-large-v3).
-    Ensures precise spelling of Indian names, tech companies, and specialized terms.
-    """
-    try:
-        if not audio:
-            return {"text": ""}
-        content = await audio.read()
-        if not content or len(content) < 100:
-            return {"text": ""}
-
-        from app.config import settings
-        from groq import Groq
-        
-        client = Groq(api_key=settings.GROQ_API_KEY)
-        
-        filename = audio.filename or "answer.webm"
-        file_tuple = (filename, content, audio.content_type or "audio/webm")
-
-        transcription = client.audio.transcriptions.create(
-            file=file_tuple,
-            model="whisper-large-v3",
-            prompt="Aravind, SAVIC Technologies Private Limited, Indian names, IT companies, tech terminology, candidate background, internship details",
-            response_format="text",
-            temperature=0.0
-        )
-
-        result_text = str(transcription).strip() if transcription else ""
-        print(f"🎙️ [GROQ WHISPER STT] Transcribed Audio -> '{result_text}'")
-        return {"text": result_text}
-    except Exception as e:
-        print(f"⚠️ [GROQ WHISPER STT ERROR] {e}")
-        return {"text": ""}
+# NOTE: POST /interview/transcribe is served by app/controllers/voice_interview.py.
+# A duplicate definition used to live here but was unreachable (that router is
+# registered first in main.py), so it was removed.
 
 
 from pydantic import BaseModel
@@ -265,6 +242,10 @@ async def analyze_vision_frame(payload: VisionFrameRequest):
 
         if not payload.image_b64:
             return {"flagged": False, "reason": ""}
+
+        # Vision proctoring is disabled when no vision model is configured
+        if not settings.GROQ_VISION_MODEL or not settings.GROQ_API_KEY:
+            return {"suspicious": False, "reason": "", "vision_disabled": True}
 
         # Prepare base64 image data url
         b64_str = payload.image_b64
@@ -303,7 +284,7 @@ async def analyze_vision_frame(payload: VisionFrameRequest):
                     ]
                 }
             ],
-            model="llama-3.2-11b-vision-instruct",
+            model=settings.GROQ_VISION_MODEL,
             temperature=0.0,
             max_tokens=150
         )

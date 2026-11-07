@@ -105,30 +105,35 @@ async def realtime_interview_ws(
     await websocket.accept()
 
     async with async_session_factory() as db:
-        # Load the session, auto-create default session fallback if not found
+        # Load the session — unknown session IDs are rejected (no silent auto-create)
         session = await session_repo.get_session(db, session_id)
         if not session:
-            session = VerificationSession(
-                id=session_id,
-                candidate_name="Candidate",
-                extracted_skills=["Python", "Web Development", "AI Biometrics"]
-            )
-            db.add(session)
-            await db.commit()
-            await db.refresh(session)
+            await websocket.send_json({"type": "error", "message": "Session not found."})
+            await websocket.close(code=1008)
+            return
 
-        # Ensure biometric profile exists & reset stale mismatch flags for clean startup
+        # Owned sessions require the owner's access token: ws://.../ws?token=<JWT>
+        if session.owner_id:
+            from app.security.jwt import verify_access_token
+            token_payload = verify_access_token(websocket.query_params.get("token") or "")
+            if (
+                not token_payload
+                or token_payload.get("role") != "user"
+                or token_payload.get("sub") != str(session.owner_id)
+            ):
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "Not authorised for this interview. Please sign in again.",
+                })
+                await websocket.close(code=1008)
+                return
+
+        # Ensure biometric profile exists. Fraud flags / mismatch counts are NOT reset
+        # here, otherwise a flagged candidate could clear them just by reconnecting.
         profile = await biometric_repo.get_profile(db, session_id)
         if not profile:
             profile = await biometric_repo.create_or_update_profile(db, session_id)
-        
-        profile.face_mismatch_count = 0
-        profile.voice_mismatch_count = 0
-        profile.fraud_flags = 0
-        profile.fraud_status = "clean"
-        profile.interview_flagged = False
-        profile.flag_reasons = []
-        await db.commit()
+            await db.commit()
 
         # Ensure interview session exists
         interview = await session_repo.get_interview_session(db, session_id)

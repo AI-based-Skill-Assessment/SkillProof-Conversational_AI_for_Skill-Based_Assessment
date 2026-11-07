@@ -4,16 +4,24 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 from app.config import settings
 
-def verify_google_token(token: str) -> dict:
+def verify_google_token(token: str, allow_mock: bool = True) -> dict:
     """
     Verifies a Google OAuth ID Token (JWT).
     Returns the parsed user profile dictionary if valid, otherwise raises ValueError.
-    For development, if GOOGLE_CLIENT_ID is not configured, we allow decoding
-    without validation (or mock extraction) if a fallback string is parsed.
+
+    Mock tokens ("mock_google_...") are accepted ONLY when all of these hold:
+      - no real GOOGLE_CLIENT_ID is configured
+      - APP_ENV is not "production"
+      - ALLOW_MOCK_GOOGLE_LOGIN is true
+      - the caller passes allow_mock=True (the admin portal passes False)
     """
+    client_id = settings.GOOGLE_CLIENT_ID.strip()
+
+    if token.startswith("mock_google_") and not (allow_mock and settings.ALLOW_MOCK_GOOGLE_LOGIN):
+        raise ValueError("Mock Google sign-in is not allowed here.")
+
     # 1. Fallback / Mock mode for local testing if GOOGLE_CLIENT_ID is unset
     # or still contains the example placeholder, AND we are NOT in production.
-    client_id = settings.GOOGLE_CLIENT_ID.strip()
     if (not client_id or client_id == "your_google_client_id_here") and settings.APP_ENV != "production":
         if token.startswith("mock_google_"):
             payload = token[len("mock_google_"):]

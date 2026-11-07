@@ -5,6 +5,7 @@ import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
+import QRDisplay from '../../components/common/QRDisplay';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
 
@@ -67,15 +68,10 @@ export default function TwoFactorVerify() {
             background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)',
             borderRadius: '12px', padding: '20px', marginBottom: '20px'
           }}>
-            <img 
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(totpUri)}`}
-              alt="Scan this QR Code in Authenticator app"
-              style={{
-                width: '180px', height: '180px', borderRadius: '8px', 
-                border: '8px solid white', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-                marginBottom: '16px'
-              }}
-            />
+            {/* Generated locally — the TOTP secret must never be sent to a third-party QR service */}
+            <div style={{ marginBottom: '16px' }}>
+              <QRDisplay value={totpUri} darkColor="#000000" lightColor="#ffffff" />
+            </div>
             <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', textAlign: 'center' }}>
               Secret Key: <strong style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>{totpSecret}</strong>
             </div>

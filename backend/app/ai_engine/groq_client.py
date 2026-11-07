@@ -19,10 +19,11 @@ class GroqClient:
 
     async def chat_completion(
         self, 
-        messages: List[Dict[str, str]], 
-        model: str = "qwen/qwen3.8-27b"
+        messages: List[Dict[str, str]],
+        model: Optional[str] = None
     ) -> str:
         """Call Groq API asynchronously. Falls back to mock responses if API key is invalid/missing."""
+        model = model or settings.GROQ_CHAT_MODEL
         if self.enabled and self.client:
             try:
                 loop = asyncio.get_running_loop()
@@ -101,8 +102,16 @@ class GroqClient:
                     "consistency_score": round(computed_cons, 1),
                     "overall_skill_score": computed_overall,
                     "verdict": "verified" if computed_overall >= 60.0 else "suspicious",
-                    "llm_reasoning": f"Candidate demonstrated relevant practical knowledge of {sk} during conversational answers ({word_count} total words analyzed)."
+                    # Clearly label simulated output so it is never mistaken for a real AI evaluation
+                    "llm_reasoning": (
+                        f"[SIMULATED SCORE - AI evaluation unavailable; based only on answer length] "
+                        f"{word_count} total words analysed for {sk}."
+                    )
                 })
+            print(
+                "[SkillProof AI] WARNING: Interview scored in SIMULATION mode (Groq unavailable). "
+                "These scores are NOT a real AI evaluation."
+            )
 
             simulated_strengths = [
                 f"Conversational engagement with {skills[0]} interview questions",
@@ -122,6 +131,7 @@ class GroqClient:
 
             import json
             return json.dumps({
+                "simulated": True,
                 "scores": simulated_items,
                 "strengths": simulated_strengths,
                 "improvements": simulated_improvements

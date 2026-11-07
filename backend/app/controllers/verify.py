@@ -19,8 +19,14 @@ from app.repositories import session_repo, document_repo
 from app.schemas.document import DocumentVerificationResultCreate
 from app.core.verification_engine import run_verification
 
-from app.security.deps import get_current_user
+from app.security.deps import (
+    get_current_user,
+    get_current_user_optional,
+    get_current_admin,
+    ensure_session_access,
+)
 from app.models.user import User
+from app.models.admin import Admin
 from typing import List
 
 router = APIRouter()
@@ -84,8 +90,11 @@ async def get_verification_session(
 async def run_document_verification(
     session_id: UUID,
     db: AsyncSession = Depends(get_db),
-    redis=Depends(get_redis)
+    redis=Depends(get_redis),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
+    await ensure_session_access(db, session_id, current_user)
+
     # 1. Load session
     session = await session_repo.get_session(db, session_id)
     if not session:
@@ -176,7 +185,8 @@ async def force_verification_override(
     force_status: str = "verified",
     document_score: float = 100.0,
     reason: str = "Manual admin override",
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    _admin: Admin = Depends(get_current_admin),
 ):
     valid = ("verified", "not_found", "mismatched", "unverifiable")
     if force_status not in valid:

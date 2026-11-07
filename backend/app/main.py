@@ -74,9 +74,17 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
+_cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+# Private-network addresses (10.x, 172.16-31.x, 192.168.x) on the Vite port, for QR / LAN access
+_lan_origin_regex = (
+    r"^https?://(10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)(:\d+)?$"
+    if settings.CORS_ALLOW_LAN else None
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # Restrict in production to frontend origin
+    allow_origins=_cors_origins,
+    allow_origin_regex=_lan_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

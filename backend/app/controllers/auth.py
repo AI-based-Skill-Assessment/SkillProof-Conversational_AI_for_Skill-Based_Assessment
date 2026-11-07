@@ -504,7 +504,15 @@ async def admin_login_step1(
     if not admin.is_active:
         raise HTTPException(status_code=403, detail="Admin account is inactive.")
 
-    # Issue a very short-lived temp token (5 min) flagged for 2FA
+    return _admin_2fa_challenge(admin)
+
+
+def _admin_2fa_challenge(admin: Admin) -> AdminLoginStep1Response:
+    """
+    Issue a short-lived (5 min) temp token for the 2FA step.
+    The TOTP secret / QR URI is revealed ONLY during first-time setup; once 2FA is
+    enabled, knowing the password alone must not let anyone generate valid codes.
+    """
     from datetime import timedelta, datetime, timezone
     from jose import jwt as _jwt
     from app.config import settings
@@ -515,13 +523,16 @@ async def admin_login_step1(
         "type": "temp",
     }
     temp_token = _jwt.encode(temp_payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-    
+
+    if admin.totp_enabled:
+        return AdminLoginStep1Response(temp_token=temp_token, totp_enabled=True)
+
     totp_uri = f"otpauth://totp/SkillProof:{admin.email}?secret={admin.totp_secret}&issuer=SkillProof"
     return AdminLoginStep1Response(
         temp_token=temp_token,
-        totp_enabled=admin.totp_enabled,
+        totp_enabled=False,
         totp_uri=totp_uri,
-        totp_secret=admin.totp_secret
+        totp_secret=admin.totp_secret,
     )
 
 
@@ -590,10 +601,14 @@ async def admin_refresh(payload: RefreshTokenRequest) -> AccessTokenResponse:
 
 
 @router.post("/admin/google/verify", summary="Verify Google ID Token for Admin")
-async def admin_google_verify(payload: AdminGoogleVerifyRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
-    """Verify Google token and log in existing admin."""
+async def admin_google_verify(payload: AdminGoogleVerifyRequest, db: AsyncSession = Depends(get_db)) -> AdminLoginStep1Response:
+    """
+    Verify Google token for an existing admin. Like the password login, this is only
+    step 1 — the admin must still pass TOTP 2FA via POST /auth/admin/2fa.
+    Mock Google tokens are never accepted for the admin portal.
+    """
     try:
-        id_info = verify_google_token(payload.credential_token)
+        id_info = verify_google_token(payload.credential_token, allow_mock=False)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -612,9 +627,7 @@ async def admin_google_verify(payload: AdminGoogleVerifyRequest, db: AsyncSessio
     if not admin.is_active:
         raise HTTPException(status_code=403, detail="Admin account is inactive.")
 
-    access = create_access_token(str(admin.id), "admin", admin.email)
-    refresh = create_refresh_token(str(admin.id), "admin")
-    return TokenResponse(access_token=access, refresh_token=refresh, role="admin")
+    return _admin_2fa_challenge(admin)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

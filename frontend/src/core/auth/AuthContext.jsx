@@ -126,15 +126,13 @@ export function AuthProvider({ children }) {
     return profile.data;
   }, []);
 
+  // Google sign-in is only step 1 for admins — like the password login it returns
+  // a temp_token, and the admin must still complete TOTP 2FA (adminLoginStep2).
   const adminGoogleLogin = useCallback(async (credentialToken) => {
     const res = await client.post(EP.AUTH.ADMIN_GOOGLE_VERIFY, {
       credential_token: credentialToken
     });
-    localStorage.setItem(`skillproof_admin_access_token`,  res.data.access_token);
-    localStorage.setItem(`skillproof_admin_refresh_token`, res.data.refresh_token);
-    const profile = await client.get(EP.AUTH.ADMIN_ME);
-    _saveSession(res.data, profile.data, 'admin');
-    return profile.data;
+    return res.data;
   }, []);
 
   // ── Logout ─────────────────────────────────────────────────────────────────

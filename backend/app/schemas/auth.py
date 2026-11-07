@@ -148,8 +148,9 @@ class AdminLoginStep1Response(BaseModel):
     message: str = "Password verified. Please submit your 2FA code."
     temp_token: str   # Short-lived token to identify the admin during 2FA step
     totp_enabled: bool
-    totp_uri: str
-    totp_secret: str
+    # Only returned during first-time 2FA setup (totp_enabled == False)
+    totp_uri: Optional[str] = None
+    totp_secret: Optional[str] = None
 
 
 class Admin2FARequest(BaseModel):

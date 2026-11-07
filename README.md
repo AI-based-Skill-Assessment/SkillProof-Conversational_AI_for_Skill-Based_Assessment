@@ -178,7 +178,7 @@ docker compose up -d db redis
 ```
 
 This creates:
-- **PostgreSQL** on `localhost:5432` (user: `postgres`, password: `postgres123`, database: `skillproof`)
+- **PostgreSQL** on `localhost:5433` (host port 5433, so it doesn't clash with a locally installed PostgreSQL on 5432) (user: `postgres`, password: `postgres123`, database: `skillproof`)
 - **Redis** on `localhost:6379`
 
 Verify both are running:
@@ -270,7 +270,7 @@ GROQ_API_KEY=gsk_your_actual_key_here
 GOOGLE_CLIENT_ID=847...apps.googleusercontent.com
 
 # Database (default matches Docker Compose, change if using custom setup)
-DATABASE_URL=postgresql+asyncpg://postgres:postgres123@localhost:5432/skillproof
+DATABASE_URL=postgresql+asyncpg://postgres:postgres123@localhost:5433/skillproof
 
 # Redis (default matches Docker Compose)
 REDIS_URL=redis://localhost:6379/0
@@ -325,15 +325,12 @@ cd backend
 
 # Create all database tables
 python scripts/db/recreate_noninteractive.py
-
-# Seed the default admin account
-python scratch/seed_admin.py
 ```
 
-You should see:
+The default admin account is created automatically the first time the backend starts
+(Step 8). You should see this in the backend log:
 ```
-Done!
-Default admin seeded successfully: admin@skillproof.ai
+[Auth] Admin account ready: admin@skillproof.ai
 ```
 
 ---
@@ -444,7 +441,7 @@ Key API endpoint groups:
 
 | Variable                       | Required | Description                                              | Example                                                                 |
 | ------------------------------ | -------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `DATABASE_URL`                 | ✅       | PostgreSQL connection string (asyncpg driver)             | `postgresql+asyncpg://postgres:postgres123@localhost:5432/skillproof`    |
+| `DATABASE_URL`                 | ✅       | PostgreSQL connection string (asyncpg driver)             | `postgresql+asyncpg://postgres:postgres123@localhost:5433/skillproof`    |
 | `REDIS_URL`                    | ✅       | Redis connection string                                   | `redis://localhost:6379/0`                                               |
 | `GROQ_API_KEY`                 | ✅       | Groq LLM API key for AI interviews                        | `gsk_...`                                                                |
 | `GOOGLE_CLIENT_ID`             | ✅       | Google OAuth 2.0 Client ID                                | `847...apps.googleusercontent.com`                                       |
@@ -485,7 +482,7 @@ The database tables haven't been created. Run:
 ```bash
 cd backend
 python scripts/db/recreate_noninteractive.py
-python scratch/seed_admin.py
+# then restart the backend — it seeds the admin account on startup
 ```
 
 ### Google Sign-In button doesn't appear
@@ -508,7 +505,7 @@ DeepFace and SpeechBrain download pre-trained models on first use. Ensure you ha
 
 ### Port conflicts
 
-Default ports: PostgreSQL (5432), Redis (6379), Backend (8000), Frontend (5173). Change in `.env` and `docker-compose.yml` if these are occupied.
+Default ports: PostgreSQL (5433 on the host), Redis (6379), Backend (8000), Frontend (5173). Change in `.env` and `docker-compose.yml` if these are occupied.
 
 ---
 

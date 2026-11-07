@@ -1236,7 +1236,9 @@ export default function InterviewSession() {
 
     function connect() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.hostname}:8000/api/v1/interview/${id}/ws`;
+      // The backend requires the candidate's access token for sessions they own
+      const accessToken = localStorage.getItem('skillproof_user_access_token') || '';
+      const wsUrl = `${protocol}//${window.location.hostname}:8000/api/v1/interview/${id}/ws?token=${encodeURIComponent(accessToken)}`;
       setWsStatus('connecting');
 
       socket = new WebSocket(wsUrl);

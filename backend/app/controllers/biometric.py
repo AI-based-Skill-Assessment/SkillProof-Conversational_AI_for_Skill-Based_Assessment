@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.repositories import biometric_repo
-from app.security.deps import get_current_user_optional
+from app.security.deps import get_current_user_optional, ensure_session_access
 from app.models.user import User
 from app.schemas.biometric import (
     BiometricRegisterRequest,
@@ -445,7 +445,10 @@ async def verify_biometrics(
 async def interview_verify(
     payload: InterviewVerifyRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> InterviewVerifyResponse:
+    # Prevent anyone other than the session owner from submitting "matching" biometrics
+    await ensure_session_access(db, payload.session_id, current_user)
     try:
         profile = await biometric_repo.get_profile(db, payload.session_id)
         if not profile:
@@ -622,7 +625,9 @@ async def interview_verify(
 async def report_violation(
     payload: ViolationReportRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> ViolationReportResponse:
+    await ensure_session_access(db, payload.session_id, current_user)
     profile = await biometric_repo.get_profile(db, payload.session_id)
     if not profile:
         raise HTTPException(
@@ -742,7 +747,9 @@ async def report_violation(
 async def record_telemetry_event(
     payload: TelemetryEventRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> TelemetryEventResponse:
+    await ensure_session_access(db, payload.session_id, current_user)
     profile = await biometric_repo.get_profile(db, payload.session_id)
     if not profile:
         profile = await biometric_repo.create_or_update_profile(db, session_id=payload.session_id)

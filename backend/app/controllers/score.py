@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
+from typing import Optional
 
 from app.database import get_db
+from app.security.deps import get_current_user_optional, ensure_session_access
+from app.models.user import User
 from app.services.report_service import ReportService
 from app.repositories import session_repo, score_repo
 from app.ai_engine.interview_manager import InterviewManager
@@ -16,13 +19,18 @@ interview_manager = InterviewManager()
 @router.post("/score/{session_id}")
 async def trigger_score_calculation(
     session_id: UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
     Triggers scoring and evaluation for an interview session.
     Parses transcript, runs LLM evaluation (or fallback), saves scores to DB,
     sets session status to 'scored', and returns the compiled report.
+    Only the session's owner can (re)score an owned session.
+    GET /score/{id} stays public so the QR / public report verification page works.
     """
+    await ensure_session_access(db, session_id, current_user)
+
     session = await session_repo.get_session(db, session_id)
     if not session:
         raise HTTPException(

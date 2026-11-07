@@ -111,6 +111,29 @@ async def get_current_org_any_status(
     return org
 
 
+# ── Session ownership guard ────────────────────────────────────────────────────
+
+async def ensure_session_access(
+    db: AsyncSession,
+    session_id: Optional[UUID],
+    user: Optional[User],
+) -> None:
+    """
+    Raise 403 if the verification session belongs to a candidate and the caller
+    is not that candidate. Sessions without an owner (anonymous / CLI sessions)
+    remain accessible, so existing anonymous flows keep working.
+    """
+    if session_id is None:
+        return
+    from app.repositories import session_repo
+    session = await session_repo.get_session(db, session_id)
+    if session and session.owner_id and (user is None or session.owner_id != user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this session.",
+        )
+
+
 # ── Admin dependency ───────────────────────────────────────────────────────────
 
 async def get_current_admin(

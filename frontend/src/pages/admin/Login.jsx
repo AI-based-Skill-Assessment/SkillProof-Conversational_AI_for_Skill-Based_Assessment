@@ -31,9 +31,16 @@ export default function Login() {
   async function handleGoogleSuccess(credentialToken) {
     try {
       setLoading(true);
-      await adminGoogleLogin(credentialToken);
-      toast.success('Login Successful', 'Welcome to Admin Dashboard');
-      navigate(ROUTES.ADMIN.DASHBOARD, { replace: true });
+      const data = await adminGoogleLogin(credentialToken);
+      toast.success('Google Account Verified', data.message);
+      navigate(ROUTES.ADMIN.TWO_FACTOR, {
+        state: {
+          temp_token: data.temp_token,
+          totp_enabled: data.totp_enabled,
+          totp_uri: data.totp_uri,
+          totp_secret: data.totp_secret
+        }
+      });
     } catch (err) {
       console.error(err);
       toast.error('Google Auth Failed', err.response?.data?.detail || 'Admin authentication failed.');

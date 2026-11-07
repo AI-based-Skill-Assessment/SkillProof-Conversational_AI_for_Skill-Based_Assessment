@@ -14,6 +14,17 @@ class Settings(BaseSettings):
 
     # Groq Client Configuration
     GROQ_API_KEY: str = ""
+    # Model names are configurable so a deprecated Groq model can be swapped via .env
+    # Check what your key can use at https://console.groq.com/docs/models
+    GROQ_CHAT_MODEL: str = "qwen/qwen3.8-27b"
+    # Leave empty to disable AI vision proctoring (Groq currently lists no vision model).
+    GROQ_VISION_MODEL: str = ""
+
+    # ── CORS ───────────────────────────────────────────────────────────────────
+    # Comma-separated list of allowed frontend origins.
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    # Also allow the frontend when opened via a private LAN IP (QR codes use http://<LAN-IP>:5173).
+    CORS_ALLOW_LAN: bool = True
 
     # ── JWT Auth Settings ──────────────────────────────────────────────────────
     # CHANGE JWT_SECRET_KEY in production — must be a long random string
@@ -24,6 +35,10 @@ class Settings(BaseSettings):
 
     # ── Google OAuth Settings ──────────────────────────────────────────────────
     GOOGLE_CLIENT_ID: str = ""
+    # Developer-only fake Google login (used by the frontend "Developer Preview" button
+    # when no real Client ID is configured). Never honoured when APP_ENV=production,
+    # and never allowed for the admin portal.
+    ALLOW_MOCK_GOOGLE_LOGIN: bool = True
 
     # ── Admin Seed Credentials ─────────────────────────────────────────────────
     ADMIN_EMAIL: str = "admin@skillproof.ai"
@@ -38,3 +53,21 @@ class Settings(BaseSettings):
     )
 
 settings = Settings()
+
+
+# ── Production safety check ────────────────────────────────────────────────────
+# Refuse to start in production while well-known development secrets are still in use.
+_INSECURE_DEFAULTS = {
+    "JWT_SECRET_KEY": "skillproof-super-secret-jwt-key-change-in-production-2024",
+    "ADMIN_PASSWORD": "SkillProof@Admin2024",
+    "ADMIN_TOTP_SECRET": "JBSWY3DPEHPK3PXP",
+}
+
+if settings.APP_ENV == "production":
+    _still_default = [k for k, v in _INSECURE_DEFAULTS.items() if getattr(settings, k) == v]
+    if _still_default:
+        raise RuntimeError(
+            "Refusing to start in production with default values for: "
+            + ", ".join(_still_default)
+            + ". Set them in backend/.env."
+        )
