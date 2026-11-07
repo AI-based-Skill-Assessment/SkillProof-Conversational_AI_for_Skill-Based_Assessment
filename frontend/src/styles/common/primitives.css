@@ -501,7 +501,7 @@ select:disabled,
 .common-step--completed .common-step__circle {
   background: var(--primary);
   border-color: var(--primary);
-  color: #ffffff;
+  color: var(--text-on-fill);
 }
 
 .common-step__label {

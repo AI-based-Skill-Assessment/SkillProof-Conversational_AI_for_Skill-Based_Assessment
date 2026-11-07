@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/common/Sidebar';
 import Topbar from '../components/common/Topbar';
@@ -62,7 +62,7 @@ export default function OrganisationLayout({ pageTitle = 'Organisation Portal' }
           logoLink={ROUTES.ORG.DASHBOARD}
         />
         <main className="app-layout__page">
-          <Outlet />
+          <Suspense fallback={<div className="route-loading" aria-busy="true" />}><Outlet /></Suspense>
         </main>
       </div>
     </div>

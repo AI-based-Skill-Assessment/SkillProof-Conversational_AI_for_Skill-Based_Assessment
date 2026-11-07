@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import ROUTES from '../core/routes';
 import Logo from '../components/common/Logo';
@@ -90,7 +91,7 @@ export default function PublicLayout() {
 
       {/* Main body */}
       <main className="public-layout__main">
-        <Outlet />
+        <Suspense fallback={<div className="route-loading" aria-busy="true" />}><Outlet /></Suspense>
       </main>
 
       {/* Footer */}

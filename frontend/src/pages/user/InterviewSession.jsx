@@ -1609,7 +1609,7 @@ export default function InterviewSession() {
                   padding: '10px 16px',
                   borderRadius: m.sender === 'user' ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
                   background: m.sender === 'user' ? 'var(--primary)' : 'rgba(255, 255, 255, 0.04)',
-                  color: m.sender === 'user' ? '#ffffff' : 'var(--text-primary)',
+                  color: m.sender === 'user' ? 'var(--text-on-fill)' : 'var(--text-primary)',
                   fontSize: 13,
                   lineHeight: 1.5,
                   border: m.sender === 'user' ? 'none' : '1px solid var(--border)'

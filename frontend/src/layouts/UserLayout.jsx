@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../components/common/Sidebar';
 import Topbar from '../components/common/Topbar';
@@ -129,7 +129,7 @@ export default function UserLayout({ pageTitle = 'SkillProof' }) {
           isDemo={isDemo}
         />
         <main className={`app-layout__page${isInterview ? ' app-layout__page--full' : ''}`}>
-          <Outlet context={{ isDemo, setIsDemo }} />
+          <Suspense fallback={<div className="route-loading" aria-busy="true" />}><Outlet context={{ isDemo, setIsDemo }} /></Suspense>
         </main>
       </div>
     </div>

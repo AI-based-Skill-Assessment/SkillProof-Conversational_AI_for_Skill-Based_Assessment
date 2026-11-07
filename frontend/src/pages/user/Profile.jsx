@@ -73,7 +73,7 @@ export default function Profile() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{
               width: 60, height: 60, borderRadius: '50%',
-              background: 'var(--primary)', color: 'white',
+              background: 'var(--primary)', color: 'var(--text-on-fill)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 24, fontWeight: 700, overflow: 'hidden'
             }}>

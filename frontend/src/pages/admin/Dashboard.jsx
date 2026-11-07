@@ -40,8 +40,9 @@ export default function Dashboard() {
     }
     loadDashboard(true);
 
+    // Refresh every 10s, but only while this tab is visible
     const interval = setInterval(() => {
-      loadDashboard(false);
+      if (!document.hidden) loadDashboard(false);
     }, 10000);
 
     return () => clearInterval(interval);

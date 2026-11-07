@@ -10,9 +10,11 @@
   /* Core brand */
   --background:        #F1F7FC;
   --primary:           #0798D4;
+  /* Text/icons placed ON a solid primary/status fill (buttons, avatars, badges) */
+  --text-on-fill:      #FFFFFF;
   --accent:            #6366F1;
   --text-primary:      #10243A;
-  --text-secondary:    #60758A;
+  --text-secondary:    #52677C;
   --glass:             rgba(248, 251, 255, 0.88);
   --border:            #D5E5F2;
 
@@ -36,13 +38,13 @@
   --input-placeholder: #8A9EAF;
 
   /* Semantic status (WCAG AA compliant against light surfaces) */
-  --success:           #059669;
+  --success:           #047857;
   --success-bg:        rgba(5, 150, 105, 0.08);
-  --warning:           #D97706;
+  --warning:           #A84D08;
   --warning-bg:        rgba(217, 119, 6, 0.08);
-  --error:             #DC2626;
+  --error:             #B91C1C;
   --error-bg:          rgba(220, 38, 38, 0.08);
-  --info:              #0798D4;
+  --info:              #0369A1;
   --info-bg:           rgba(7, 152, 212, 0.08);
 
   /* Shadows (Subtle, elegant, modern enterprise SaaS elevation) */
@@ -69,6 +71,8 @@
   /* Core brand */
   --background:        #0A1322;
   --primary:           #38BDF8;
+  /* Dark text on the bright dark-mode fills: white on #38BDF8 is only 2.1:1 */
+  --text-on-fill:      #0A1322;
   --accent:            #818CF8;
   --text-primary:      #F8FAFC;
   --text-secondary:    #94A3B8;
@@ -99,7 +103,7 @@
   --success-bg:        rgba(16, 185, 129, 0.14);
   --warning:           #F59E0B;
   --warning-bg:        rgba(245, 158, 11, 0.14);
-  --error:             #EF4444;
+  --error:             #F87171;
   --error-bg:          rgba(239, 68, 68, 0.14);
   --info:              #38BDF8;
   --info-bg:           rgba(56, 189, 248, 0.14);

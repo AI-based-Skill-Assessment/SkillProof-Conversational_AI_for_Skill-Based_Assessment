@@ -72,7 +72,7 @@ export default function NewAssessment() {
           {/* Step 1 */}
           <div className="common-card" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
+              <span style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', color: 'var(--text-on-fill)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
                 1
               </span>
               <span style={{ fontSize: 20 }}>📥</span>
@@ -86,7 +86,7 @@ export default function NewAssessment() {
           {/* Step 2 */}
           <div className="common-card" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
+              <span style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', color: 'var(--text-on-fill)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
                 2
               </span>
               <span style={{ fontSize: 20 }}>🎙️</span>
@@ -100,7 +100,7 @@ export default function NewAssessment() {
           {/* Step 3 */}
           <div className="common-card" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
+              <span style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', color: 'var(--text-on-fill)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
                 3
               </span>
               <span style={{ fontSize: 20 }}>🏅</span>

@@ -71,9 +71,8 @@ export default function AmbientHudRings({
           zIndex: 0,
           overflow: 'visible',
           transition: 'opacity 350ms ease',
-          opacity: isDark ? 0.16 : 0.08,
-          mixBlendMode: 'screen',
-          filter: 'drop-shadow(0 0 14px rgba(7, 152, 212, 0.2))'
+          opacity: isDark ? 0.16 : 0.05,
+          willChange: 'transform'
         }}
         aria-hidden="true"
       >
@@ -132,12 +131,20 @@ export default function AmbientHudRings({
           zIndex: 0,
           overflow: 'visible',
           transition: 'opacity 350ms ease',
-          opacity: isDark ? 0.20 : 0.10,
-          mixBlendMode: 'screen'
+          opacity: isDark ? 0.20 : 0.06
         }}
         aria-hidden="true"
       >
-        <svg viewBox="0 0 500 350" fill="none" style={{ width: '100%', height: '100%' }}>
+        <svg
+          viewBox="0 0 500 350"
+          fill="none"
+          style={{
+            width: '100%',
+            height: '100%',
+            animation: 'waveUndulate 8s ease-in-out infinite alternate',
+            willChange: 'transform'
+          }}
+        >
           {[...Array(8)].map((_, i) => (
             <path
               key={i}
@@ -146,10 +153,6 @@ export default function AmbientHudRings({
               strokeWidth={i === 3 ? 1.8 : 1.1}
               strokeOpacity={0.35 + (i * 0.07)}
               fill="none"
-              style={{
-                animation: `waveUndulate 8s ease-in-out infinite alternate`,
-                animationDelay: `${i * 0.35}s`
-              }}
             />
           ))}
         </svg>
@@ -168,8 +171,8 @@ export default function AmbientHudRings({
           userSelect: 'none',
           zIndex: 0,
           overflow: 'visible',
-          transition: 'opacity 350ms ease, filter 350ms ease',
-          opacity: isDark ? 0.20 : 0.10,
+          transition: 'opacity 350ms ease',
+          opacity: isDark ? 0.20 : 0.06,
           ...style
         }}
         aria-hidden="true"
@@ -260,10 +263,12 @@ export default function AmbientHudRings({
           animation: hudSpinCW 16s linear infinite;
         }
 
+        /* No filter / mix-blend-mode here on purpose: on a parent of spinning
+           layers they force the browser to re-render the whole 1000px+ area on
+           every frame, which made every page feel laggy. Without them the
+           rotation runs on the GPU compositor only. */
         .ambient-hud-container {
           display: block !important;
-          mix-blend-mode: screen;
-          filter: drop-shadow(0 0 18px rgba(7, 152, 212, 0.22));
         }
 
         @media (max-width: 768px) {

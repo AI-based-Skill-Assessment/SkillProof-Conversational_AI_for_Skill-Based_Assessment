@@ -664,7 +664,7 @@ export default function BiometricCheckPage() {
                   top: 12,
                   right: 12,
                   background: 'var(--error)',
-                  color: 'white',
+                  color: 'var(--text-on-fill)',
                   padding: '4px 10px',
                   borderRadius: 12,
                   fontSize: 12,

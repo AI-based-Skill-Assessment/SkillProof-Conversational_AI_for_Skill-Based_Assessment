@@ -190,7 +190,7 @@
   height: 20px;
   border-radius: var(--radius-full);
   background: var(--primary);
-  color: white;
+  color: var(--text-on-fill);
   font-size: 10px;
   font-weight: var(--font-bold);
   display: flex;

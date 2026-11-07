@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ROUTES from './core/routes';
 import ProtectedRoute, { GuestRoute } from './core/auth/ProtectedRoute';
@@ -8,66 +9,69 @@ import UserLayout from './layouts/UserLayout';
 import OrganisationLayout from './layouts/OrganisationLayout';
 import AdminLayout from './layouts/AdminLayout';
 
+// Pages are loaded on demand (code-splitting) so the first load only downloads
+// the page being opened, not all three portals.
+
 // ── Pages: Public ────────────────────────────────────────────────────────────
-import LandingPage from './pages/public/LandingPage';
-import OrganizationLandingPage from './pages/public/OrganizationLandingPage';
-import HowItWorks from './pages/public/HowItWorks';
-import Security from './pages/public/Security';
-import PublicReportVerify from './pages/public/PublicReportVerify';
-import PublicCredentialVerify from './pages/public/PublicCredentialVerify';
-import LoadingDemosPage from './pages/public/LoadingDemosPage';
-import AmbientEffectsDemoPage from './pages/public/AmbientEffectsDemoPage';
+const LandingPage = lazy(() => import('./pages/public/LandingPage'));
+const OrganizationLandingPage = lazy(() => import('./pages/public/OrganizationLandingPage'));
+const HowItWorks = lazy(() => import('./pages/public/HowItWorks'));
+const Security = lazy(() => import('./pages/public/Security'));
+const PublicReportVerify = lazy(() => import('./pages/public/PublicReportVerify'));
+const PublicCredentialVerify = lazy(() => import('./pages/public/PublicCredentialVerify'));
+const LoadingDemosPage = lazy(() => import('./pages/public/LoadingDemosPage'));
+const AmbientEffectsDemoPage = lazy(() => import('./pages/public/AmbientEffectsDemoPage'));
 
 // ── Pages: Candidate / User Portal ───────────────────────────────────────────
-import UserSignIn from './pages/user/SignIn';
-import UserSignUp from './pages/user/SignUp';
-import UserForgotPassword from './pages/user/ForgotPassword';
-import UserAccountTypeSetup from './pages/user/AccountTypeSetup';
-import UserFaceRegistration from './pages/user/FaceRegistration';
-import UserVoiceRegistration from './pages/user/VoiceRegistration';
-import UserDashboard from './pages/user/Dashboard';
-import UserNewAssessment from './pages/user/NewAssessment';
-import UserCertificateAssessment from './pages/user/CertificateAssessment';
-import UserSkillAssessment from './pages/user/SkillAssessment';
-import UserAssessmentReview from './pages/user/AssessmentReview';
-import UserInterviewCheck from './pages/user/InterviewCheck';
-import BiometricCheckPage from './pages/user/BiometricCheckPage';
-import UserInterviewSession from './pages/user/InterviewSession';
-import UserInterviewProcessing from './pages/user/InterviewProcessing';
-import UserReportsList from './pages/user/ReportsList';
-import UserReportDetail from './pages/user/ReportDetail';
-import UserCertificates from './pages/user/Certificates';
-import UserOrganizations from './pages/user/Organizations';
-import UserProfile from './pages/user/Profile';
-import UserSettings from './pages/user/Settings';
-import UserNotifications from './pages/user/Notifications';
+const UserSignIn = lazy(() => import('./pages/user/SignIn'));
+const UserSignUp = lazy(() => import('./pages/user/SignUp'));
+const UserForgotPassword = lazy(() => import('./pages/user/ForgotPassword'));
+const UserAccountTypeSetup = lazy(() => import('./pages/user/AccountTypeSetup'));
+const UserFaceRegistration = lazy(() => import('./pages/user/FaceRegistration'));
+const UserVoiceRegistration = lazy(() => import('./pages/user/VoiceRegistration'));
+const UserDashboard = lazy(() => import('./pages/user/Dashboard'));
+const UserNewAssessment = lazy(() => import('./pages/user/NewAssessment'));
+const UserCertificateAssessment = lazy(() => import('./pages/user/CertificateAssessment'));
+const UserSkillAssessment = lazy(() => import('./pages/user/SkillAssessment'));
+const UserAssessmentReview = lazy(() => import('./pages/user/AssessmentReview'));
+const UserInterviewCheck = lazy(() => import('./pages/user/InterviewCheck'));
+const BiometricCheckPage = lazy(() => import('./pages/user/BiometricCheckPage'));
+const UserInterviewSession = lazy(() => import('./pages/user/InterviewSession'));
+const UserInterviewProcessing = lazy(() => import('./pages/user/InterviewProcessing'));
+const UserReportsList = lazy(() => import('./pages/user/ReportsList'));
+const UserReportDetail = lazy(() => import('./pages/user/ReportDetail'));
+const UserCertificates = lazy(() => import('./pages/user/Certificates'));
+const UserOrganizations = lazy(() => import('./pages/user/Organizations'));
+const UserProfile = lazy(() => import('./pages/user/Profile'));
+const UserSettings = lazy(() => import('./pages/user/Settings'));
+const UserNotifications = lazy(() => import('./pages/user/Notifications'));
 
 // ── Pages: Organisation Portal ───────────────────────────────────────────────
-import OrgSignIn from './pages/org/SignIn';
-import OrgSignUp from './pages/org/SignUp';
-import OrgPendingApproval from './pages/org/PendingApproval';
-import OrgGoogleOnboard from './pages/org/GoogleOnboard';
-import OrgDashboard from './pages/org/Dashboard';
-import OrgCandidates from './pages/org/Candidates';
-import OrgCandidateDetail from './pages/org/CandidateDetail';
-import OrgReports from './pages/org/Reports';
-import OrgQRVerification from './pages/org/QRVerification';
-import OrgAnalytics from './pages/org/Analytics';
-import OrgProfile from './pages/org/Profile';
-import OrgSettings from './pages/org/Settings';
+const OrgSignIn = lazy(() => import('./pages/org/SignIn'));
+const OrgSignUp = lazy(() => import('./pages/org/SignUp'));
+const OrgPendingApproval = lazy(() => import('./pages/org/PendingApproval'));
+const OrgGoogleOnboard = lazy(() => import('./pages/org/GoogleOnboard'));
+const OrgDashboard = lazy(() => import('./pages/org/Dashboard'));
+const OrgCandidates = lazy(() => import('./pages/org/Candidates'));
+const OrgCandidateDetail = lazy(() => import('./pages/org/CandidateDetail'));
+const OrgReports = lazy(() => import('./pages/org/Reports'));
+const OrgQRVerification = lazy(() => import('./pages/org/QRVerification'));
+const OrgAnalytics = lazy(() => import('./pages/org/Analytics'));
+const OrgProfile = lazy(() => import('./pages/org/Profile'));
+const OrgSettings = lazy(() => import('./pages/org/Settings'));
 
 // ── Pages: Admin Portal ──────────────────────────────────────────────────────
-import AdminLogin from './pages/admin/Login';
-import AdminTwoFactorVerify from './pages/admin/TwoFactorVerify';
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminOrgsList from './pages/admin/OrganizationsList';
-import AdminOrgCreate from './pages/admin/OrganizationCreate';
-import AdminOrgDetail from './pages/admin/OrganizationDetail';
-import AdminOrgEdit from './pages/admin/OrganizationEdit';
-import AdminUsers from './pages/admin/Users';
-import AdminAssessments from './pages/admin/Assessments';
-import AdminActivity from './pages/admin/Activity';
-import AdminSettings from './pages/admin/Settings';
+const AdminLogin = lazy(() => import('./pages/admin/Login'));
+const AdminTwoFactorVerify = lazy(() => import('./pages/admin/TwoFactorVerify'));
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminOrgsList = lazy(() => import('./pages/admin/OrganizationsList'));
+const AdminOrgCreate = lazy(() => import('./pages/admin/OrganizationCreate'));
+const AdminOrgDetail = lazy(() => import('./pages/admin/OrganizationDetail'));
+const AdminOrgEdit = lazy(() => import('./pages/admin/OrganizationEdit'));
+const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminAssessments = lazy(() => import('./pages/admin/Assessments'));
+const AdminActivity = lazy(() => import('./pages/admin/Activity'));
+const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 
 import NetworkStatusFallback from './components/common/NetworkStatusFallback';
 import CursorSpark from './components/common/CursorSpark';
@@ -83,6 +87,7 @@ export default function App() {
       <CommandPalette />
       <CursorSpark />
       <NetworkStatusFallback />
+      <Suspense fallback={<div className="route-loading" aria-busy="true" />}>
       <Routes>
         {/* ── 1. Public Marketing Routes & QR Audit Verification ──────────────── */}
         <Route path="/verify/:id" element={<PublicReportVerify />} />
@@ -247,6 +252,7 @@ export default function App() {
         {/* ── 6. Fallback Redirect ────────────────────────────────────────────── */}
         <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

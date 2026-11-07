@@ -239,3 +239,8 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Shown for a moment while a page's code is downloaded (lazy-loaded routes) */
+.route-loading {
+  min-height: 40vh;
+}
