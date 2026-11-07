@@ -145,7 +145,13 @@ async def realtime_interview_ws(
             await db.commit()
 
         candidate_name = session.candidate_name or "Candidate"
-        skills = session.extracted_skills or ["Python", "General Engineering"]
+        # Fall back to the declared role/skill (e.g. "frontend") rather than unrelated defaults
+        _declared = (session.extracted_role or "").strip()
+        skills = (
+            session.extracted_skills
+            or ([_declared.title()] if _declared and _declared.lower() not in ("candidate", "software developer") else None)
+            or ["General Software Development"]
+        )
         cand_role = session.extracted_role or ""
         cand_company = session.extracted_company or ""
 

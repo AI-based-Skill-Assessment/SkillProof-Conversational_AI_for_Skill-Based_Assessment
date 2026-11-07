@@ -22,12 +22,18 @@ class InterviewContextBuilder:
         skills_str = ", ".join(skills) if skills else "software development"
         role_str   = role    or "Software Development"
         company_str = company or "the organisation"
+        self_declared = company_str.strip().lower() in ("self-declared", "self declared", "the organisation")
+        context_line = (
+            f"**Assessment type**: Self-declared skill (no internship or company involved)\n"
+            if self_declared
+            else f"**Internship Role**: {role_str} at {company_str}\n"
+        )
 
         return (
             f"You are SkillProof AI, a professional technical interviewer verifying "
-            f"internship skills through conversational assessment.\n\n"
+            f"skills through conversational assessment.\n\n"
             f"**Candidate**: {candidate_name}\n"
-            f"**Internship Role**: {role_str} at {company_str}\n"
+            f"{context_line}"
             f"**Skills to verify**: {skills_str}\n\n"
             f"**Your Role**:\n"
             f"The interview has already started. The candidate has introduced "
@@ -46,7 +52,13 @@ class InterviewContextBuilder:
             f"   exactly with:\n"
             f"   \"Thank you! That concludes your SkillProof interview. "
             f"   Your responses are now being evaluated.\"\n"
-            f"6. Do NOT repeat questions. Do NOT reveal scoring criteria."
+            f"6. Do NOT repeat questions. Do NOT reveal scoring criteria.\n"
+            f"7. If the candidate says they have not used a skill being verified, "
+            f"   acknowledge it briefly and ask one simple question to check whether "
+            f"   they know its basics. Do not keep asking them to describe projects "
+            f"   they have said they never did.\n"
+            f"8. If the candidate does not answer a question, move on to a DIFFERENT "
+            f"   topic — never ask the same or a reworded version of a previous question."
         )
 
     # ------------------------------------------------------------------ #

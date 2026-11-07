@@ -289,7 +289,18 @@ class IngestionService:
         """
         # Extract and normalize skills
         skills = extract_skills_from_text(skill_text)
-        
+
+        # If nothing matched the vocabulary (e.g. "frontend"), keep what the
+        # candidate actually typed instead of leaving the list empty — otherwise
+        # the interview falls back to unrelated default skills.
+        if not skills and skill_text:
+            import re as _re
+            skills = [
+                s.strip().title()
+                for s in _re.split(r"[,;/\n]+", skill_text)
+                if s.strip()
+            ][:10]
+
         # Save state to session
         update_data = VerificationSessionUpdate(
             extracted_company="Self-Declared",

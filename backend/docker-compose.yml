@@ -39,6 +39,10 @@ services:
 
   # ── 3. SkillProof FastAPI Backend Service ──────────────────────────────────
   api:
+    # Opt-in only: `docker compose up` starts just db + redis.
+    # Run the backend locally with run_backend.bat, or use
+    # `docker compose --profile full up` for the full Docker stack.
+    profiles: ["full"]
     build:
       context: .
       dockerfile: Dockerfile

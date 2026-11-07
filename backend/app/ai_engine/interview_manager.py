@@ -69,6 +69,15 @@ class InterviewManager:
 
     @staticmethod
     def _q2_text(role: str, company: str) -> str:
+        # Self-declared skill assessments have no real internship/company,
+        # so don't ask about "your python internship at Self-Declared".
+        if not company or company.strip().lower() in ("self-declared", "self declared", "the organisation"):
+            skill_str = role or "the skill you are being assessed on"
+            return (
+                f"Great, thank you! This assessment is for {skill_str}. "
+                f"Could you walk me through a project or task where you used {skill_str}? "
+                f"What exactly did you build, and what was your part in it?"
+            )
         role_str    = role    or "your internship role"
         company_str = company or "your organisation"
         return (

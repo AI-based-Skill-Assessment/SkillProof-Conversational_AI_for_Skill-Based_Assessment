@@ -38,7 +38,12 @@ async def trigger_score_calculation(
             detail=f"Session {session_id} not found."
         )
 
-    skills = session.extracted_skills or ["General Software Engineering"]
+    _declared = (session.extracted_role or "").strip()
+    skills = (
+        session.extracted_skills
+        or ([_declared.title()] if _declared and _declared.lower() not in ("candidate", "software developer") else None)
+        or ["General Software Engineering"]
+    )
 
     # Retrieve history from Redis or DB
     history = await interview_manager.get_history(session_id)

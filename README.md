@@ -464,7 +464,7 @@ To deploy the entire stack via Docker Compose:
 
 ```bash
 # Build and start all services (DB + Redis + Backend)
-docker compose up -d --build
+docker compose --profile full up -d --build
 
 # View logs
 docker compose logs -f api
