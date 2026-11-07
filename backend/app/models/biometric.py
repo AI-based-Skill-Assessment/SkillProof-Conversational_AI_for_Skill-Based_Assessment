@@ -55,6 +55,7 @@ class BiometricProfile(Base):
     window_blur_count       = Column(Integer, nullable=False, default=0)
     copy_paste_attempts     = Column(Integer, nullable=False, default=0)
     secondary_speaker_count = Column(Integer, nullable=False, default=0)
+    multi_face_count        = Column(Integer, nullable=False, default=0)   # another person on camera
     integrity_score         = Column(Float, nullable=False, default=100.0)   # 0.0 - 100.0
     proctoring_timeline     = Column(JSON, nullable=True, default=list)      # List[Dict] with event log
 

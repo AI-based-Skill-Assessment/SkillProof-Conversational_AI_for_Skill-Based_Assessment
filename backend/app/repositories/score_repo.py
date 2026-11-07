@@ -61,6 +61,7 @@ async def bulk_create_scores(
     for s_in in scores_in:
         score = SkillScoreResult(
             session_id=s_in.session_id,
+            skill_name=(s_in.skill_name or None) and s_in.skill_name[:255],
             specificity_score=s_in.specificity_score,
             depth_score=s_in.depth_score,
             consistency_score=s_in.consistency_score,

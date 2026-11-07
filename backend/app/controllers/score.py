@@ -8,7 +8,7 @@ from app.security.deps import get_current_user_optional, ensure_session_access
 from app.models.user import User
 from app.services.report_service import ReportService
 from app.repositories import session_repo, score_repo
-from app.ai_engine.interview_manager import InterviewManager
+from app.ai_engine.interview_manager import InterviewManager, ScoringUnavailable
 from app.schemas.score import SkillScoreCreate
 
 router = APIRouter()
@@ -19,25 +19,51 @@ interview_manager = InterviewManager()
 @router.post("/score/{session_id}")
 async def trigger_score_calculation(
     session_id: UUID,
+    force: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
-    Triggers scoring and evaluation for an interview session.
-    Parses transcript, runs LLM evaluation (or fallback), saves scores to DB,
-    sets session status to 'scored', and returns the compiled report.
-    Only the session's owner can (re)score an owned session.
+    Scores an interview session (the ONLY place scoring happens) and returns
+    the compiled report. Only the session's owner can score an owned session.
+
+    - Already scored: returns the existing report unchanged. Pass ?force=true to
+      deliberately re-score.
+    - AI scoring temporarily unavailable (e.g. Groq rate limit after retries):
+      returns 503 and saves nothing, so the client can simply try again. A fake
+      grade is never stored.
+
     GET /score/{id} stays public so the QR / public report verification page works.
     """
     await ensure_session_access(db, session_id, current_user)
 
     session = await session_repo.get_session(db, session_id)
     if not session:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Session {session_id} not found.")
+
+    already_scored = getattr(session.status, "value", session.status) == "scored" and bool(session.scores)
+    if already_scored and not force:
+        return await _report_or_404(db, session_id)
+
+    try:
+        await score_session(db, session)
+    except ScoringUnavailable as e:
+        print(f"[Score Endpoint] Scoring unavailable for {session_id}: {e}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Session {session_id} not found."
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI scoring is busy right now. Your answers are saved; please try again in a minute.",
         )
 
+    return await _report_or_404(db, session_id)
+
+
+async def score_session(db: AsyncSession, session) -> None:
+    """
+    Run the AI evaluation for a session and save per-skill scores, strengths,
+    improvements and per-answer feedback. Raises ScoringUnavailable (saving
+    nothing) if the AI could not score it.
+    """
+    session_id = session.id
     _declared = (session.extracted_role or "").strip()
     skills = (
         session.extracted_skills
@@ -45,15 +71,14 @@ async def trigger_score_calculation(
         or ["General Software Engineering"]
     )
 
-    # Retrieve history from Redis or DB
     history = await interview_manager.get_history(session_id)
     if not history and session.interview and session.interview.transcript:
         history = session.interview.transcript
 
-    user_turns = [m for m in (history or []) if m.get("role") == "user" and m.get("content", "").strip()]
+    user_turns = [m for m in (history or []) if m.get("role") == "user" and str(m.get("content", "")).strip()]
 
-    # Always recalculate scores when POST /score/{session_id} is called
     if not user_turns:
+        # Nothing was answered: a zero score is the honest result, no AI needed
         evaluation = {
             "scores": [
                 {
@@ -63,74 +88,82 @@ async def trigger_score_calculation(
                     "consistency_score": 0.0,
                     "overall_skill_score": 0.0,
                     "verdict": "suspicious",
-                    "llm_reasoning": "Assessment concluded early by candidate without submitting answers to technical questions."
+                    "llm_reasoning": "Assessment concluded early by candidate without submitting answers to technical questions.",
                 }
                 for skill in skills
             ]
         }
     else:
-        try:
-            evaluation = await interview_manager.evaluate_interview(session_id, skills, history=history)
-        except Exception as eval_err:
-            print(f"[Score Endpoint] LLM evaluation warning: {eval_err}")
-            evaluation = {
-                "scores": [
-                    {
-                        "skill_name": skill,
-                        "specificity_score": 60.0,
-                        "depth_score": 60.0,
-                        "consistency_score": 60.0,
-                        "overall_skill_score": 60.0,
-                        "verdict": "verified",
-                        "llm_reasoning": "Technical evaluation completed based on candidate interview responses."
-                    }
-                    for skill in skills
-                ]
-            }
+        evaluation = await interview_manager.evaluate_interview(session_id, skills, history=history)
+        if not evaluation.get("scores"):
+            raise ScoringUnavailable("No scores were produced.")
 
-    try:
-        db.expire(session, ["scores"])
-        await score_repo.delete_scores_by_session(db, session_id)
-        scores_in = []
-        for s in evaluation.get("scores", []):
-            scores_in.append(
-                SkillScoreCreate(
-                    session_id=session_id,
-                    specificity_score=float(s.get("specificity_score", 0.0)),
-                    depth_score=float(s.get("depth_score", 0.0)),
-                    consistency_score=float(s.get("consistency_score", 0.0)),
-                    overall_skill_score=float(s.get("overall_skill_score", 0.0)),
-                    verdict=s.get("verdict", "suspicious" if not user_turns else "verified"),
-                    llm_reasoning=s.get("llm_reasoning", "Completed technical assessment.")
-                )
+    db.expire(session, ["scores"])
+    await score_repo.delete_scores_by_session(db, session_id)
+    await score_repo.bulk_create_scores(db, [
+        SkillScoreCreate(
+            session_id=session_id,
+            skill_name=s.get("skill_name"),
+            specificity_score=float(s.get("specificity_score", 0.0)),
+            depth_score=float(s.get("depth_score", 0.0)),
+            consistency_score=float(s.get("consistency_score", 0.0)),
+            overall_skill_score=float(s.get("overall_skill_score", 0.0)),
+            verdict=s.get("verdict", "suspicious"),
+            llm_reasoning=s.get("llm_reasoning", "Completed technical assessment."),
+        )
+        for s in evaluation["scores"]
+    ])
+
+    int_obj = await session_repo.get_interview_session(db, session_id)
+    if int_obj:
+        int_obj.skill_context = {
+            "skills": skills,
+            "strengths": evaluation.get("strengths", []),
+            "improvements": evaluation.get("improvements", []),
+            "answer_feedback": evaluation.get("answer_feedback", []),
+            "simulated": bool(evaluation.get("simulated")),
+        }
+        db.add(int_obj)
+
+    await session_repo.update_session_status(db, session_id, "scored")
+    await db.commit()
+
+    # Email notifications (background; never affects scoring)
+    if user_turns and not evaluation.get("simulated"):
+        try:
+            await _notify_scored(db, session, skills, evaluation["scores"])
+        except Exception as mail_err:
+            print(f"[Score] Notification skipped: {mail_err}")
+
+
+async def _notify_scored(db: AsyncSession, session, skills, scores) -> None:
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    from app.models.drive import PlacementDrive
+    from app.services import email_service
+
+    numeric = [float(s.get("overall_skill_score", 0.0)) for s in scores]
+    avg = round(sum(numeric) / len(numeric), 1) if numeric else None
+
+    email_service.notify_results_ready(session.candidate_email, session.candidate_name, session.id, skills, avg)
+
+    drive_id = getattr(session, "drive_id", None)
+    if drive_id:
+        res = await db.execute(
+            select(PlacementDrive).where(PlacementDrive.id == drive_id).options(selectinload(PlacementDrive.organisation))
+        )
+        drive = res.scalar_one_or_none()
+        if drive and drive.organisation:
+            email_service.notify_drive_completion(
+                drive.organisation.email, drive.organisation.name, drive.id, drive.title,
+                session.candidate_name, avg,
             )
 
-        if scores_in:
-            await score_repo.bulk_create_scores(db, scores_in)
 
-        # Store AI evaluation strengths and improvements in interview session context
-        int_obj = await session_repo.get_interview_session(db, session_id)
-        if int_obj:
-            feedback_payload = {
-                "skills": skills,
-                "strengths": evaluation.get("strengths", []),
-                "improvements": evaluation.get("improvements", [])
-            }
-            int_obj.skill_context = feedback_payload
-            db.add(int_obj)
-
-        await session_repo.update_session_status(db, session_id, "scored")
-        await db.commit()
-    except Exception as db_err:
-        print(f"[Score Endpoint] DB score saving error: {db_err}")
-        await db.rollback()
-
+async def _report_or_404(db: AsyncSession, session_id: UUID):
     report = await report_service.generate_verdict(db, session_id)
     if "error" in report:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=report["error"]
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=report["error"])
     return report
 
 

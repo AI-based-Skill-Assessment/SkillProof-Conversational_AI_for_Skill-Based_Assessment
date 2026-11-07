@@ -34,6 +34,10 @@ COLUMNS_TO_ENSURE = [
     # Placement drives (placement_drives table itself is created by create_all above)
     ("verification_sessions", "drive_id", "UUID REFERENCES placement_drives(id) ON DELETE SET NULL"),
     ("verification_sessions", "drive_decision", "VARCHAR(20)"),
+    # Per-skill scoring
+    ("skill_score_results", "skill_name", "VARCHAR(255)"),
+    # In-browser face proctoring
+    ("biometric_profiles", "multi_face_count", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 INDEXES_TO_ENSURE = [

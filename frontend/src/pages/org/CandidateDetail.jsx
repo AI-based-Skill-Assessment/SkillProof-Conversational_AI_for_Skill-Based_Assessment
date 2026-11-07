@@ -12,6 +12,7 @@ import ROUTES from '../../core/routes';
 import client from '../../core/api/client';
 
 const PROCTORING_ROWS = [
+  ['multi_face_count', 'Another person on camera'],
   ['tab_switch_count', 'Tab switches'],
   ['window_blur_count', 'Left the interview window'],
   ['copy_paste_attempts', 'Copy / paste attempts'],
@@ -209,21 +210,21 @@ export default function CandidateDetail() {
                     {a.score != null ? `${formatScore(a.score)}%` : '—'}
                   </span>
                 </div>
-                {a.skill_scores?.[0] && (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Technical depth</span>
-                      <span>{formatScore(a.skill_scores[0].depth)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Specificity</span>
-                      <span>{formatScore(a.skill_scores[0].specificity)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Consistency</span>
-                      <span>{formatScore(a.skill_scores[0].consistency)}</span>
-                    </div>
-                  </>
+                {a.skill_scores?.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                    <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>By skill</span>
+                    {a.skill_scores.map((sc, i) => (
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ fontWeight: 600 }}>{sc.skill || a.skills?.[i] || `Skill ${i + 1}`}</span>
+                          <span style={{ fontWeight: 700, color: scoreColor(sc.overall) }}>{formatScore(sc.overall)}%</span>
+                        </div>
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                          Depth {formatScore(sc.depth)} · Specificity {formatScore(sc.specificity)} · Consistency {formatScore(sc.consistency)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
               <ProctoringSummary integrity={a.integrity} />

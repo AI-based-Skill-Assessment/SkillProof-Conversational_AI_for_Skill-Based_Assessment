@@ -23,6 +23,9 @@ class SkillScoreResult(Base):
         nullable=False
     )
 
+    # Which skill this row scores (one row per assessed skill)
+    skill_name = Column(String(255), nullable=True)
+
     # Skill-level scores (0.0 – 100.0 scale each)
     specificity_score = Column(Float, nullable=True)     # How specific/detailed the answers were
     depth_score = Column(Float, nullable=True)           # Technical depth demonstrated

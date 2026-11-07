@@ -6,7 +6,8 @@ import { apiErrorMessage } from '../../utils/apiError';
 import { Card, CardHeader, CardTitle, CardBody } from '../../components/common/Card';
 import StatusBadge from '../../components/common/StatusBadge';
 import QRDisplay from '../../components/common/QRDisplay';
-import { formatScore, scoreColor, scoreLabel } from '../../utils/formatScore';
+import { formatScore, scoreColor, scoreLabel, verdictVariant } from '../../utils/formatScore';
+import { verdictLabel } from '../../utils/assessmentLabels';
 import { formatDate } from '../../utils/formatDate';
 import Button from '../../components/common/Button';
 import Logo from '../../components/common/Logo';
@@ -48,6 +49,12 @@ export default function ReportDetail() {
         // Fetch verification session details
         const sessionRes = await client.get(`/verify/${id}`);
         const s = sessionRes.data;
+
+        // Interview finished but not scored yet (e.g. the AI was busy): finish scoring first
+        if (s.status === 'interview_done') {
+          navigate(ROUTES.USER.INTERVIEW_PROCESSING(id), { replace: true });
+          return;
+        }
 
         if (scoreData || s) {
           const sc = (s.scores && s.scores[0]) || {};
@@ -105,7 +112,18 @@ export default function ReportDetail() {
             strengths: scoreData?.strengths || (s.interview?.skill_context?.strengths) || (isZeroAnswer ? ['Source document ingested'] : ['Technical Skill Proficiency']),
             improvements: scoreData?.improvements || (s.interview?.skill_context?.improvements) || (isZeroAnswer ? ['Complete technical interview drills'] : ['Advanced Optimization']),
             transcript: transcriptList,
-            qr_verification_id: verificationHash
+            qr_verification_id: verificationHash,
+            skill_breakdown: isZeroAnswer ? [] : detailed.map(d => ({
+              name: d.skill_name,
+              overall: d.overall_skill_score,
+              depth: d.depth_score,
+              specificity: d.specificity_score,
+              consistency: d.consistency_score,
+              verdict: (d.verdict || '').toLowerCase(),
+              reasoning: d.llm_reasoning,
+            })),
+            answer_feedback: scoreData?.answer_feedback || s.interview?.skill_context?.answer_feedback || [],
+            simulated: Boolean(s.interview?.skill_context?.simulated)
           });
           setIsDemo(false);
         } else {
@@ -127,7 +145,7 @@ export default function ReportDetail() {
     }
     const startTime = Date.now();
     loadReport();
-  }, [id]);
+  }, [id, navigate]);
 
   if (loading) {
     return (
@@ -276,8 +294,45 @@ export default function ReportDetail() {
             <CardHeader><CardTitle>AI Evaluation Summary</CardTitle></CardHeader>
             <CardBody>
               <p style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.6 }}>{report.ai_summary}</p>
+              {report.simulated && (
+                <div style={{ marginTop: 12 }}>
+                  <Alert type="warning">
+                    This score was <strong>simulated</strong> because the AI evaluator was not configured. It is based only on answer length and is not a real assessment.
+                  </Alert>
+                </div>
+              )}
             </CardBody>
           </Card>
+
+          {report.skill_breakdown.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle>Score by skill</CardTitle></CardHeader>
+              <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                {report.skill_breakdown.map((sk, i) => (
+                  <div key={(sk.name || 'skill') + i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{sk.name || 'Skill'}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontWeight: 800, color: scoreColor(sk.overall), fontVariantNumeric: 'tabular-nums' }}>{formatScore(sk.overall)}%</span>
+                        {sk.verdict && <StatusBadge variant={verdictVariant(sk.verdict)}>{verdictLabel(sk.verdict)}</StatusBadge>}
+                      </span>
+                    </div>
+                    <div style={{ height: 8, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }} aria-hidden="true">
+                      <div style={{ width: Math.max(0, Math.min(100, sk.overall || 0)) + '%', height: '100%', background: scoreColor(sk.overall), borderRadius: 4 }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-secondary)' }}>
+                      <span>Depth <strong style={{ color: 'var(--text-primary)' }}>{formatScore(sk.depth)}</strong></span>
+                      <span>Specificity <strong style={{ color: 'var(--text-primary)' }}>{formatScore(sk.specificity)}</strong></span>
+                      <span>Consistency <strong style={{ color: 'var(--text-primary)' }}>{formatScore(sk.consistency)}</strong></span>
+                    </div>
+                    {report.skill_breakdown.length > 1 && sk.reasoning && (
+                      <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{sk.reasoning}</p>
+                    )}
+                  </div>
+                ))}
+              </CardBody>
+            </Card>
+          )}
 
           {/* Detailed Skill Breakdown: Technical Strengths & Growth Areas */}
           <div className="grid-2 report-print-grid-2">
@@ -299,6 +354,44 @@ export default function ReportDetail() {
               </CardBody>
             </Card>
           </div>
+
+          {/* Answer-by-answer feedback — screen only */}
+          {report.answer_feedback.length > 0 && (
+            <div className="report-non-printable">
+              <Card>
+                <CardHeader><CardTitle>Feedback on each answer</CardTitle></CardHeader>
+                <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {report.answer_feedback.map(fb => (
+                    <div key={fb.answer_number} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>
+                          <span style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>Q{fb.answer_number}. </span>{fb.question}
+                        </div>
+                        <StatusBadge variant={fb.rating === 'strong' ? 'success' : fb.rating === 'weak' ? 'error' : 'warning'}>
+                          {fb.rating === 'strong' ? 'Strong' : fb.rating === 'weak' ? 'Weak' : 'Partial'}
+                        </StatusBadge>
+                      </div>
+                      <details>
+                        <summary style={{ fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}>Your answer</summary>
+                        <p style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.6 }}>{fb.answer}</p>
+                      </details>
+                      {fb.feedback && <p style={{ fontSize: 14, margin: 0, lineHeight: 1.6 }}>{fb.feedback}</p>}
+                      {fb.strong_answer_points?.length > 0 && (
+                        <div style={{ background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)', padding: '10px 14px' }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+                            A strong answer would cover
+                          </div>
+                          <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {fb.strong_answer_points.map((pt, i) => <li key={i} style={{ fontSize: 13, lineHeight: 1.5 }}>{pt}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </CardBody>
+              </Card>
+            </div>
+          )}
 
           {/* Candidate Interview Q&A Transcript — screen only, omitted from single-page PDF */}
           <div className="report-non-printable">

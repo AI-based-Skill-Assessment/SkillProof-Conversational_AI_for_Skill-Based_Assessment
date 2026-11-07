@@ -1,6 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import client from '../../core/api/client';
+import Alert from '../../components/common/Alert';
+import Button from '../../components/common/Button';
+import { apiErrorMessage } from '../../utils/apiError';
 import { NeuralOrbitLoader } from '../../components/common/LoadingAnimations';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/portal.css';
@@ -17,30 +20,41 @@ export default function InterviewProcessing() {
   const navigate = useNavigate();
   const [progress, setProgress] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [scoreError, setScoreError] = useState('');
+  const [waitingLong, setWaitingLong] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const isScoredRef = useRef(false);
 
   useEffect(() => {
-    // 1. Kick off backend scoring in the background
-    async function triggerScoring() {
-      try {
-        await client.post(`/score/${id}`);
-        isScoredRef.current = true;
-      } catch (err) {
-        console.error('Scoring calculation triggered or already completed:', err);
-        isScoredRef.current = true;
-      }
-    }
-    triggerScoring();
+    let cancelled = false;
+    isScoredRef.current = false;
+    setScoreError('');
+    setWaitingLong(false);
+    setIsCompleted(false);
 
-    // 2. Smooth, unhurried progress timer (~6.5s total experience)
+    // 1. Score the interview. This is the only place scoring runs, and we
+    //    wait for the real result: it can take up to a minute when the AI
+    //    provider is rate-limited (the backend retries instead of guessing).
+    client.post(`/score/${id}`, null, { timeout: 180000 })
+      .then(() => { isScoredRef.current = true; })
+      .catch((err) => {
+        if (cancelled) return;
+        const busy = err?.response?.status === 503;
+        setScoreError(busy
+          ? (err.response.data?.detail || 'AI scoring is busy right now. Your answers are saved; please try again in a minute.')
+          : apiErrorMessage(err, 'your score'));
+      });
+
+    // 2. Progress animation: runs ~6s, then holds near the end until the
+    //    real score arrives, so the report never opens before it exists.
     const startTime = Date.now();
-    const TOTAL_DURATION = 6200; // 6.2 seconds for full animation cycle
+    const TOTAL_DURATION = 6200;
 
     const interval = setInterval(() => {
+      if (cancelled) return;
       const elapsed = Date.now() - startTime;
       const rawPct = Math.min(100, Math.floor((elapsed / TOTAL_DURATION) * 100));
 
-      // Natural ease-out pacing with a slight tensor calculation slowdown around 65-80%
       let smoothedPct;
       if (rawPct < 50) {
         smoothedPct = Math.floor(rawPct * 1.1);
@@ -49,22 +63,23 @@ export default function InterviewProcessing() {
       } else {
         smoothedPct = rawPct;
       }
-
       smoothedPct = Math.min(100, Math.max(0, smoothedPct));
+
+      if (!isScoredRef.current) {
+        smoothedPct = Math.min(smoothedPct, 92);
+        if (elapsed > 15000) setWaitingLong(true);
+      }
       setProgress(smoothedPct);
 
       if (smoothedPct >= 100) {
         clearInterval(interval);
         setIsCompleted(true);
-        // Brief 900ms pause at 100% so user registers full verification before redirect
-        setTimeout(() => {
-          navigate(ROUTES.USER.REPORT_DETAIL(id));
-        }, 900);
+        setTimeout(() => { if (!cancelled) navigate(ROUTES.USER.REPORT_DETAIL(id)); }, 900);
       }
     }, 50);
 
-    return () => clearInterval(interval);
-  }, [id, navigate]);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [id, navigate, attempt]);
 
   // Determine active stage index
   const currentStageIdx = progress >= 100
@@ -149,9 +164,21 @@ export default function InterviewProcessing() {
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
             {isCompleted
               ? 'Cryptographic report generated successfully. Redirecting...'
-              : 'SkillProof neural models are validating responses and calculating score matrix...'}
+              : waitingLong
+                ? 'The AI scoring service is busy. Waiting for a free slot (this can take up to a minute)...'
+                : 'SkillProof neural models are validating responses and calculating score matrix...'}
           </p>
         </div>
+
+        {scoreError && (
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left' }}>
+            <Alert type="warning">{scoreError}</Alert>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <Button onClick={() => setAttempt(a => a + 1)}>Try again</Button>
+              <Button variant="secondary" onClick={() => navigate(ROUTES.USER.REPORTS_LIST)}>Go to My Reports</Button>
+            </div>
+          </div>
+        )}
 
         {/* Glowing Progress Bar */}
         <div

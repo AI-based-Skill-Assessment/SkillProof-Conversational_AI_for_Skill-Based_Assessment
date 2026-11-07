@@ -40,7 +40,10 @@ class ReportService:
                 if overall < min_score:
                     min_score = overall
                 
-                skill_label = extracted_skills_list[idx] if idx < len(extracted_skills_list) else (extracted_skills_list[0] if extracted_skills_list else "Skill")
+                skill_label = getattr(s, "skill_name", None) or (
+                    extracted_skills_list[idx] if idx < len(extracted_skills_list)
+                    else (extracted_skills_list[0] if extracted_skills_list else "Skill")
+                )
                 scores_list.append({
                     "skill_name": skill_label,
                     "specificity_score": s.specificity_score,
@@ -81,6 +84,7 @@ class ReportService:
         # Dynamic strengths and growth areas based on real performance
         strengths = []
         improvements = []
+        answer_feedback = []
         
         # Check if AI evaluation generated dynamic strengths & improvements
         ctx = session.interview.skill_context if session.interview else None
@@ -89,6 +93,8 @@ class ReportService:
                 strengths = list(ctx.get("strengths"))
             if ctx.get("improvements"):
                 improvements = list(ctx.get("improvements"))
+            if isinstance(ctx.get("answer_feedback"), list):
+                answer_feedback = ctx.get("answer_feedback")
 
         if not strengths or not improvements:
             if user_turns_count == 0 or avg_score == 0.0:
@@ -117,6 +123,7 @@ class ReportService:
             "window_blur_count": getattr(profile, 'window_blur_count', 0) if profile else 0,
             "copy_paste_attempts": getattr(profile, 'copy_paste_attempts', 0) if profile else 0,
             "secondary_speaker_count": getattr(profile, 'secondary_speaker_count', 0) if profile else 0,
+            "multi_face_count": getattr(profile, 'multi_face_count', 0) if profile else 0,
             "gaze_violations": profile.gaze_violations if profile else 0,
             "camera_interruptions": profile.camera_interruptions if profile else 0,
             "proctoring_timeline": getattr(profile, 'proctoring_timeline', []) or [],
@@ -147,6 +154,7 @@ class ReportService:
             "verifiable_credential": verifiable_credential,
             "strengths": strengths,
             "improvements": improvements,
+            "answer_feedback": answer_feedback,
             "detailed_scores": scores_list,
             "transcript": session.interview.transcript if session.interview else []
         }

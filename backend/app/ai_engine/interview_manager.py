@@ -4,8 +4,12 @@ from typing import List, Dict, Tuple, Any, Optional
 from datetime import datetime
 
 from app.database import get_redis
-from app.ai_engine.groq_client import GroqClient
+from app.ai_engine.groq_client import GroqClient, GroqUnavailable
 from app.ai_engine.interview_context import InterviewContextBuilder
+
+
+class ScoringUnavailable(Exception):
+    """AI scoring could not be completed right now; nothing should be saved."""
 
 # Fixed question indices
 _Q1_INDEX = 0   # "Tell me about yourself"
@@ -234,6 +238,54 @@ class InterviewManager:
 
         return ai_response, is_complete
 
+    @staticmethod
+    def parse_answer_feedback(raw_items: Any, history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Turn the model's answer_feedback (keyed by answer number) into entries
+        holding the REAL question and answer from the transcript, so the report
+        never shows text the model invented or paraphrased.
+        """
+        # Pair each candidate answer with the AI message that came before it
+        pairs = []
+        last_question = ""
+        for turn in history or []:
+            if turn.get("role") == "assistant":
+                last_question = str(turn.get("content", ""))
+            elif turn.get("role") == "user":
+                pairs.append((last_question, str(turn.get("content", ""))))
+
+        def _text(v, limit):
+            return " ".join(str(v or "").split())[:limit]
+
+        out, seen = [], set()
+        for item in raw_items if isinstance(raw_items, list) else []:
+            if not isinstance(item, dict):
+                continue
+            try:
+                n = int(item.get("answer_number"))
+            except (TypeError, ValueError):
+                continue
+            if n < 1 or n > len(pairs) or n in seen:
+                continue
+            seen.add(n)
+            rating = str(item.get("rating", "")).lower()
+            if rating not in ("strong", "partial", "weak"):
+                rating = "partial"
+            points = item.get("strong_answer_points") or []
+            if isinstance(points, str):
+                points = [points]
+            question, answer = pairs[n - 1]
+            out.append({
+                "answer_number": n,
+                "question": _text(question, 1000),
+                "answer": _text(answer, 2000),
+                "rating": rating,
+                "feedback": _text(item.get("feedback"), 600),
+                "strong_answer_points": [_text(p, 240) for p in points if str(p).strip()][:5],
+            })
+        out.sort(key=lambda x: x["answer_number"])
+        return out
+
     async def evaluate_interview(
         self, 
         session_id: UUID, 
@@ -269,7 +321,18 @@ class InterviewManager:
             {"role": "user", "content": scoring_prompt}
         ]
 
-        raw = await self.groq.chat_completion(scoring_messages)
+        # Low temperature: grading should be consistent, not creative.
+        # Larger token budget: per-answer feedback makes the JSON long, and a
+        # truncated reply can't be parsed.
+        # Retries ride out Groq's per-minute token limit. With a configured key,
+        # failures raise instead of falling back to simulated scores.
+        try:
+            raw = await self.groq.chat_completion(
+                scoring_messages, temperature=0.1, max_tokens=4000,
+                retries=4, allow_simulation=not self.groq.enabled,
+            )
+        except GroqUnavailable as e:
+            raise ScoringUnavailable(str(e)) from e
 
         # Robust JSON extraction from LLM response
         import re
@@ -293,30 +356,41 @@ class InterviewManager:
                     continue
                 skill_n = item.get("skill_name") or (active_skills[0] if active_skills else "General Skill")
                 
-                # Normalize scores if LLM outputs 0-5 or 0-10 scale
-                def norm_score(val):
+                # The prompt asks for 0-100. Don't "rescale" small numbers: a
+                # genuine 4/100 for a non-answer used to become 80 (4 x 20).
+                def norm_score(val, default):
                     try:
-                        v = float(val)
-                        if 0.0 < v <= 5.0:
-                            return round(v * 20.0, 1)
-                        elif 5.0 < v <= 10.0:
-                            return round(v * 10.0, 1)
-                        return round(max(0.0, min(100.0, v)), 1)
+                        return round(max(0.0, min(100.0, float(val))), 1)
                     except (ValueError, TypeError):
-                        return 70.0
+                        return default
 
-                spec = norm_score(item.get("specificity_score", 70.0))
-                depth = norm_score(item.get("depth_score", 70.0))
-                cons = norm_score(item.get("consistency_score", 75.0))
-                overall = norm_score(item.get("overall_skill_score", (spec + depth + cons) / 3.0))
+                # Missing numbers must not be filled with generous defaults
+                spec = norm_score(item.get("specificity_score"), None)
+                depth = norm_score(item.get("depth_score"), None)
+                cons = norm_score(item.get("consistency_score"), None)
+                present = [v for v in (spec, depth, cons) if v is not None]
+                overall = norm_score(item.get("overall_skill_score"),
+                                     round(sum(present) / len(present), 1) if present else None)
+                if overall is None:
+                    continue  # no usable score for this skill
+                spec = overall if spec is None else spec
+                depth = overall if depth is None else depth
+                cons = overall if cons is None else cons
 
-                v_raw = str(item.get("verdict", "verified")).lower()
-                if "suspicious" in v_raw or "moderate" in v_raw or "unverified" in v_raw:
-                    verdict_str = "suspicious"
-                elif "fraud" in v_raw or "fail" in v_raw:
+                # Match the model's skill name back to the assessed skill list
+                # (it sometimes adds punctuation or changes case)
+                clean = str(skill_n).strip().rstrip(".:;,").strip()
+                skill_n = next((s for s in active_skills if s.lower() == clean.lower()), clean or skill_n)
+
+                v_raw = str(item.get("verdict", "")).lower()
+                if "fraud" in v_raw or "fail" in v_raw:
                     verdict_str = "likely_fraudulent"
-                else:
+                elif "suspicious" in v_raw or "moderate" in v_raw or "unverified" in v_raw:
+                    verdict_str = "suspicious"
+                elif "verified" in v_raw:
                     verdict_str = "verified"
+                else:
+                    verdict_str = "suspicious"   # unreadable verdict: don't assume a pass
 
                 normalized_scores.append({
                     "skill_name": skill_n,
@@ -337,15 +411,25 @@ class InterviewManager:
 
             if normalized_scores:
                 res_dict = {"scores": normalized_scores}
+                feedback = self.parse_answer_feedback(parsed.get("answer_feedback"), history)
+                if feedback:
+                    res_dict["answer_feedback"] = feedback
                 if parsed_strengths:
                     res_dict["strengths"] = parsed_strengths
                 if parsed_improvements:
                     res_dict["improvements"] = parsed_improvements
+                if parsed.get("simulated"):
+                    res_dict["simulated"] = True
                 return res_dict
         except Exception as parse_err:
             print(f"[InterviewManager] LLM JSON parse warning: {parse_err}. Raw output was: {raw[:200]}")
 
-        # Dynamic fallback based on actual user answers length and quality
+        # Groq is configured but gave no usable scores: report that scoring is
+        # unavailable rather than inventing a grade from answer length.
+        if self.groq.enabled:
+            raise ScoringUnavailable("The AI returned no usable scores.")
+
+        # Offline demo mode only (no Groq key): length-based guess, clearly labelled
         user_words = " ".join([m.get("content", "") for m in history if m.get("role") == "user"]).split()
         word_count = len(user_words)
         base_score = min(88.0, max(45.0, 50.0 + (word_count * 0.8)))
@@ -369,11 +453,15 @@ class InterviewManager:
                     "depth_score": round(max(40.0, base_score - 4.0), 1),
                     "consistency_score": round(min(95.0, base_score + 6.0), 1),
                     "overall_skill_score": round(base_score, 1),
-                    "verdict": "verified" if base_score >= 60 else "suspicious",
-                    "llm_reasoning": f"Candidate demonstrated {skill} concepts through verbal interview responses ({word_count} spoken words provided)."
+                    "verdict": "suspicious",
+                    "llm_reasoning": (
+                        f"[SIMULATED SCORE - AI evaluation unavailable; based only on answer length] "
+                        f"{word_count} spoken words provided for {skill}."
+                    )
                 }
                 for skill in active_skills
             ],
             "strengths": fallback_strengths,
-            "improvements": fallback_improvements
+            "improvements": fallback_improvements,
+            "simulated": True,
         }

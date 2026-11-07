@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 # ── Shared ──────────────────────────────────────────────────────
 class SkillScoreBase(BaseModel):
+    skill_name: Optional[str] = None
     specificity_score: Optional[float] = None
     depth_score: Optional[float] = None
     consistency_score: Optional[float] = None

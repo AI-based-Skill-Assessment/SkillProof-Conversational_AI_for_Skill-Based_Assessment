@@ -9,6 +9,7 @@ import ThoughtLine from '../../components/common/ThoughtLine';
 import TechBackground from '../../components/common/TechBackground';
 import soundEffects from '../../core/audio/soundEffects';
 import ROUTES from '../../core/routes';
+import { createProctorState, observe, headPose, lookingAway, violationPayload } from '../../utils/faceProctor';
 import '../../styles/pages/portal.css';
 
 // ── Developer Flag: Toggle strict lockdown for debugging/console access ──
@@ -720,19 +721,22 @@ export default function InterviewSession() {
 
         const displaySize = { width: canvas.width, height: canvas.height };
 
-        if (timestamp - lastTrackTime > 30) { // Ultra-fast 30ms (33 FPS) real-time tracking loop
+        // ~5 checks per second. This used to run every 30 ms (33 FPS) with full
+        // face descriptors on every frame, which made the interview page lag.
+        if (timestamp - lastTrackTime > 200) {
           lastTrackTime = timestamp;
           try {
             // Enhanced inputSize 320 for backlit/shadowed resolution + scoreThreshold 0.15 for low-light resilience
             const trackOptions = new window.faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.15 });
-            const hasNets = window.faceapi.nets.faceRecognitionNet?.isLoaded;
+            // Landmarks are cheap and give head pose; the expensive identity
+            // descriptor is computed only in the 2.5 s identity check below.
+            const hasLandmarks = window.faceapi.nets.faceLandmark68TinyNet?.isLoaded;
 
             let detections = [];
-            if (hasNets) {
+            if (hasLandmarks) {
               detections = await window.faceapi
                 .detectAllFaces(video, trackOptions)
-                .withFaceLandmarks(true)
-                .withFaceDescriptors();
+                .withFaceLandmarks(true);
             } else {
               detections = await window.faceapi.detectAllFaces(video, trackOptions);
             }
@@ -742,6 +746,16 @@ export default function InterviewSession() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             setDetectedFacesCount(detections.length);
+
+            // In-browser proctoring: record sustained multi-face / no-face /
+            // looking-away incidents (see utils/faceProctor.js)
+            if (isInterviewStartedRef.current) {
+              const away = detections.length === 1
+                ? lookingAway(headPose(detections[0]?.landmarks?.positions))
+                : null;
+              const events = observe(proctorStateRef.current, { faces: detections.length, away }, Date.now());
+              events.forEach(reportFaceViolation);
+            }
 
             if (resizedDetections.length === 1) {
               const det = resizedDetections[0];
@@ -874,9 +888,30 @@ export default function InterviewSession() {
     };
   }, [modelsLoaded, isCameraReady, id]);
 
+  // ── In-browser face proctoring: record a sustained incident ──────────────
+  const proctorStateRef = useRef(createProctorState());
+  async function reportFaceViolation(event) {
+    const messages = {
+      multi_face: 'Another person is visible on camera. This has been recorded.',
+      no_face: 'You left the camera view. Please stay in frame; this has been recorded.',
+      gaze: 'You looked away from the screen for a while. This has been recorded.',
+    };
+    toastRef.current?.warning('Proctoring alert', messages[event.type]);
+    if (event.type === 'gaze') setGazeCount(c => c + 1);
+    try {
+      const res = await client.post('/biometric/report-violation', violationPayload(id, event));
+      if (typeof res.data?.integrity_score === 'number') setIntegrityScore(res.data.integrity_score);
+    } catch (err) {
+      console.warn('Could not record proctoring event:', err);
+    }
+  }
+
   // ── Helper: Event-Driven Vision AI Proctoring Check ───────────────────────
   const lastVisionCheckTimeRef = useRef(0);
+  // Set once the server says no vision model is configured: stop uploading frames
+  const visionDisabledRef = useRef(false);
   async function triggerVisionAICheck() {
+    if (visionDisabledRef.current) return;
     // Throttle checks to max 1 call per 5 seconds per candidate
     const now = Date.now();
     if (now - lastVisionCheckTimeRef.current < 5000) return;
@@ -897,6 +932,11 @@ export default function InterviewSession() {
         session_id: id,
         image_b64: imageB64
       });
+
+      if (visionRes.data?.vision_disabled) {
+        visionDisabledRef.current = true;
+        return;
+      }
 
       if (visionRes.data && visionRes.data.suspicious) {
         const aiReason = visionRes.data.reason || 'Suspicious activity detected by Groq Vision AI.';

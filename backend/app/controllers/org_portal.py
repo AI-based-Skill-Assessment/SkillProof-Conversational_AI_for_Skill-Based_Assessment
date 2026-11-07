@@ -69,6 +69,7 @@ def _summarise_session(s, profile) -> Dict[str, Any]:
             "face_mismatch_count": profile.face_mismatch_count or 0,
             "voice_mismatch_count": profile.voice_mismatch_count or 0,
             "secondary_speaker_count": profile.secondary_speaker_count or 0,
+            "multi_face_count": getattr(profile, "multi_face_count", 0) or 0,
             "face_verify_pass": profile.face_verify_pass or 0,
             "voice_verify_pass": profile.voice_verify_pass or 0,
             "face_duplicate_detected": bool(profile.face_duplicate_detected),
@@ -87,6 +88,7 @@ def _summarise_session(s, profile) -> Dict[str, Any]:
         "verdict": verdict,
         "skill_scores": [
             {
+                "skill": getattr(sc, "skill_name", None),
                 "overall": sc.overall_skill_score,
                 "depth": sc.depth_score,
                 "specificity": sc.specificity_score,

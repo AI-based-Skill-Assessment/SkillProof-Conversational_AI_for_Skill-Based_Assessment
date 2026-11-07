@@ -46,6 +46,18 @@ class Settings(BaseSettings):
     ADMIN_TOTP_SECRET: str = "JBSWY3DPEHPK3PXP"   # Default dev secret (use pyotp.random_base32())
     ADMIN_TOTP_ENABLED: bool = False
 
+    # Email notifications (any SMTP server: Gmail app password, Outlook, SendGrid, Mailtrap...)
+    # Leave SMTP_HOST empty to disable sending; emails are then only logged to the console.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    # "starttls" (port 587, most providers) | "ssl" (port 465) | "none" (local test servers like MailHog)
+    SMTP_SECURITY: str = "starttls"
+    EMAIL_FROM: str = "SkillProof <no-reply@skillproof.local>"
+    # Base URL of the frontend, used for links inside emails
+    FRONTEND_URL: str = "http://localhost:5173"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

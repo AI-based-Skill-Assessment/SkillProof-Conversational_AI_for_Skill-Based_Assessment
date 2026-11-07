@@ -395,9 +395,11 @@ async def record_violation(
         raise ValueError(f"No biometric profile for session {session_id}")
 
     if violation_type == "gaze":
-        profile.gaze_violations += 1
+        profile.gaze_violations = (profile.gaze_violations or 0) + 1
     elif violation_type == "camera":
-        profile.camera_interruptions += 1
+        profile.camera_interruptions = (profile.camera_interruptions or 0) + 1
+    elif violation_type == "multi_face":
+        profile.multi_face_count = (profile.multi_face_count or 0) + 1
 
     profile.fraud_flags += 1
 
@@ -424,6 +426,27 @@ async def increment_fraud_flag(db: AsyncSession, session_id: UUID) -> BiometricP
     await db.flush()
     await db.refresh(profile)
     return profile
+
+
+# Points deducted from 100 per recorded incident. One shared formula, used by
+# every endpoint that changes a counter, so the score can't disagree with itself.
+INTEGRITY_PENALTIES = {
+    "face_mismatch_count": 15.0,
+    "multi_face_count": 15.0,
+    "voice_mismatch_count": 12.0,
+    "tab_switch_count": 6.0,
+    "secondary_speaker_count": 6.0,
+    "copy_paste_attempts": 5.0,
+    "camera_interruptions": 4.0,
+    "window_blur_count": 3.0,
+    "gaze_violations": 2.0,
+}
+
+
+def recompute_integrity(profile: BiometricProfile) -> float:
+    deductions = sum((getattr(profile, field, 0) or 0) * pts for field, pts in INTEGRITY_PENALTIES.items())
+    profile.integrity_score = max(0.0, min(100.0, round(100.0 - deductions, 1)))
+    return profile.integrity_score
 
 
 def _update_fraud_status(profile: BiometricProfile) -> None:

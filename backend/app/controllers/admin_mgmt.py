@@ -182,9 +182,20 @@ async def approve_organisation(
     org = await org_repo.get_org_by_id(db, org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organisation not found.")
+    was_approved = getattr(org.status, "value", org.status) == "approved"
     org = await org_repo.set_org_status(db, org, "approved")
     await db.commit()
+    if not was_approved:
+        _notify_org(org, approved=True)
     return OrgProfileResponse.model_validate(org)
+
+
+def _notify_org(org, approved: bool, reason=None) -> None:
+    try:
+        from app.services import email_service
+        email_service.notify_org_status(org.email, org.name, approved, reason)
+    except Exception as mail_err:
+        print(f"[Admin] Organisation email skipped: {mail_err}")
 
 
 @router.post("/organisations/{org_id}/reject", summary="Reject Organisation")
@@ -199,6 +210,7 @@ async def reject_organisation(
         raise HTTPException(status_code=404, detail="Organisation not found.")
     org = await org_repo.set_org_status(db, org, "rejected", rejection_reason=payload.get("reason"))
     await db.commit()
+    _notify_org(org, approved=False, reason=payload.get("reason"))
     return OrgProfileResponse.model_validate(org)
 
 

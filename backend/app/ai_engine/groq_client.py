@@ -3,6 +3,20 @@ import io
 from typing import List, Dict, Any, Optional
 from app.config import settings
 
+
+class GroqUnavailable(Exception):
+    """Groq is configured but could not answer (rate limit, outage, bad key)."""
+
+
+def _retry_after_seconds(err) -> Optional[float]:
+    """Read Groq's Retry-After header from a rate-limit error, if present (capped at 60s)."""
+    try:
+        value = err.response.headers.get("retry-after")
+        return min(60.0, max(1.0, float(value))) if value else None
+    except Exception:
+        return None
+
+
 class GroqClient:
     def __init__(self) -> None:
         self.api_key = settings.GROQ_API_KEY
@@ -20,26 +34,51 @@ class GroqClient:
     async def chat_completion(
         self, 
         messages: List[Dict[str, str]],
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        temperature: float = 0.3,
+        max_tokens: int = 1500,
+        retries: int = 0,
+        allow_simulation: bool = True,
     ) -> str:
-        """Call Groq API asynchronously. Falls back to mock responses if API key is invalid/missing."""
+        """
+        Call Groq API asynchronously.
+
+        retries: how many times to wait and retry when Groq says "rate limited"
+                 (HTTP 429). The free tier allows ~1000 output tokens per minute,
+                 so back-to-back scorings regularly hit it.
+        allow_simulation: when False and Groq is configured but still failing,
+                 raise GroqUnavailable instead of returning simulated output.
+                 Scoring uses this so a Groq hiccup never becomes a fake grade.
+        """
         model = model or settings.GROQ_CHAT_MODEL
         if self.enabled and self.client:
-            try:
-                loop = asyncio.get_running_loop()
-                response = await loop.run_in_executor(
-                    None,
-                    lambda: self.client.chat.completions.create(
-                        messages=messages,
-                        model=model,
-                        temperature=0.3,
-                        max_tokens=1500
+            last_error = None
+            for attempt in range(retries + 1):
+                try:
+                    loop = asyncio.get_running_loop()
+                    response = await loop.run_in_executor(
+                        None,
+                        lambda: self.client.chat.completions.create(
+                            messages=messages,
+                            model=model,
+                            temperature=temperature,
+                            max_tokens=max_tokens
+                        )
                     )
-                )
-                return response.choices[0].message.content
-            except Exception as e:
-                print(f"[SkillProof AI] Error calling Groq API: {e}. Falling back to simulation.")
-        
+                    return response.choices[0].message.content
+                except Exception as e:
+                    last_error = e
+                    rate_limited = getattr(e, "status_code", None) == 429 or "429" in str(e)
+                    if rate_limited and attempt < retries:
+                        wait = _retry_after_seconds(e) or (10, 20, 30, 40)[min(attempt, 3)]
+                        print(f"[SkillProof AI] Groq rate limit hit; retrying in {wait}s ({attempt + 1}/{retries}).")
+                        await asyncio.sleep(wait)
+                        continue
+                    break
+            if not allow_simulation:
+                raise GroqUnavailable(str(last_error))
+            print(f"[SkillProof AI] Error calling Groq API: {last_error}. Falling back to simulation.")
+
         # Async simulation fallback
         await asyncio.sleep(0.5)  # Simulate network latency
         return self._generate_simulated_response(messages)
@@ -101,7 +140,8 @@ class GroqClient:
                     "depth_score": round(computed_depth, 1),
                     "consistency_score": round(computed_cons, 1),
                     "overall_skill_score": computed_overall,
-                    "verdict": "verified" if computed_overall >= 60.0 else "suspicious",
+                    # A length-based guess must never certify anyone as verified
+                    "verdict": "suspicious",
                     # Clearly label simulated output so it is never mistaken for a real AI evaluation
                     "llm_reasoning": (
                         f"[SIMULATED SCORE - AI evaluation unavailable; based only on answer length] "

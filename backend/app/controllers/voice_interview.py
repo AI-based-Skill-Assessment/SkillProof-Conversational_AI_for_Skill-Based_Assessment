@@ -288,68 +288,25 @@ async def realtime_interview_ws(
                     )
 
                     if is_complete:
+                        # Scoring happens in exactly ONE place: POST /score/{id},
+                        # called by the processing page the candidate is sent to
+                        # next. Scoring here as well used to run the AI twice
+                        # within a minute; the second call hit Groq's rate limit
+                        # and overwrote the real scores with fallback numbers.
                         try:
-                            evaluation = await interview_manager.evaluate_interview(
-                                session_id, skills
-                            )
-                        except Exception as eval_err:
-                            print(f"[WS Voice] LLM evaluation error: {eval_err}")
-                            evaluation = {
-                                "scores": [
-                                    {
-                                        "skill_name": skill,
-                                        "specificity_score": 75.0,
-                                        "depth_score": 70.0,
-                                        "consistency_score": 80.0,
-                                        "overall_skill_score": 75.0,
-                                        "verdict": "verified",
-                                        "llm_reasoning": "Fallback evaluation applied due to system error."
-                                    }
-                                    for skill in (skills or ["General Software Development"])
-                                ]
-                            }
-
-                        try:
-                            await score_repo.delete_scores_by_session(db, session_id)
-
-                            scores_in = []
-                            for s in evaluation.get("scores", []):
-                                scores_in.append(SkillScoreCreate(
-                                    session_id=session_id,
-                                    specificity_score=float(s.get("specificity_score", 75.0)),
-                                    depth_score=float(s.get("depth_score", 75.0)),
-                                    consistency_score=float(s.get("consistency_score", 75.0)),
-                                    overall_skill_score=float(s.get("overall_skill_score", 75.0)),
-                                    verdict=s.get("verdict", "verified"),
-                                    llm_reasoning=s.get("llm_reasoning", "Completed via WebSocket.")
-                                ))
-
-                            if scores_in:
-                                await score_repo.bulk_create_scores(db, scores_in)
-
-                            # Store AI evaluation strengths and improvements in interview session context
-                            int_obj = await session_repo.get_interview_session(db, session_id)
-                            if int_obj:
-                                int_obj.skill_context = {
-                                    "skills": skills,
-                                    "strengths": evaluation.get("strengths", []),
-                                    "improvements": evaluation.get("improvements", [])
-                                }
-                                db.add(int_obj)
-
-                            await session_repo.update_session_status(db, session_id, "scored")
+                            await session_repo.update_session_status(db, session_id, "interview_done")
                             await db.commit()
                         except Exception as db_err:
-                            print(f"[WS Voice] DB score saving error: {db_err}")
+                            print(f"[WS Voice] Could not mark interview done: {db_err}")
                             try:
                                 await db.rollback()
-                            except:
+                            except Exception:
                                 pass
 
                         await websocket.send_json({
                             "type": "complete",
                             "message": ai_response,
-                            "evaluation": evaluation
+                            "scoring": "pending",
                         })
                         break  # close after interview is done
                     else:

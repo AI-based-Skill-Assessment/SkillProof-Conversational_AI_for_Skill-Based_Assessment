@@ -531,18 +531,8 @@ async def interview_verify(
         else:
             specific_msg = "Biometric verification passed."
 
-        # Compute live integrity score
-        deductions = (
-            (profile.face_mismatch_count or 0) * 15.0 +
-            (profile.voice_mismatch_count or 0) * 12.0 +
-            (getattr(profile, 'tab_switch_count', 0) or 0) * 6.0 +
-            (getattr(profile, 'window_blur_count', 0) or 0) * 3.0 +
-            (getattr(profile, 'copy_paste_attempts', 0) or 0) * 5.0 +
-            (profile.gaze_violations or 0) * 2.0 +
-            (profile.camera_interruptions or 0) * 4.0
-        )
-        calculated_integrity = max(0.0, min(100.0, round(100.0 - deductions, 1)))
-        profile.integrity_score = calculated_integrity
+        # Compute live integrity score (shared formula)
+        biometric_repo.recompute_integrity(profile)
 
         # Append periodic verification check to timeline if mismatch or every 5 passes
         timeline = list(profile.proctoring_timeline or [])
@@ -630,10 +620,13 @@ async def report_violation(
     await ensure_session_access(db, payload.session_id, current_user)
     profile = await biometric_repo.get_profile(db, payload.session_id)
     if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No biometric profile for session {payload.session_id}.",
-        )
+        # Candidates without registered biometrics still need incidents recorded
+        from app.repositories import session_repo
+        if not await session_repo.get_session(db, payload.session_id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
+        profile = await biometric_repo.create_or_update_profile(db, session_id=payload.session_id)
+        await db.commit()
+        await db.refresh(profile)
 
     reasons = list(profile.flag_reasons or [])
 
@@ -680,17 +673,8 @@ async def report_violation(
     )
     profile.flag_reasons = reasons
 
-    # Recalculate integrity score
-    deductions = (
-        (profile.face_mismatch_count or 0) * 15.0 +
-        (profile.voice_mismatch_count or 0) * 12.0 +
-        (getattr(profile, 'tab_switch_count', 0) or 0) * 6.0 +
-        (getattr(profile, 'window_blur_count', 0) or 0) * 3.0 +
-        (getattr(profile, 'copy_paste_attempts', 0) or 0) * 5.0 +
-        (profile.gaze_violations or 0) * 2.0 +
-        (profile.camera_interruptions or 0) * 4.0
-    )
-    profile.integrity_score = max(0.0, min(100.0, round(100.0 - deductions, 1)))
+    # Recalculate integrity score (shared formula)
+    biometric_repo.recompute_integrity(profile)
 
     # Record into proctoring timeline
     import datetime
@@ -777,18 +761,8 @@ async def record_telemetry_event(
     reasons.append(details)
     profile.flag_reasons = reasons[-20:]
 
-    # Calculate overall integrity score
-    deductions = (
-        (profile.face_mismatch_count or 0) * 15.0 +
-        (profile.voice_mismatch_count or 0) * 12.0 +
-        (profile.tab_switch_count or 0) * 6.0 +
-        (profile.window_blur_count or 0) * 3.0 +
-        (profile.copy_paste_attempts or 0) * 5.0 +
-        (profile.secondary_speaker_count or 0) * 6.0 +
-        (profile.gaze_violations or 0) * 2.0 +
-        (profile.camera_interruptions or 0) * 4.0
-    )
-    profile.integrity_score = max(0.0, min(100.0, round(100.0 - deductions, 1)))
+    # Calculate overall integrity score (shared formula)
+    biometric_repo.recompute_integrity(profile)
 
     if profile.integrity_score < 60.0 or (profile.tab_switch_count or 0) >= 4 or (profile.fraud_flags or 0) >= 6:
         profile.interview_flagged = True

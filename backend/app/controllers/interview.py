@@ -141,58 +141,23 @@ async def technical_interview_websocket(
             if is_complete:
                 break
 
-        # 4. Perform Scoring and Finalize Database
+        # 4. Score via the single shared scoring path (never a fake fallback grade)
         await websocket.send_json({"role": "system", "content": "Analyzing interview transcript and saving scores. Please wait..."})
-        
-        try:
-            evaluation = await interview_manager.evaluate_interview(session_id, skills)
-        except Exception as eval_err:
-            print(f"[WS Interview] LLM evaluation error: {eval_err}")
-            evaluation = {
-                "scores": [
-                    {
-                        "skill_name": skill,
-                        "specificity_score": 75.0,
-                        "depth_score": 70.0,
-                        "consistency_score": 80.0,
-                        "overall_skill_score": 75.0,
-                        "verdict": "verified",
-                        "llm_reasoning": "Fallback evaluation applied due to system error."
-                    }
-                    for skill in (skills or ["General Software Development"])
-                ]
-            }
-        
+        from app.controllers.score import score_session
+        from app.ai_engine.interview_manager import ScoringUnavailable
         try:
             async with async_session_factory() as db:
-                # Clear previous attempts
-                await score_repo.delete_scores_by_session(db, session_id)
-                
-                # Map LLM feedback list to database entities
-                scores_in = []
-                for s in evaluation.get("scores", []):
-                    scores_in.append(
-                        SkillScoreCreate(
-                            session_id=session_id,
-                            specificity_score=float(s.get("specificity_score", 70.0)),
-                            depth_score=float(s.get("depth_score", 70.0)),
-                            consistency_score=float(s.get("consistency_score", 70.0)),
-                            overall_skill_score=float(s.get("overall_skill_score", 70.0)),
-                            verdict=s.get("verdict", "verified"),
-                            llm_reasoning=s.get("llm_reasoning", "Completed evaluation.")
-                        )
-                    )
-                
-                if scores_in:
-                    await score_repo.bulk_create_scores(db, scores_in)
-                
-                # Update VerificationSession Status
-                await session_repo.update_session_status(db, session_id, "scored")
+                session_obj = await session_repo.get_session(db, session_id)
+                await score_session(db, session_obj)
+            await websocket.send_json({"role": "system", "content": "Verification scorecard generated successfully. Closing connection."})
+        except ScoringUnavailable as unavailable:
+            print(f"[WS Interview] Scoring unavailable: {unavailable}")
+            async with async_session_factory() as db:
+                await session_repo.update_session_status(db, session_id, "interview_done")
                 await db.commit()
+            await websocket.send_json({"role": "system", "content": "Your answers are saved. AI scoring is busy; open your report shortly to finish scoring."})
         except Exception as db_err:
-            print(f"[WS Interview] DB score saving error: {db_err}")
-
-        await websocket.send_json({"role": "system", "content": "Verification scorecard generated successfully. Closing connection."})
+            print(f"[WS Interview] Scoring error: {db_err}")
         await websocket.close()
 
     except WebSocketDisconnect:

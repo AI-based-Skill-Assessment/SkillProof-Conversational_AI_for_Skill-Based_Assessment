@@ -338,9 +338,23 @@ async def set_decision(
     session = await session_repo.get_session(db, session_id)
     if not session or session.drive_id != drive.id:
         raise HTTPException(status_code=404, detail="This candidate has not joined this drive.")
+    previous = session.drive_decision
     session.drive_decision = payload.decision.value
     db.add(session)
     await db.commit()
+
+    # Tell the candidate when they are shortlisted (not on reject: the
+    # organisation communicates that in its own way)
+    if payload.decision == DriveDecision.shortlisted and previous != DriveDecision.shortlisted.value:
+        try:
+            from app.services import email_service
+            email_service.notify_shortlisted(
+                getattr(session, "candidate_email", None), getattr(session, "candidate_name", None),
+                drive.title, getattr(current_org, "name", None),
+            )
+        except Exception as mail_err:
+            print(f"[Drives] Shortlist email skipped: {mail_err}")
+
     return {"session_id": str(session_id), "decision": payload.decision.value}
 
 
