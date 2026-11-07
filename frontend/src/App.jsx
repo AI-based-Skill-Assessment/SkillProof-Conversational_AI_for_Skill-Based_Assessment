@@ -45,6 +45,8 @@ const UserOrganizations = lazy(() => import('./pages/user/Organizations'));
 const UserProfile = lazy(() => import('./pages/user/Profile'));
 const UserSettings = lazy(() => import('./pages/user/Settings'));
 const UserNotifications = lazy(() => import('./pages/user/Notifications'));
+const UserDrives = lazy(() => import('./pages/user/Drives'));
+const UserJoinDrive = lazy(() => import('./pages/user/JoinDrive'));
 
 // ── Pages: Organisation Portal ───────────────────────────────────────────────
 const OrgSignIn = lazy(() => import('./pages/org/SignIn'));
@@ -57,6 +59,8 @@ const OrgCandidateDetail = lazy(() => import('./pages/org/CandidateDetail'));
 const OrgReports = lazy(() => import('./pages/org/Reports'));
 const OrgQRVerification = lazy(() => import('./pages/org/QRVerification'));
 const OrgAnalytics = lazy(() => import('./pages/org/Analytics'));
+const OrgDrives = lazy(() => import('./pages/org/Drives'));
+const OrgDriveDetail = lazy(() => import('./pages/org/DriveDetail'));
 const OrgProfile = lazy(() => import('./pages/org/Profile'));
 const OrgSettings = lazy(() => import('./pages/org/Settings'));
 
@@ -210,6 +214,8 @@ export default function App() {
           <Route path={ROUTES.USER.PROFILE} element={<UserProfile />} />
           <Route path={ROUTES.USER.SETTINGS} element={<UserSettings />} />
           <Route path={ROUTES.USER.NOTIFICATIONS} element={<UserNotifications />} />
+          <Route path={ROUTES.USER.DRIVES} element={<UserDrives />} />
+          <Route path={ROUTES.USER.JOIN_DRIVE()} element={<UserJoinDrive />} />
         </Route>
 
         {/* ── 4. Protected Organisation Routes ────────────────────────────────── */}
@@ -226,6 +232,8 @@ export default function App() {
           <Route path={ROUTES.ORG.REPORTS_LIST} element={<OrgReports />} />
           <Route path={ROUTES.ORG.QR_VERIFY} element={<OrgQRVerification />} />
           <Route path={ROUTES.ORG.ANALYTICS} element={<OrgAnalytics />} />
+          <Route path={ROUTES.ORG.DRIVES} element={<OrgDrives />} />
+          <Route path={ROUTES.ORG.DRIVE_DETAIL()} element={<OrgDriveDetail />} />
           <Route path={ROUTES.ORG.PROFILE} element={<OrgProfile />} />
           <Route path={ROUTES.ORG.SETTINGS} element={<OrgSettings />} />
         </Route>

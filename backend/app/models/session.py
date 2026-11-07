@@ -72,6 +72,16 @@ class VerificationSession(Base):
     extracted_skills = Column(JSON, nullable=True, default=list)     # List[str]
     extracted_verify_url = Column(String(1024), nullable=True)
 
+    # Placement drive this assessment was taken for (None = candidate's own assessment)
+    drive_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("placement_drives.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+    # Organisation's decision for this drive attempt: pending | shortlisted | rejected
+    drive_decision = Column(String(20), nullable=True)
+
     # Session lifecycle status
     status = Column(
         Enum(SessionStatus, name="session_status_enum"),

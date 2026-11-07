@@ -29,6 +29,7 @@ class VerificationSessionRead(VerificationSessionBase):
     extracted_role: Optional[str] = None
     extracted_skills: Optional[List[str]] = Field(default_factory=list)
     extracted_verify_url: Optional[str] = None
+    drive_id: Optional[UUID] = None
     status: str
     created_at: datetime
     updated_at: datetime

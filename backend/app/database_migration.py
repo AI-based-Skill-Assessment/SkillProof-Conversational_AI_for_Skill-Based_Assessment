@@ -31,6 +31,13 @@ COLUMNS_TO_ENSURE = [
     ("biometric_profiles", "voice_mismatch_count", "INTEGER NOT NULL DEFAULT 0"),
     ("biometric_profiles", "face_verify_pass", "INTEGER NOT NULL DEFAULT 0"),
     ("biometric_profiles", "voice_verify_pass", "INTEGER NOT NULL DEFAULT 0"),
+    # Placement drives (placement_drives table itself is created by create_all above)
+    ("verification_sessions", "drive_id", "UUID REFERENCES placement_drives(id) ON DELETE SET NULL"),
+    ("verification_sessions", "drive_decision", "VARCHAR(20)"),
+]
+
+INDEXES_TO_ENSURE = [
+    "CREATE INDEX IF NOT EXISTS ix_verification_sessions_drive_id ON verification_sessions (drive_id);",
 ]
 
 
@@ -48,6 +55,12 @@ async def run_auto_migrations():
                     await conn.execute(query)
                 except Exception as col_err:
                     print(f"[DB Migration] Note on {table_name}.{col_name}: {col_err}")
+
+            for stmt in INDEXES_TO_ENSURE:
+                try:
+                    await conn.execute(text(stmt))
+                except Exception as idx_err:
+                    print(f"[DB Migration] Note on index: {idx_err}")
 
         print("[DB Migration] Database tables and columns verified successfully.")
     except Exception as e:

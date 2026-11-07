@@ -40,6 +40,8 @@ export const ROUTES = {
     PROFILE:            '/user/profile',
     SETTINGS:           '/user/settings',
     NOTIFICATIONS:      '/user/notifications',
+    DRIVES:             '/user/drives',
+    JOIN_DRIVE:         (code = ':code') => `/user/drives/join/${code}`,
   },
 
   // ── Organisation Portal ──────────────────────────────────
@@ -55,6 +57,8 @@ export const ROUTES = {
     REPORT_DETAIL:    (id = ':id') => `/org/reports/${id}`,
     QR_VERIFY:        '/org/verify',
     ANALYTICS:        '/org/analytics',
+    DRIVES:           '/org/drives',
+    DRIVE_DETAIL:     (id = ':id') => `/org/drives/${id}`,
     PROFILE:          '/org/profile',
     SETTINGS:         '/org/settings',
   },

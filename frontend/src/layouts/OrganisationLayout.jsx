@@ -8,6 +8,7 @@ import ROUTES from '../core/routes';
 import '../styles/layouts/app-layout.css';
 
 const Icons = {
+  Drives: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>,
   Dashboard: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
   Candidates: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   Reports: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
@@ -20,6 +21,7 @@ const Icons = {
 
 const NAV_ITEMS = [
   { to: ROUTES.ORG.DASHBOARD,   label: 'Dashboard',   icon: <Icons.Dashboard /> },
+  { to: ROUTES.ORG.DRIVES,      label: 'Placement Drives', icon: <Icons.Drives /> },
   { type: 'section', label: 'Candidates' },
   { to: ROUTES.ORG.CANDIDATES,  label: 'Candidates',  icon: <Icons.Candidates /> },
   { to: ROUTES.ORG.REPORTS_LIST,label: 'Reports',     icon: <Icons.Reports /> },

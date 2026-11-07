@@ -17,6 +17,7 @@ from app.models.document import DocumentVerificationResult, VerificationPath, Fe
 from app.models.interview import InterviewSession, InterviewStatus
 from app.models.score import SkillScoreResult, SkillVerdict
 from app.models.biometric import BiometricProfile
+from app.models.drive import PlacementDrive, DriveStatus, DriveDecision
 
 __all__ = [
     "Base",
@@ -32,4 +33,5 @@ __all__ = [
     "InterviewSession", "InterviewStatus",
     "SkillScoreResult", "SkillVerdict",
     "BiometricProfile",
+    "PlacementDrive", "DriveStatus", "DriveDecision",
 ]

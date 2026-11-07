@@ -28,6 +28,7 @@ from app.controllers.biometric import router as biometric_router
 from app.controllers.auth import router as auth_router
 from app.controllers.admin_mgmt import router as admin_mgmt_router
 from app.controllers.org_portal import router as org_portal_router
+from app.controllers.drives import router as drives_router
 
 
 @asynccontextmanager
@@ -94,6 +95,7 @@ app.add_middleware(
 app.include_router(auth_router,       prefix="/api/v1", tags=["Authentication"])
 app.include_router(admin_mgmt_router, prefix="/api/v1", tags=["Admin Management"])
 app.include_router(org_portal_router, prefix="/api/v1", tags=["Organisation Portal"])
+app.include_router(drives_router,     prefix="/api/v1", tags=["Placement Drives"])
 
 # Assessment pipeline (existing)
 app.include_router(ingest_router,     prefix="/api/v1", tags=["Ingest"])

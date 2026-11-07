@@ -68,10 +68,21 @@ class InterviewManager:
         )
 
     @staticmethod
-    def _q2_text(role: str, company: str) -> str:
+    def _q2_text(role: str, company: str, skills=None) -> str:
         # Self-declared skill assessments have no real internship/company,
         # so don't ask about "your python internship at Self-Declared".
         if not company or company.strip().lower() in ("self-declared", "self declared", "the organisation"):
+            skills = [s for s in (skills or []) if s]
+            if skills and (role or "").strip().lower() != ", ".join(skills).lower():
+                # e.g. placement drives: role "Graduate Engineer Trainee", skills [Python, SQL].
+                # Ask about the skills, not "a project where you used Graduate Engineer Trainee".
+                skill_list = ", ".join(skills[:-1]) + f" and {skills[-1]}" if len(skills) > 1 else skills[0]
+                role_part = f" for the {role.strip()} role" if (role or "").strip() else ""
+                return (
+                    f"Great, thank you! This assessment{role_part} covers {skill_list}. "
+                    f"Could you walk me through a project or task where you used {skills[0]}? "
+                    f"What exactly did you build, and what was your part in it?"
+                )
             skill_str = role or "the skill you are being assessed on"
             return (
                 f"Great, thank you! This assessment is for {skill_str}. "
@@ -169,7 +180,7 @@ class InterviewManager:
 
         # ---- HARDCODED Q2 (sent after user answers Q1) ---- #
         if questions_asked == _Q2_INDEX:
-            q2 = self._q2_text(eff_role, eff_company)
+            q2 = self._q2_text(eff_role, eff_company, meta.get("skills") or skills)
             history.append({"role": "assistant", "content": q2, "timestamp": datetime.utcnow().isoformat()})
             await self.save_history(session_id, history)
             return q2, False
