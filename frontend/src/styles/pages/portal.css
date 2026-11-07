@@ -100,6 +100,12 @@
 }
 
 @media (max-width: 640px) {
+  .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+  /* Hub cards (title + text + button) need the full width; stat cards fit two per row */
+  .dashboard-grid:has(> .hub-card) { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 340px) {
   .dashboard-grid { grid-template-columns: 1fr; }
 }
 
@@ -327,7 +333,7 @@
 
 @media (max-width: 640px) {
   .dashboard-pipeline { grid-template-columns: 1fr; gap: 1px; }
-  .dashboard-pipeline__step::after { content: 'v'; top: auto; right: 50%; bottom: -8px; transform: translateX(50%); }
+  .dashboard-pipeline__step::after { content: '↓'; top: auto; right: 50%; bottom: -10px; transform: translateX(50%); }
 }
 
 .dashboard-section__header {

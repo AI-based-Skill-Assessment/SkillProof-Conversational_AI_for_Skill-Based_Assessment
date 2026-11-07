@@ -6,9 +6,12 @@ import { ThemeProvider } from './core/theme';
 import { AuthProvider } from './core/auth/AuthContext';
 import { ToastProvider } from './components/common/Toast';
 import { installMediaRegistry } from './utils/mediaRegistry';
+import { installResponsiveTables } from './utils/responsiveTables';
 
 // Track every camera/mic stream so none can be left running (see mediaRegistry.js)
 installMediaRegistry();
+// On phones, show every table as stacked cards (see responsiveTables.js)
+installResponsiveTables();
 
 // Shared component + page stylesheets, loaded globally. Pages are lazy-loaded
 // (see App.jsx), but many pages use these class names directly, so they must

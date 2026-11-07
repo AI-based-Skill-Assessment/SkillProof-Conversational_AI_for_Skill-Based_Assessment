@@ -65,7 +65,7 @@ export default function QRDisplay({ value, label, className = '', darkColor, lig
           justifyContent: 'center',
           alignItems: 'center'
         }}>
-          <canvas ref={canvasRef} style={{ borderRadius: 'var(--radius-md)', display: 'block' }} />
+          <canvas ref={canvasRef} style={{ borderRadius: 'var(--radius-md)', display: 'block', maxWidth: '100%', height: 'auto' }} />
         </div>
       )}
       {label && (

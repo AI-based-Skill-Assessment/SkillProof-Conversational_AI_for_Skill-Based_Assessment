@@ -64,8 +64,9 @@
     padding: 0 var(--space-3);
   }
 
+  /* The page heading below already shows the title; a truncated "In..." here only adds noise */
   .common-topbar__title {
-    font-size: var(--text-base);
+    display: none;
   }
 
   .common-topbar__right {
@@ -178,6 +179,17 @@
 @media (max-width: 640px) {
   .hide-on-mobile {
     display: none;
+  }
+
+  /* Keyboard shortcut hint means nothing on a phone: show just the icon */
+  .common-topbar__search-kbd {
+    display: none;
+  }
+
+  .common-topbar__search-btn {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
   }
 }
 

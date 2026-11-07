@@ -157,7 +157,7 @@ export default function DriveDetail() {
 
       <Card>
         <CardBody style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ width: 132, flexShrink: 0 }}>
+          <div style={{ width: 'min(100%, 240px)', flexShrink: 0, margin: '0 auto' }}>
             <QRDisplay value={inviteLink} darkColor="#000000" lightColor="#ffffff" />
           </div>
           <div style={{ flex: '1 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>

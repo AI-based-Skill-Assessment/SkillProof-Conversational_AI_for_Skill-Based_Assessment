@@ -249,6 +249,7 @@ export default function Topbar({
           }}
           className="common-topbar__search-btn"
           title="Command Palette (Ctrl + K / Cmd + K)"
+          aria-label="Search"
         >
           <span style={{ fontSize: 13 }}>🔍</span>
           <span className="hide-on-mobile">Search</span>

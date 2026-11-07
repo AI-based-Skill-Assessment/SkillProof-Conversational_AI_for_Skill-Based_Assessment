@@ -560,6 +560,91 @@ select:disabled,
   background: color-mix(in srgb, var(--primary) 5%, var(--surface-elevated));
 }
 
+/* Phones: each row becomes a card of "Label  value" lines. Labels are copied
+   from the <th> headers by utils/responsiveTables.js. */
+@media (max-width: 640px) {
+  .common-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .common-table,
+  .common-table tbody,
+  .common-table tr,
+  .common-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .common-table tr {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .common-table tr:last-child {
+    border-bottom: none;
+  }
+
+  .common-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: 6px 0;
+    border-bottom: none;
+    text-align: right;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .common-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    text-align: left;
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* Columns without a header (e.g. action buttons) and the first cell
+     (usually the name) span the card instead of label + value. */
+  .common-table td[data-label=""]::before,
+  .common-table td:not([data-label])::before {
+    content: none;
+  }
+
+  .common-table td:first-child {
+    text-align: left;
+    font-size: var(--text-base);
+  }
+
+  .common-table td:first-child::before {
+    content: none;
+  }
+
+  .common-table td[data-label=""],
+  .common-table td:not([data-label]) {
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .common-table td.common-table__cell--full {
+    display: block;
+    text-align: center;
+  }
+
+  .common-table tr:hover td {
+    background: transparent;
+  }
+}
+
 /* ── Pagination ── */
 .common-pagination {
   display: flex;

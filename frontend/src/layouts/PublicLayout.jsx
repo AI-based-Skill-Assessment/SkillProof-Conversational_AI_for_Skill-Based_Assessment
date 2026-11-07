@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import ROUTES from '../core/routes';
 import Logo from '../components/common/Logo';
@@ -7,12 +7,14 @@ import TechBackground from '../components/common/TechBackground';
 import '../styles/pages/public.css';
 
 import { useAuth } from '../core/auth/AuthContext';
-import { useTheme } from '../core/theme';
 
 export default function PublicLayout() {
   const { isAuthenticated, role, logout } = useAuth();
-  const { isDark } = useTheme();
   const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Close the mobile menu whenever the page changes
+  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
   const currentYear = new Date().getFullYear();
 
   const getDashboardRoute = () => {
@@ -34,7 +36,22 @@ export default function PublicLayout() {
           <span>SkillProof</span>
         </Link>
 
-        <div className="public-navbar__links">
+        <button
+          type="button"
+          className="public-navbar__menu-btn"
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen}
+          aria-controls="public-navbar-links"
+          onClick={() => setMenuOpen(o => !o)}
+        >
+          {menuOpen ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          )}
+        </button>
+
+        <div id="public-navbar-links" className={`public-navbar__links${menuOpen ? ' public-navbar__links--open' : ''}`}>
           <NavLink
             to={ROUTES.HOME}
             className={({ isActive }) => `public-navbar__link${isActive ? ' public-navbar__link--active' : ''}`}
@@ -61,7 +78,7 @@ export default function PublicLayout() {
             Security & Privacy
           </NavLink>
 
-          <div style={{ display: 'inline-flex', gap: 12, alignItems: 'center' }}>
+          <div className="public-navbar__actions">
             <ThemeToggle />
             {isAuthenticated ? (
               <>
