@@ -266,16 +266,33 @@
 .dashboard-pipeline__step {
   position: relative;
   padding: var(--space-4) var(--space-5);
-  background: var(--surface);
-  transition: background 200ms ease;
+  background-color: var(--surface);
 }
 
 [data-theme="dark"] .dashboard-pipeline__step {
-  background: linear-gradient(145deg, var(--surface) 0%, var(--surface-elevated) 100%);
+  background-image: linear-gradient(145deg, var(--surface) 0%, var(--surface-elevated) 100%);
 }
 
-.dashboard-pipeline__step:hover {
-  background: var(--surface-elevated);
+/* Hover highlight is a separate layer that fades in on top. Transitioning the
+   background itself from a gradient to a solid colour can't be animated, so the
+   step briefly went transparent and the page showed through. */
+.dashboard-pipeline__step::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--surface-hover);
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+
+.dashboard-pipeline__step:hover::before {
+  opacity: 0.6;
+}
+
+.dashboard-pipeline__label,
+.dashboard-pipeline__value {
+  position: relative;   /* keep text above the hover layer */
 }
 
 .dashboard-pipeline__step::after {
@@ -289,8 +306,6 @@
   font-size: 16px;
   transform: translateY(-50%);
 }
-
-.dashboard-pipeline__step:last-child::after { display: none; }
 
 .dashboard-pipeline__step:last-child::after { display: none; }
 
