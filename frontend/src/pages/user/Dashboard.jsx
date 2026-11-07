@@ -3,7 +3,15 @@ import { Link, useOutletContext } from 'react-router-dom';
 import client from '../../core/api/client';
 import { useToast } from '../../components/common/Toast';
 import { EP } from '../../core/api/endpoints';
-import { MOCK_SESSIONS, MOCK_DASHBOARD_STATS } from '../../core/mockData/user.mock';
+import Alert from '../../components/common/Alert';
+import { apiErrorMessage } from '../../utils/apiError';
+
+const EMPTY_STATS = {
+  completed_assessments: 0,
+  verified_certificates: 0,
+  average_skill_score: 0,
+  shared_organisations: 0,
+};
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
 import { formatScore, scoreColor, verdictVariant } from '../../utils/formatScore';
@@ -15,7 +23,8 @@ import '../../styles/pages/portal.css';
 export default function Dashboard() {
   const { isDemo, setIsDemo } = useOutletContext() || {};
   const [sessions, setSessions] = useState([]);
-  const [stats, setStats] = useState(MOCK_DASHBOARD_STATS);
+  const [stats, setStats] = useState(EMPTY_STATS);
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sessionToDelete, setSessionToDelete] = useState(null);
   const toast = useToast();
@@ -44,17 +53,18 @@ export default function Dashboard() {
             shared_organisations: 0
           });
         } else {
-          // If no data is present on the backend, fall back to mock data
-          setSessions(MOCK_SESSIONS);
-          setStats(MOCK_DASHBOARD_STATS);
-          if (setIsDemo) setIsDemo(true);
+          // A new candidate simply has no sessions yet — show the real (empty) state
+          setSessions([]);
+          setStats(EMPTY_STATS);
+          if (setIsDemo) setIsDemo(false);
         }
+        setError(null);
       } catch (err) {
-        console.error('Failed to load sessions from API, running in Demo Mode:', err);
-        // Fall back on error (no database connection / server offline)
-        setSessions(MOCK_SESSIONS);
-        setStats(MOCK_DASHBOARD_STATS);
-        if (setIsDemo) setIsDemo(true);
+        console.error('Failed to load sessions from API:', err);
+        setSessions([]);
+        setStats(EMPTY_STATS);
+        if (setIsDemo) setIsDemo(false);
+        setError(apiErrorMessage(err, 'your assessments'));
       } finally {
         setLoading(false);
       }
@@ -94,6 +104,8 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
+
+      {error && <div style={{ marginBottom: 16 }}><Alert type="error">{error}</Alert></div>}
 
       {/* Candidate Action Hub Cards */}
       <div className="dashboard-grid">

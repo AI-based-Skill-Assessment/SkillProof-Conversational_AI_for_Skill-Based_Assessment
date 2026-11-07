@@ -1234,7 +1234,21 @@ export default function InterviewSession() {
     let pingInterval = null;
     let reconnectTimer = null;
 
-    function connect() {
+    async function connect() {
+      setWsStatus('connecting');
+      // Make one authenticated request first: if the access token has expired
+      // (e.g. a long interview or a late reconnect), the API client's interceptor
+      // refreshes it, so the WebSocket below is opened with a valid token.
+      try {
+        await client.get('/auth/me');
+      } catch {
+        // Not fatal here — the server will reject the socket if auth is truly invalid
+      }
+      if (!isComponentMounted) return;
+      openSocket();
+    }
+
+    function openSocket() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       // The backend requires the candidate's access token for sessions they own
       const accessToken = localStorage.getItem('skillproof_user_access_token') || '';
@@ -1262,6 +1276,13 @@ export default function InterviewSession() {
           const data = JSON.parse(event.data);
           
           if (data.type === 'pong') {
+            return;
+          }
+
+          // Server-side rejection (e.g. not signed in as this session's owner,
+          // unknown session, or terminated for biometric mismatch)
+          if (data.type === 'error') {
+            toastRef.current.error('Interview Error', data.message || 'The interview server reported an error.');
             return;
           }
 

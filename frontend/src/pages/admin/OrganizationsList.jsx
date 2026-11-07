@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import client from '../../core/api/client';
-import { MOCK_ORGANISATIONS } from '../../core/mockData/admin.mock';
+import Alert from '../../components/common/Alert';
+import { apiErrorMessage } from '../../utils/apiError';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
 import ROUTES from '../../core/routes';
@@ -9,6 +10,7 @@ import ROUTES from '../../core/routes';
 export default function OrganizationsList() {
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function loadOrgs() {
@@ -16,7 +18,8 @@ export default function OrganizationsList() {
         const res = await client.get('/admin/organisations');
         setOrgs(res.data);
       } catch (err) {
-        setOrgs(MOCK_ORGANISATIONS);
+        setOrgs([]);
+        setError(apiErrorMessage(err, 'organisations'));
       } finally {
         setLoading(false);
       }
@@ -37,6 +40,9 @@ export default function OrganizationsList() {
           </Link>
         </div>
       </div>
+
+      {error && <div style={{ marginBottom: 16 }}><Alert type="error">{error}</Alert></div>}
+
 
       {loading ? (
         <div>Loading organizations...</div>

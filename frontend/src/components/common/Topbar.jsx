@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Logo from './Logo';
@@ -25,6 +25,16 @@ export default function Topbar({
   const [isEnding, setIsEnding] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [soundMuted, setSoundMuted] = useState(soundEffects.isMuted());
+
+  // The topbar is transparent; once the page scrolls, give it a background so
+  // page content (e.g. header buttons) doesn't show through and overlap it.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // Avatar Display Logic:
   // 1. Use Google profile picture if present
@@ -188,7 +198,7 @@ export default function Topbar({
   }
 
   return (
-    <header className={`common-topbar${collapsed ? ' common-topbar--collapsed' : ''}`}>
+    <header className={`common-topbar${collapsed ? ' common-topbar--collapsed' : ''}${scrolled ? ' common-topbar--scrolled' : ''}`}>
       <div className="common-topbar__left">
         <button
           className="common-topbar__menu-btn"

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import client from '../../core/api/client';
 import { useToast } from '../../components/common/Toast';
-import { MOCK_SESSIONS } from '../../core/mockData/user.mock';
+import Alert from '../../components/common/Alert';
+import { apiErrorMessage } from '../../utils/apiError';
 import { formatDate } from '../../utils/formatDate';
 import { formatScore, scoreColor } from '../../utils/formatScore';
 import StatusBadge from '../../components/common/StatusBadge';
@@ -13,6 +14,7 @@ import ROUTES from '../../core/routes';
 export default function ReportsList() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [sessionToDelete, setSessionToDelete] = useState(null);
   const toast = useToast();
 
@@ -20,13 +22,10 @@ export default function ReportsList() {
     async function loadReports() {
       try {
         const res = await client.get('/sessions');
-        if (res.data && res.data.length > 0) {
-          setSessions(res.data);
-        } else {
-          setSessions(MOCK_SESSIONS);
-        }
+        setSessions(res.data || []);
       } catch (err) {
-        setSessions(MOCK_SESSIONS);
+        setSessions([]);
+        setError(apiErrorMessage(err, 'your reports'));
       } finally {
         setLoading(false);
       }
@@ -65,6 +64,8 @@ export default function ReportsList() {
         <h2 className="page-header__title">My Assessment Reports</h2>
         <p className="page-header__subtitle">Track your verified certificate status and check evaluation scores</p>
       </div>
+
+      {error && <div style={{ marginBottom: 16 }}><Alert type="error">{error}</Alert></div>}
 
       {sessions.length === 0 ? (
         <div className="empty-state">

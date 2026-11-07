@@ -305,7 +305,7 @@ export default function VoiceRegistration() {
     return err.message || fallback;
   }
 
-  // FFT and Spectral Feature Vector extraction math matching biometric_enroll.html
+  // FFT and Spectral Feature Vector extraction math (ported from the former biometric_enroll.html page)
   async function extractVoiceEmbedding(chunks) {
     const blob = new Blob(chunks, { type: 'audio/webm' });
     const arrayBuf = await blob.arrayBuffer();
@@ -391,7 +391,7 @@ export default function VoiceRegistration() {
     return reversed;
   }
 
-  // Exact FFT implementation from biometric_enroll.html
+  // Exact FFT implementation from the former biometric_enroll.html page
   function fft(re, im) {
     const n = re.length;
     const bits = Math.round(Math.log2(n));
@@ -500,7 +500,7 @@ export default function VoiceRegistration() {
           Read the security phrase clearly into your microphone. This template will protect against voice spoofing and deepfakes during verification.
         </p>
 
-        {/* 4:3 Rectangular Waveform media panel matching biometric_enroll.html */}
+        {/* 4:3 Rectangular Waveform media panel (ported from the former biometric_enroll.html page) */}
         <div className="media-panel" style={{ width: '100%', position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#09090f', border: '1px solid var(--border)', aspectRatio: '4/3', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {complete ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--success)' }}>

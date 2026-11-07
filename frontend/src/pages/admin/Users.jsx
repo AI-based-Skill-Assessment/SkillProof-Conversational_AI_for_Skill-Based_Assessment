@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import client from '../../core/api/client';
-import { MOCK_USERS } from '../../core/mockData/admin.mock';
+import Alert from '../../components/common/Alert';
+import { apiErrorMessage } from '../../utils/apiError';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
 
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function loadUsers() {
@@ -14,7 +16,8 @@ export default function Users() {
         const res = await client.get('/admin/users');
         setUsers(res.data);
       } catch (err) {
-        setUsers(MOCK_USERS);
+        setUsers([]);
+        setError(apiErrorMessage(err, 'candidates'));
       } finally {
         setLoading(false);
       }
@@ -28,6 +31,9 @@ export default function Users() {
         <h2 className="page-header__title">Candidate Registries</h2>
         <p className="page-header__subtitle">Monitor and verify candidate profile details and biometric template readiness</p>
       </div>
+
+      {error && <div style={{ marginBottom: 16 }}><Alert type="error">{error}</Alert></div>}
+
 
       {loading ? (
         <div>Loading candidates...</div>

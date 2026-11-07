@@ -474,6 +474,19 @@ The `docker-compose.yml` spins up PostgreSQL, Redis, and the FastAPI backend. Th
 
 ---
 
+## Running Tests
+
+The backend has a test suite covering the security protections (admin-only
+overrides, 2FA, session ownership, interview WebSocket auth, CORS, AI scoring
+prompt). It needs **no database, Redis or Groq key**:
+
+```bash
+cd backend
+python -m pytest            # Windows with the project venv: .venv\Scripts\python.exe -m pytest
+```
+
+---
+
 ## Troubleshooting
 
 ### "relation does not exist" errors

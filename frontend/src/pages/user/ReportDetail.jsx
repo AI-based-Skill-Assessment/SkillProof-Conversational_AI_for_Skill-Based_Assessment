@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import client from '../../core/api/client';
-import { MOCK_REPORT } from '../../core/mockData/user.mock';
+import Alert from '../../components/common/Alert';
+import { apiErrorMessage } from '../../utils/apiError';
 import { Card, CardHeader, CardTitle, CardBody } from '../../components/common/Card';
 import StatusBadge from '../../components/common/StatusBadge';
 import QRDisplay from '../../components/common/QRDisplay';
@@ -19,6 +20,7 @@ export default function ReportDetail() {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isDemo, setIsDemo] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const [lanIp, setLanIp] = useState('localhost');
 
   useEffect(() => {
@@ -107,13 +109,14 @@ export default function ReportDetail() {
           });
           setIsDemo(false);
         } else {
-          setReport(MOCK_REPORT);
-          setIsDemo(true);
+          setReport(null);
+          setLoadError('Report not found.');
         }
       } catch (err) {
         console.error('Failed fetching live report:', err);
-        setReport(MOCK_REPORT);
-        setIsDemo(true);
+        // Never show a fake report under a real report's URL
+        setReport(null);
+        setLoadError(apiErrorMessage(err, 'this report'));
       } finally {
         const elapsed = Date.now() - startTime;
         const remaining = Math.max(0, 1600 - elapsed);
@@ -143,6 +146,17 @@ export default function ReportDetail() {
           }}
         >
           <NeuralOrbitLoader label="Loading Verification Report..." />
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError || !report) {
+    return (
+      <div className="anim-fade-in" style={{ padding: 24 }}>
+        <Alert type="error">{loadError || 'Report not found.'}</Alert>
+        <div style={{ marginTop: 16 }}>
+          <Button variant="secondary" onClick={() => navigate(ROUTES.USER.REPORTS_LIST)}>Back to My Reports</Button>
         </div>
       </div>
     );

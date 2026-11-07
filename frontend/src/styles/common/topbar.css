@@ -37,6 +37,19 @@
   -webkit-backdrop-filter: none !important;
 }
 
+/* Solid background once the page is scrolled, so content scrolling underneath
+   the fixed topbar doesn't overlap its controls. Overrides the transparent rules above. */
+.common-topbar.common-topbar--scrolled,
+.common-topbar.common-topbar--scrolled:focus,
+.common-topbar.common-topbar--scrolled:focus-visible {
+  background: color-mix(in srgb, var(--background) 82%, transparent) !important;
+  background-color: color-mix(in srgb, var(--background) 82%, transparent) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid var(--border) !important;
+  transition: left 250ms ease, background-color 200ms ease;
+}
+
 .common-topbar--collapsed { left: var(--sidebar-collapsed-width); }
 .common-topbar--full { left: 0 !important; }
 

@@ -8,7 +8,6 @@ import { formatDate } from '../../utils/formatDate';
 import { formatScore, scoreColor } from '../../utils/formatScore';
 import Button from '../../components/common/Button';
 import ROUTES from '../../core/routes';
-import { MOCK_CERTIFICATES } from '../../core/mockData/user.mock';
 
 export default function Certificates() {
   const { setIsDemo } = useOutletContext() || {};
@@ -97,10 +96,14 @@ export default function Certificates() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 24 }}>
           {sessions.map(s => {
             const sc = (s.scores && s.scores[0]) || {};
+            const isScored = s.status === 'scored';
             const scoreVal = sc.overall_skill_score ?? 0;
             const qrId = `SP-${s.id.slice(0, 8).toUpperCase()}`;
             const verifyUrl = getVerifyUrl(s.id);
-            const isVerified = s.status === 'scored' || s.document?.fetch_status === 'verified';
+            // Same labels as the My Reports page, so both pages agree
+            const isReady = s.status === 'ocr_done' || s.status === 'verified';
+            const statusLabel = isScored ? 'Completed' : isReady ? 'Ready for Interview' : 'Verifying';
+            const statusVariant = isScored ? 'success' : isReady ? 'warning' : 'info';
 
             return (
               <Card key={s.id} tilt hoverable style={{ display: 'flex', flexDirection: 'column' }}>
@@ -108,8 +111,8 @@ export default function Certificates() {
                   <CardTitle style={{ fontSize: 16, fontWeight: 700 }}>
                     {s.extracted_role || s.intake_mode === 'certificate' ? (s.extracted_role || 'Certificate Verification') : 'Skill Assessment'}
                   </CardTitle>
-                  <StatusBadge variant={isVerified ? 'success' : 'warning'}>
-                    {isVerified ? 'VERIFIED' : s.status.toUpperCase()}
+                  <StatusBadge variant={statusVariant}>
+                    {statusLabel}
                   </StatusBadge>
                 </CardHeader>
                 <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, justifyContent: 'space-between' }}>
@@ -126,9 +129,15 @@ export default function Certificates() {
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                       <span style={{ color: 'var(--text-secondary)' }}>Assessment Score:</span>
-                      <span style={{ fontWeight: 700, color: scoreColor(scoreVal) }}>
-                        {formatScore(scoreVal)}%
-                      </span>
+                      {isScored ? (
+                        <span style={{ fontWeight: 700, color: scoreColor(scoreVal) }}>
+                          {formatScore(scoreVal)}%
+                        </span>
+                      ) : (
+                        <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
+                          Not assessed yet
+                        </span>
+                      )}
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                       <span style={{ color: 'var(--text-secondary)' }}>Assessment Date:</span>

@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import client from '../../core/api/client';
-import { MOCK_ADMIN_ASSESSMENTS } from '../../core/mockData/admin.mock';
+import Alert from '../../components/common/Alert';
+import { apiErrorMessage } from '../../utils/apiError';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
 
 export default function Assessments() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function loadAssessments() {
@@ -14,7 +16,8 @@ export default function Assessments() {
         const res = await client.get('/admin/assessments');
         setItems(res.data);
       } catch (err) {
-        setItems(MOCK_ADMIN_ASSESSMENTS);
+        setItems([]);
+        setError(apiErrorMessage(err, 'assessments'));
       } finally {
         setLoading(false);
       }
@@ -28,6 +31,9 @@ export default function Assessments() {
         <h2 className="page-header__title">Verification Pipelines</h2>
         <p className="page-header__subtitle">Review active and completed evaluation sessions across all portals</p>
       </div>
+
+      {error && <div style={{ marginBottom: 16 }}><Alert type="error">{error}</Alert></div>}
+
 
       {loading ? (
         <div>Loading sessions...</div>

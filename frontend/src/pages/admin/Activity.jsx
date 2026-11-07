@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import client from '../../core/api/client';
-import { MOCK_ACTIVITY } from '../../core/mockData/admin.mock';
+import Alert from '../../components/common/Alert';
+import { apiErrorMessage } from '../../utils/apiError';
 import { formatDateTime } from '../../utils/formatDate';
 
 export default function Activity() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function loadLogs() {
@@ -13,7 +15,8 @@ export default function Activity() {
         const res = await client.get('/admin/activity');
         setLogs(res.data);
       } catch (err) {
-        setLogs(MOCK_ACTIVITY);
+        setLogs([]);
+        setError(apiErrorMessage(err, 'activity logs'));
       } finally {
         setLoading(false);
       }
@@ -27,6 +30,9 @@ export default function Activity() {
         <h2 className="page-header__title">System Activity Logs</h2>
         <p className="page-header__subtitle">Real-time status transitions and user activities audit logs</p>
       </div>
+
+      {error && <div style={{ marginBottom: 16 }}><Alert type="error">{error}</Alert></div>}
+
 
       {loading ? (
         <div>Loading logs...</div>

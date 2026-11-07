@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import client from '../../core/api/client';
 import { useToast } from '../../components/common/Toast';
-import { MOCK_ADMIN_STATS, MOCK_ORGANISATIONS } from '../../core/mockData/admin.mock';
+import Alert from '../../components/common/Alert';
+import { apiErrorMessage } from '../../utils/apiError';
 import { StatCard } from '../../components/common/Card';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
@@ -12,7 +13,9 @@ import '../../styles/pages/portal.css';
 
 export default function Dashboard() {
   const toast = useToast();
-  const [stats, setStats] = useState(MOCK_ADMIN_STATS);
+  // No fake numbers: show '—' until real stats arrive
+  const [stats, setStats] = useState({});
+  const [error, setError] = useState(null);
   const [pendingOrgs, setPendingOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,10 +29,11 @@ export default function Dashboard() {
         
         const orgsRes = await client.get('/admin/organisations', { params: { status_filter: 'pending' } });
         setPendingOrgs(orgsRes.data);
+        setError(null);
       } catch (err) {
-        console.error('Failed fetching live admin dashboard, running mock demo:', err);
-        setStats(MOCK_ADMIN_STATS);
-        setPendingOrgs(MOCK_ORGANISATIONS.filter(o => o.status === 'pending'));
+        // Keep whatever real data we already have; just report the failure
+        console.error('Failed fetching admin dashboard:', err);
+        setError(apiErrorMessage(err, 'dashboard data'));
       } finally {
         if (showLoading) setLoading(false);
       }
@@ -50,8 +54,8 @@ export default function Dashboard() {
       setPendingOrgs(prev => prev.filter(o => o.id !== orgId));
       setStats(prev => ({
         ...prev,
-        active_organisations: prev.active_organisations + 1,
-        pending_approval: Math.max(0, prev.pending_approval - 1)
+        active_organisations: (prev.active_organisations ?? 0) + 1,
+        pending_approval: Math.max(0, (prev.pending_approval ?? 1) - 1)
       }));
       toast.success('Organization Approved', 'Institution status changed to active.');
     } catch (err) {
@@ -74,12 +78,14 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {error && <div style={{ marginBottom: 16 }}><Alert type="error">{error}</Alert></div>}
+
       {/* Aggregate Stats */}
       <div className="dashboard-grid">
-        <StatCard label="Registered Users" value={stats.total_users} icon="👥" accentColor="rgba(14, 165, 233, 0.25)" />
-        <StatCard label="Active Organizations" value={stats.active_organisations} icon="🎓" accentColor="rgba(59, 130, 246, 0.25)" />
-        <StatCard label="Pending Approvals" value={stats.pending_approval} icon="⏳" accentColor="rgba(245, 158, 11, 0.25)" />
-        <StatCard label="Assessments Conducted" value={stats.total_assessments} icon="⚡" accentColor="rgba(16, 185, 129, 0.25)" />
+        <StatCard label="Registered Users" value={stats.total_users ?? '—'} icon="👥" accentColor="rgba(14, 165, 233, 0.25)" />
+        <StatCard label="Active Organizations" value={stats.active_organisations ?? '—'} icon="🎓" accentColor="rgba(59, 130, 246, 0.25)" />
+        <StatCard label="Pending Approvals" value={stats.pending_approval ?? '—'} icon="⏳" accentColor="rgba(245, 158, 11, 0.25)" />
+        <StatCard label="Assessments Conducted" value={stats.total_assessments ?? '—'} icon="⚡" accentColor="rgba(16, 185, 129, 0.25)" />
       </div>
 
       {/* Pending Approvals Section */}

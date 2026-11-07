@@ -16,8 +16,6 @@ if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.database import init_redis, close_redis
@@ -134,22 +132,7 @@ async def server_info():
     return {"lan_ip": lan_ip, "port": 8000, "frontend_port": 5173}
 
 
-# ── Serve legacy HTML pages ────────────────────────────────────────────────────
-_UI_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-@app.get("/enroll", include_in_schema=False)
-async def serve_enroll_page():
-    html_path = os.path.join(_UI_DIR, "biometric_enroll.html")
-    return FileResponse(html_path, media_type="text/html")
-
-
-@app.get("/score-card", include_in_schema=False)
-async def serve_score_card_page():
-    html_path = os.path.join(_UI_DIR, "score_card.html")
-    return FileResponse(html_path, media_type="text/html")
-
-
-@app.get("/interview", include_in_schema=False)
-async def serve_interview_page():
-    html_path = os.path.join(_UI_DIR, "interview_room.html")
-    return FileResponse(html_path, media_type="text/html")
+# The legacy standalone HTML pages (biometric_enroll.html, score_card.html,
+# interview_room.html) and their /enroll, /score-card and /interview routes were
+# removed: the React frontend replaced them, and they could not authenticate
+# against owned sessions. They remain available in git history.

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/common/Toast';
 import client from '../../core/api/client';
-import { MOCK_ORGANISATIONS } from '../../core/mockData/admin.mock';
+import Alert from '../../components/common/Alert';
+import { apiErrorMessage } from '../../utils/apiError';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import ROUTES from '../../core/routes';
@@ -18,6 +19,7 @@ export default function OrganizationEdit() {
   const [website, setWebsite] = useState('');
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     async function loadOrg() {
@@ -30,12 +32,8 @@ export default function OrganizationEdit() {
         setWebsite(o.website || '');
         setAddress(o.address || '');
       } catch (err) {
-        const mock = MOCK_ORGANISATIONS.find(o => o.id === id) || MOCK_ORGANISATIONS[0];
-        setName(mock.name);
-        setContactName(mock.contact_name || '');
-        setContactPhone(mock.contact_phone || '');
-        setWebsite(mock.website || '');
-        setAddress(mock.address || '');
+        // Don't pre-fill the form with fake data — saving it would overwrite the real record
+        setLoadError(apiErrorMessage(err, 'this organisation'));
       }
     }
     loadOrg();
@@ -59,6 +57,17 @@ export default function OrganizationEdit() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (loadError) {
+    return (
+      <div className="anim-fade-in" style={{ padding: 24 }}>
+        <Alert type="error">{loadError}</Alert>
+        <div style={{ marginTop: 16 }}>
+          <Button variant="secondary" onClick={() => navigate(ROUTES.ADMIN.ORGS_LIST)}>Back to organisations</Button>
+        </div>
+      </div>
+    );
   }
 
   return (

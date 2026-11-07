@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useToast } from '../../components/common/Toast';
 import client from '../../core/api/client';
-import { MOCK_ORGANISATIONS } from '../../core/mockData/admin.mock';
+import Alert from '../../components/common/Alert';
+import { apiErrorMessage } from '../../utils/apiError';
 import { Card, CardHeader, CardTitle, CardBody } from '../../components/common/Card';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
@@ -16,6 +17,7 @@ export default function OrganizationDetail() {
 
   const [org, setOrg] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function fetchOrg() {
@@ -23,9 +25,7 @@ export default function OrganizationDetail() {
         const res = await client.get(`/admin/organisations/${id}`);
         setOrg(res.data);
       } catch (err) {
-        // Fallback mock
-        const mock = MOCK_ORGANISATIONS.find(o => o.id === id) || MOCK_ORGANISATIONS[0];
-        setOrg(mock);
+        setError(apiErrorMessage(err, 'this organisation'));
       } finally {
         setLoading(false);
       }
@@ -65,6 +65,16 @@ export default function OrganizationDetail() {
   }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center' }}>Loading organization detail...</div>;
+  if (error || !org) {
+    return (
+      <div className="anim-fade-in" style={{ padding: 24 }}>
+        <Alert type="error">{error || 'Organisation not found.'}</Alert>
+        <div style={{ marginTop: 16 }}>
+          <Link to={ROUTES.ADMIN.ORGS_LIST} className="common-button common-button--secondary">Back to organisations</Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="anim-fade-in" style={{ maxWidth: 720, margin: '0 auto' }}>
