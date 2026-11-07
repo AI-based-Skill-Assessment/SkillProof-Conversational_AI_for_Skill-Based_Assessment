@@ -136,10 +136,22 @@ def test_unowned_session_stays_accessible(fake_session):
     asyncio.run(ensure_session_access(None, sess.id, None))
 
 
-def test_rescore_blocked_for_non_owner(client, fake_session, user_token):
+def test_rescore_blocked_for_non_owner(client, fake_session):
+    from types import SimpleNamespace
+    from app.main import app
+    from app.security.deps import get_current_user_optional
+
     sess = fake_session(uuid.uuid4())  # owned by someone else
-    _, token = user_token
-    r = client.post(f"/api/v1/score/{sess.id}", headers={"Authorization": f"Bearer {token}"})
+
+    # A logged-in candidate who is NOT the owner (no database needed)
+    async def other_user():
+        return SimpleNamespace(id=uuid.uuid4())
+
+    app.dependency_overrides[get_current_user_optional] = other_user
+    try:
+        r = client.post(f"/api/v1/score/{sess.id}")
+    finally:
+        app.dependency_overrides.pop(get_current_user_optional, None)
     assert r.status_code == 403
 
 
