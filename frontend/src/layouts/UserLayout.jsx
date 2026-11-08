@@ -9,6 +9,8 @@ import { buildNotificationsFromData } from '../utils/notificationService';
 import { useTheme } from '../core/theme';
 import TechBackground from '../components/common/TechBackground';
 import { isMediaRoute, stopAllMedia } from '../utils/mediaRegistry';
+import { cameraAvailable, CAMERA_BLOCKED_MESSAGE } from '../utils/mediaSupport';
+import Alert from '../components/common/Alert';
 import '../styles/layouts/app-layout.css';
 
 // Nav icons
@@ -131,6 +133,9 @@ export default function UserLayout({ pageTitle = 'SkillProof' }) {
           isDemo={isDemo}
         />
         <main className={`app-layout__page${isInterview ? ' app-layout__page--full' : ''}`}>
+          {isMediaRoute(location.pathname) && !cameraAvailable() && (
+            <div style={{ marginBottom: 16 }}><Alert type="warning">{CAMERA_BLOCKED_MESSAGE}</Alert></div>
+          )}
           <Suspense fallback={<div className="route-loading" aria-busy="true" />}><Outlet context={{ isDemo, setIsDemo }} /></Suspense>
         </main>
       </div>

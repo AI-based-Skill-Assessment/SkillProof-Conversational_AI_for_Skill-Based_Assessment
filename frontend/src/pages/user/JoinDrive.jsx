@@ -8,6 +8,7 @@ import { useToast } from '../../components/common/Toast';
 import { formatDateTime } from '../../utils/formatDate';
 import { apiErrorMessage } from '../../utils/apiError';
 import ROUTES from '../../core/routes';
+import { cameraAvailable, CAMERA_BLOCKED_MESSAGE } from '../../utils/mediaSupport';
 import client from '../../core/api/client';
 
 /** Where to send a candidate for a drive attempt, based on how far they got. */
@@ -107,6 +108,8 @@ export default function JoinDrive() {
               <strong>{formatDateTime(drive.deadline)}</strong>
             </div>
           )}
+
+          {!cameraAvailable() && <Alert type="warning">{CAMERA_BLOCKED_MESSAGE}</Alert>}
 
           <Alert type="info">
             You'll take a proctored AI voice interview (about 7 questions) with your camera and microphone on.

@@ -20,6 +20,7 @@
   - [Step 6 — Frontend Setup](#step-6--frontend-setup)
   - [Step 7 — Initialize the Database & Seed Admin](#step-7--initialize-the-database--seed-admin)
   - [Step 8 — Run the Application](#step-8--run-the-application)
+- [Testing on a Phone](#testing-on-a-phone)
 - [Default Credentials](#default-credentials)
 - [Portal Access URLs](#portal-access-urls)
 - [Authentication Flows](#authentication-flows)
@@ -352,6 +353,35 @@ npm run dev
 ```
 
 Open your browser and go to: **http://localhost:5173**
+
+---
+
+## Testing on a Phone
+
+`localhost` always means "this device", so a `http://localhost:5173/...` link opened on a phone points at the phone, not your computer. There are two ways to open SkillProof on another device:
+
+### Option A — Same Wi-Fi (no camera)
+
+Invite links and QR codes created on your computer automatically use its network address (e.g. `http://192.168.1.20:5173/...`) instead of `localhost`. Any device **on the same Wi-Fi** can open them.
+
+- Windows may ask to allow Node.js through the firewall the first time; allow it on **private** networks. Only port **5173** is needed: the frontend forwards API calls and the interview connection to the backend.
+- **Limitation:** browsers only allow the camera and microphone on `https://` pages (or on `localhost`), so the AI interview **cannot run** this way. Joining drives, reports and dashboards work.
+
+### Option B — HTTPS tunnel (everything works, from anywhere)
+
+A free tunnel gives your computer a temporary public `https://` address, so the interview (camera + mic) works on a phone, even on mobile data.
+
+```bash
+# Install once (Windows)
+winget install --id Cloudflare.cloudflared
+
+# With the backend and frontend running, in a third terminal:
+cloudflared tunnel --url http://localhost:5173
+```
+
+It prints an address like `https://random-words.trycloudflare.com`. Open that on the phone (and create invite links while using that address so they point to it). The address changes every time you restart the tunnel, and it only works while your computer and the tunnel are running.
+
+> Google sign-in won't work on the tunnel address unless it is added to your Google OAuth client's authorised origins; use email/password sign-in instead.
 
 ---
 

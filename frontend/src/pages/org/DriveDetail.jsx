@@ -12,6 +12,7 @@ import { apiErrorMessage } from '../../utils/apiError';
 import { statusLabel, statusVariant, verdictLabel } from '../../utils/assessmentLabels';
 import { driveStatusBadge } from './Drives';
 import ROUTES from '../../core/routes';
+import usePublicOrigin from '../../utils/usePublicOrigin';
 import client from '../../core/api/client';
 
 const FILTERS = [
@@ -37,6 +38,8 @@ export default function DriveDetail() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
   const [busy, setBusy] = useState('');
+  // Laptop's network address instead of "localhost", so the link works on phones
+  const { origin: shareOrigin, isLocalOnly } = usePublicOrigin();
 
   const load = useCallback(async (showSpinner = false) => {
     try {
@@ -53,7 +56,7 @@ export default function DriveDetail() {
 
   useEffect(() => { load(true); }, [load]);
 
-  const inviteLink = drive ? `${window.location.origin}${ROUTES.USER.JOIN_DRIVE(drive.invite_code)}` : '';
+  const inviteLink = drive ? `${shareOrigin}${ROUTES.USER.JOIN_DRIVE(drive.invite_code)}` : '';
 
   async function copy(text, what) {
     try {
@@ -172,6 +175,12 @@ export default function DriveDetail() {
               </code>
               <Button size="sm" variant="secondary" onClick={() => copy(inviteLink, 'Invite link')}>Copy link</Button>
             </div>
+            {isLocalOnly && (
+              <p style={{ fontSize: 12, color: 'var(--warning)', margin: 0 }}>
+                This link only works on this computer. Other devices need your computer's network address
+                (or a deployed site); see the README section on testing from a phone.
+              </p>
+            )}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Code</span>
               <code style={{ fontSize: 18, fontWeight: 800, letterSpacing: '0.12em' }}>{drive.invite_code}</code>

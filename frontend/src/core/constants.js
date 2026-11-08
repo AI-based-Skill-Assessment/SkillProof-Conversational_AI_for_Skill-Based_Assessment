@@ -104,7 +104,7 @@ export const EXPERIENCE_LEVELS = [
 
 // ── API base URL ───────────────────────────────────────────────────────────────
 export const API_BASE_URL = '/api/v1';
-export const WS_BASE_URL  = `ws://${window.location.hostname}:8000/api/v1`;
+export const WS_BASE_URL  = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1`;
 
 // ── Notification categories ────────────────────────────────────────────────────
 export const NOTIFICATION_CATEGORY = {
