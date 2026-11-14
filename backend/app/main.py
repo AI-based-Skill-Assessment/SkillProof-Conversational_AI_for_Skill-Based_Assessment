@@ -1,4 +1,5 @@
 import sys
+import asyncio
 import os
 
 # Ensure safe UTF-8 logging on Windows terminals without UnicodeEncodeError
@@ -55,9 +56,27 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[Auth] Admin seed skipped: {e}")
 
+    # Biometric retention: purge expired data now and then once a day
+    async def _retention_loop():
+        from app.database import async_session_factory
+        from app.services.retention_service import purge_expired_biometrics
+        while True:
+            try:
+                async with async_session_factory() as db:
+                    result = await purge_expired_biometrics(db)
+                    await db.commit()
+                if result.get("profiles_cleared") or result.get("research_samples_deleted"):
+                    print(f"[Retention] {result}")
+            except Exception as e:
+                print(f"[Retention] Skipped: {e}")
+            await asyncio.sleep(24 * 3600)
+
+    retention_task = asyncio.create_task(_retention_loop())
+
     yield
 
     # ── Shutdown ─────────────────────────────────────────────────────────────
+    retention_task.cancel()
     print("Shutting down resources...")
     await close_redis()
 

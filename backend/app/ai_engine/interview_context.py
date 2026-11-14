@@ -98,7 +98,7 @@ class InterviewContextBuilder:
             f"   - specificity_score: How specific/detailed the answers were\n"
             f"   - depth_score: Technical depth demonstrated\n"
             f"   - consistency_score: Consistency across multiple answers\n"
-            f"   - overall_skill_score: Weighted average of the above\n"
+            f"   - overall_skill_score: the mean of the three scores above (the system recomputes it)\n"
             f"   Grade strictly on what the candidate actually said, using this scale:\n"
             f"   - 0-15: no real answer (\"I don't know\", off-topic, refuses, or only apologises)\n"
             f"   - 16-40: names terms or concepts but cannot explain them, or explains them wrongly\n"

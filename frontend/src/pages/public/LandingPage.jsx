@@ -69,7 +69,7 @@ export default function LandingPage() {
             <div className="feature-card__icon">👤</div>
             <h3 className="feature-card__title">Continuous Biometrics</h3>
             <p className="feature-card__desc">
-              Anti-spoofing face matching, voice print validation, eye tracking, and speech detection run in real-time to prevent impersonation.
+              Face matching, voice matching, head-pose and multiple-person checks run throughout the interview to deter impersonation.
             </p>
           </div>
         </div>

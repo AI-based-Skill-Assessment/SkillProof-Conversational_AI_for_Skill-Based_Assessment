@@ -259,13 +259,13 @@ export default function PublicCredentialVerify() {
             <div>
               <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Face Identity Match</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: biometric.faceMatchVerified ? 'var(--success)' : 'var(--danger)', marginTop: 4 }}>
-                {biometric.faceMatchVerified ? '✓ ArcFace 512D Verified' : 'Unverified'}
+                {biometric.faceMatchVerified ? '✓ Matched registered face' : 'Not verified'}
               </div>
             </div>
             <div>
               <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Voice Acoustic Match</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: biometric.voiceAcousticVerified ? 'var(--success)' : 'var(--danger)', marginTop: 4 }}>
-                {biometric.voiceAcousticVerified ? '✓ SpeechBrain ECAPA Verified' : 'Unverified'}
+                {biometric.voiceAcousticVerified ? '✓ Matched registered voice' : 'Not verified'}
               </div>
             </div>
             <div>

@@ -58,6 +58,14 @@ class Settings(BaseSettings):
     # Base URL of the frontend, used for links inside emails
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # Biometric data retention: per-assessment face/voice templates (and research
+    # samples) are erased this many days after the assessment. 0 = keep.
+    BIOMETRIC_RETENTION_DAYS: int = 180
+    # Evaluation study mode: store every live face/voice sample checked during
+    # interviews so FAR/FRR/EER can be measured (backend/eval). Only enable with
+    # participants' informed consent.
+    RESEARCH_LOGGING: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

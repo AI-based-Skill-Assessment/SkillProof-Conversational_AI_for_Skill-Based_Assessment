@@ -114,6 +114,10 @@ class ReportService:
         # Biometric & Proctoring Integrity Summary
         integrity_score = getattr(profile, 'integrity_score', 100.0) if profile else 100.0
         biometric_audit = {
+            "face_registered": bool(profile and profile.face_registered),
+            "voice_registered": bool(profile and profile.voice_registered),
+            "face_mismatch_count": (profile.face_mismatch_count or 0) if profile else 0,
+            "voice_mismatch_count": (profile.voice_mismatch_count or 0) if profile else 0,
             "face_verified": bool(profile and profile.face_registered and (profile.face_mismatch_count or 0) <= 2),
             "voice_verified": bool(profile and profile.voice_registered and (profile.voice_mismatch_count or 0) <= 2),
             "integrity_score": integrity_score,

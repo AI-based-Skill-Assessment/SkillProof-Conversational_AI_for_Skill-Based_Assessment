@@ -128,3 +128,10 @@ frontend/.vite/
 
 # ── Backend scratch / dev-only scripts ────────────────────────────────────────
 backend/scratch/
+
+# Evaluation study outputs: contain participant transcripts and IDs, never commit
+eval_results/
+backend/eval_results/
+
+# Public-dataset benchmark downloads and intermediate files (eval/README.md section 5)
+backend/bench/

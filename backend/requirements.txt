@@ -45,3 +45,7 @@ bcrypt==4.0.1                      # Pin bcrypt version to prevent passlib incom
 pyotp>=2.9.0                       # TOTP 2FA for admin portal
 email-validator>=2.1.0             # Email validation in Pydantic schemas
 google-auth>=2.20.0                 # Verify Google ID tokens
+
+# Evaluation kit (backend/eval): audio decoding and ROC figures
+soundfile>=0.12.0
+matplotlib>=3.8.0

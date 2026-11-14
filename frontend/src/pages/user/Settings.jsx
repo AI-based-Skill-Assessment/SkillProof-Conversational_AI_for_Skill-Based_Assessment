@@ -7,7 +7,26 @@ import Button from '../../components/common/Button';
 import { Card, CardHeader, CardTitle, CardBody } from '../../components/common/Card';
 
 export default function Settings() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUserCache } = useAuth();
+  const [deletingBio, setDeletingBio] = useState(false);
+
+  async function handleDeleteBiometrics() {
+    const ok = window.confirm(
+      'Delete your face and voice data? Your stored face and voice templates will be erased from your account and '
+      + 'from all your assessments. Your scores and reports stay. You will need to register again before your next assessment.'
+    );
+    if (!ok) return;
+    try {
+      setDeletingBio(true);
+      await client.delete('/auth/me/biometrics');
+      updateUserCache({ ...user, face_registered: false, voice_registered: false });
+      toast.success('Biometric data deleted', 'Your face and voice data has been erased.');
+    } catch (err) {
+      toast.error('Could not delete', err.response?.data?.detail || 'Please try again.');
+    } finally {
+      setDeletingBio(false);
+    }
+  }
   const toast = useToast();
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -62,6 +81,25 @@ export default function Settings() {
               Change Password
             </Button>
           </form>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Your Biometric Data</CardTitle></CardHeader>
+        <CardBody>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 260px' }}>
+              <div style={{ fontWeight: 600 }}>Delete my face &amp; voice data</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.5 }}>
+                SkillProof stores numeric face and voice templates (not photos or recordings) to confirm it is you during
+                interviews. Per-assessment copies are erased automatically after a retention period; this erases all of them now.
+              </div>
+            </div>
+            <Button variant="danger" onClick={handleDeleteBiometrics} loading={deletingBio}
+              disabled={!user?.face_registered && !user?.voice_registered}>
+              {user?.face_registered || user?.voice_registered ? 'Delete biometric data' : 'Nothing stored'}
+            </Button>
+          </div>
         </CardBody>
       </Card>
 

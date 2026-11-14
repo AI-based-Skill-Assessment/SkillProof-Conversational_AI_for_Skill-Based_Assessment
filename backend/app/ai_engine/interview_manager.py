@@ -185,7 +185,8 @@ class InterviewManager:
         # ---- HARDCODED Q2 (sent after user answers Q1) ---- #
         if questions_asked == _Q2_INDEX:
             q2 = self._q2_text(eff_role, eff_company, meta.get("skills") or skills)
-            history.append({"role": "assistant", "content": q2, "timestamp": datetime.utcnow().isoformat()})
+            history.append({"role": "assistant", "content": q2, "timestamp": datetime.utcnow().isoformat(),
+                            "source": "fixed", "gen_ms": 0})
             await self.save_history(session_id, history)
             return q2, False
 
@@ -195,7 +196,8 @@ class InterviewManager:
                 "Thank you! That concludes your SkillProof interview. "
                 "Your responses are now being evaluated."
             )
-            history.append({"role": "assistant", "content": closing, "timestamp": datetime.utcnow().isoformat()})
+            history.append({"role": "assistant", "content": closing, "timestamp": datetime.utcnow().isoformat(),
+                            "source": "fixed", "gen_ms": 0})
             await self.save_history(session_id, history)
             return closing, True
 
@@ -213,7 +215,12 @@ class InterviewManager:
         for h in history:
             groq_messages.append({"role": h["role"], "content": h["content"]})
 
+        # Measured generation time for this question (evaluation: per-question latency)
+        import time as _time
+        _t0 = _time.perf_counter()
         ai_response = await self.groq.chat_completion(groq_messages)
+        gen_ms = round((_time.perf_counter() - _t0) * 1000)
+        prompt_chars = sum(len(m["content"]) for m in groq_messages)
 
         # Detect if AI signalled interview completion
         completion_signals = [
@@ -229,7 +236,12 @@ class InterviewManager:
         if questions_asked + 1 >= _MAX_QUESTIONS and not is_complete:
             is_complete = True
 
-        history.append({"role": "assistant", "content": ai_response, "timestamp": datetime.utcnow().isoformat()})
+        history.append({
+            "role": "assistant", "content": ai_response, "timestamp": datetime.utcnow().isoformat(),
+            "source": "simulated" if getattr(self.groq, "last_simulated", False) else "ai",
+            "gen_ms": gen_ms, "prompt_chars": prompt_chars,
+            "model": getattr(self.groq, "last_model", None),
+        })
 
         # Update AI question count
         meta["ai_question_count"] = meta.get("ai_question_count", 0) + 1
@@ -369,13 +381,17 @@ class InterviewManager:
                 depth = norm_score(item.get("depth_score"), None)
                 cons = norm_score(item.get("consistency_score"), None)
                 present = [v for v in (spec, depth, cons) if v is not None]
-                overall = norm_score(item.get("overall_skill_score"),
-                                     round(sum(present) / len(present), 1) if present else None)
-                if overall is None:
+                llm_overall = norm_score(item.get("overall_skill_score"), None)
+                if not present and llm_overall is None:
                     continue  # no usable score for this skill
-                spec = overall if spec is None else spec
-                depth = overall if depth is None else depth
-                cons = overall if cons is None else cons
+                fill = round(sum(present) / len(present), 1) if present else llm_overall
+                spec = fill if spec is None else spec
+                depth = fill if depth is None else depth
+                cons = fill if cons is None else cons
+                # The overall skill score is computed by the system, not chosen by
+                # the LLM: S_j = (specificity + depth + consistency) / 3. This makes
+                # the published scoring equation exactly what the code does.
+                overall = round((spec + depth + cons) / 3.0, 1)
 
                 # Match the model's skill name back to the assessed skill list
                 # (it sometimes adds punctuation or changes case)

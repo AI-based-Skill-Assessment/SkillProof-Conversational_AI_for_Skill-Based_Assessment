@@ -94,8 +94,12 @@ export default function ReportDetail() {
               score: metrics.document_score ?? s.document?.document_score ?? 0.0
             },
             biometric: {
-              face_verified: bioAudit.face_verified ?? true,
-              voice_verified: bioAudit.voice_verified ?? true,
+              face_verified: Boolean(bioAudit.face_verified),
+              voice_verified: Boolean(bioAudit.voice_verified),
+              face_registered: Boolean(bioAudit.face_registered),
+              voice_registered: Boolean(bioAudit.voice_registered),
+              face_mismatch_count: bioAudit.face_mismatch_count ?? 0,
+              voice_mismatch_count: bioAudit.voice_mismatch_count ?? 0,
               integrity_score: bioAudit.integrity_score ?? 100.0,
               tab_switch_count: bioAudit.tab_switch_count ?? 0,
               window_blur_count: bioAudit.window_blur_count ?? 0,
@@ -460,8 +464,8 @@ export default function ReportDetail() {
             <CardBody style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
                 <span style={{ color: 'var(--text-secondary)' }}>Integrity Trust Index:</span>
-                <span style={{ color: (report.biometric.integrity_score || 100) >= 80 ? 'var(--success)' : '#f59e0b', fontWeight: 700, fontSize: 13 }}>
-                  {report.biometric.integrity_score || 100}% Trust
+                <span style={{ color: (report.biometric.integrity_score ?? 100) >= 80 ? 'var(--success)' : 'var(--warning)', fontWeight: 700, fontSize: 13 }}>
+                  {report.biometric.integrity_score ?? 100}% Trust
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
@@ -472,14 +476,18 @@ export default function ReportDetail() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
                 <span style={{ color: 'var(--text-secondary)' }}>Face Identity Match:</span>
-                <span style={{ color: report.biometric.face_verified ? 'var(--success)' : 'var(--danger)', fontWeight: 600, fontSize: 12 }}>
-                  {report.biometric.face_verified ? 'PASSED (ArcFace)' : 'FLAGGED'}
+                <span style={{ color: !report.biometric.face_registered ? 'var(--text-secondary)' : report.biometric.face_verified ? 'var(--success)' : 'var(--error)', fontWeight: 600, fontSize: 12 }}>
+                  {!report.biometric.face_registered ? 'Not registered'
+                    : report.biometric.face_verified ? `Matched (${report.biometric.face_mismatch_count} mismatch incident${report.biometric.face_mismatch_count === 1 ? '' : 's'})`
+                      : `Flagged (${report.biometric.face_mismatch_count} mismatch incidents)`}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
                 <span style={{ color: 'var(--text-secondary)' }}>Voice Acoustic Match:</span>
-                <span style={{ color: report.biometric.voice_verified ? 'var(--success)' : 'var(--danger)', fontWeight: 600, fontSize: 12 }}>
-                  {report.biometric.voice_verified ? 'PASSED (ECAPA)' : 'FLAGGED'}
+                <span style={{ color: !report.biometric.voice_registered ? 'var(--text-secondary)' : report.biometric.voice_verified ? 'var(--success)' : 'var(--error)', fontWeight: 600, fontSize: 12 }}>
+                  {!report.biometric.voice_registered ? 'Not registered'
+                    : report.biometric.voice_verified ? `Matched (${report.biometric.voice_mismatch_count} mismatch incident${report.biometric.voice_mismatch_count === 1 ? '' : 's'})`
+                      : `Flagged (${report.biometric.voice_mismatch_count} mismatch incidents)`}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, paddingTop: 10, borderTop: '1px solid var(--border)' }}>

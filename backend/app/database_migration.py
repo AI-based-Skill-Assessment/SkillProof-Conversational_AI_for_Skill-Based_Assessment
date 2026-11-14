@@ -38,6 +38,8 @@ COLUMNS_TO_ENSURE = [
     ("skill_score_results", "skill_name", "VARCHAR(255)"),
     # In-browser face proctoring
     ("biometric_profiles", "multi_face_count", "INTEGER NOT NULL DEFAULT 0"),
+    ("biometric_profiles", "face_mismatch_streak", "INTEGER NOT NULL DEFAULT 0"),
+    ("biometric_profiles", "voice_mismatch_streak", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 INDEXES_TO_ENSURE = [

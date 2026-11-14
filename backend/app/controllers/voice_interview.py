@@ -186,8 +186,8 @@ async def realtime_interview_ws(
                             await db_session.commit()  # Commit the readonly query to prevent ROLLBACK
                             if profile:
                                 # Kick only after persistent consecutive mismatches or critical fraud
-                                if (profile.face_mismatch_count >= 15 or 
-                                    profile.voice_mismatch_count >= 5 or 
+                                if ((profile.face_mismatch_streak or 0) >= 15 or
+                                    (profile.voice_mismatch_streak or 0) >= 5 or 
                                     (profile.interview_flagged and profile.fraud_flags >= 20)):
                                     try:
                                         await websocket.send_json({

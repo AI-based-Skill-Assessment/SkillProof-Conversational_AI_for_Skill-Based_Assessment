@@ -191,6 +191,22 @@ async def change_password(
     return {"message": "Password updated successfully."}
 
 
+@router.delete("/me/biometrics", summary="Delete My Biometric Data")
+async def delete_my_biometrics(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Erase the candidate's face and voice templates everywhere they are stored.
+    Scores and reports are kept (they hold no biometric data). The candidate
+    must register again before taking another assessment.
+    """
+    from app.services.retention_service import delete_user_biometrics
+    result = await delete_user_biometrics(db, current_user)
+    await db.commit()
+    return {"message": "Your face and voice data has been deleted.", **result}
+
+
 @router.put("/me/account-type", summary="Update User Account Type")
 async def update_my_account_type(
     payload: UserAccountTypeRequest,

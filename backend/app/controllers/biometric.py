@@ -48,6 +48,24 @@ def _extract_face_embedding_if_present(face_image: Optional[str], fallback_emb: 
     return fallback_emb
 
 
+async def _log_research_probes(db, session_id, face_emb, voice_emb) -> None:
+    """Store live samples for the evaluation study (RESEARCH_LOGGING only). Never breaks the check."""
+    try:
+        import uuid as _uuid
+        from app.models.research import BiometricProbe
+        from app.repositories import session_repo
+        sess = await session_repo.get_session(db, session_id)
+        owner = getattr(sess, "owner_id", None)
+        call_id = _uuid.uuid4()
+        for modality, emb in (("face", face_emb), ("voice", voice_emb)):
+            if emb:
+                db.add(BiometricProbe(call_id=call_id, session_id=session_id, subject_user_id=owner,
+                                      modality=modality, embedding=list(emb)))
+        await db.flush()
+    except Exception as e:
+        print(f"[Research] Probe logging skipped: {e}")
+
+
 FACE_DIST_THRESHOLD  = 0.50   # Strict Euclidean distance threshold (face-api.js) — rejects different individuals strictly
 VOICE_SIM_THRESHOLD  = 0.35   # Calibrated threshold for continuous live candidate voice verification
 
@@ -337,6 +355,8 @@ async def verify_biometrics(
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> BiometricVerifyResponse:
+    # Only the session owner may run checks that add fraud flags to it
+    await ensure_session_access(db, payload.session_id, current_user)
     profile = None
     if payload.session_id:
         profile = await biometric_repo.get_profile(db, payload.session_id)
@@ -471,6 +491,12 @@ async def interview_verify(
             await db.refresh(profile)
 
         face_emb = _extract_face_embedding_if_present(getattr(payload, 'face_image', None), payload.face_embedding)
+
+        # Evaluation study: keep the raw live samples so FAR/FRR/EER can be measured
+        from app.config import settings as _settings
+        if _settings.RESEARCH_LOGGING and (face_emb or payload.voice_embedding):
+            await _log_research_probes(db, payload.session_id, face_emb, payload.voice_embedding)
+
         face_match, voice_match, face_conf, voice_conf, profile = (
             await biometric_repo.record_interview_verification(
                 db,
@@ -494,14 +520,14 @@ async def interview_verify(
         specific_flags = []
         parts = []
 
-        if payload.face_embedding or getattr(payload, 'face_image', None):
+        if face_match is not None:
             if face_match:
                 parts.append("Face OK")
             else:
                 parts.append("Face mismatch — different person detected!")
                 specific_flags.append("face_mismatch")
 
-        if payload.voice_embedding:
+        if voice_match is not None:
             if voice_match:
                 parts.append("Voice OK")
             else:
@@ -536,14 +562,14 @@ async def interview_verify(
 
         # Append periodic verification check to timeline if mismatch or every 5 passes
         timeline = list(profile.proctoring_timeline or [])
-        if not face_match or not voice_match:
+        if face_match is False or voice_match is False:
             import datetime
             timeline.append({
                 "timestamp": datetime.datetime.utcnow().isoformat(),
                 "type": "biometric_mismatch",
                 "event": "Face or Voice mismatch detected during continuous proctoring",
                 "severity": "high",
-                "confidence": face_conf if not face_match else voice_conf,
+                "confidence": face_conf if face_match is False else voice_conf,
             })
             profile.proctoring_timeline = timeline[-50:]  # Keep last 50 events
         
@@ -571,30 +597,17 @@ async def interview_verify(
             tab_switch_count=getattr(profile, 'tab_switch_count', 0) or 0,
             window_blur_count=getattr(profile, 'window_blur_count', 0) or 0,
         )
-    except Exception as exc:
+    except HTTPException:
+        raise
+    except Exception:
+        # Fail closed: a check that crashed must never be reported as a match.
+        # (This used to answer "face matched, voice matched, 94%, clean".)
         import traceback
-        print("🔥 [INTERVIEW VERIFY ERROR TRACEBACK]:")
+        print("[INTERVIEW VERIFY ERROR]")
         traceback.print_exc()
-        return InterviewVerifyResponse(
-            session_id=payload.session_id,
-            face_match=True,
-            voice_match=True,
-            face_confidence=0.94,
-            voice_confidence=0.94,
-            face_mismatch_count=0,
-            voice_mismatch_count=0,
-            interview_flagged=False,
-            fraud_status="clean",
-            fraud_flags=0,
-            alert_level="ok",
-            message="Biometric verification active.",
-            face_detected=True,
-            multi_face_detected=False,
-            gaze_direction="center",
-            specific_flags=[],
-            integrity_score=100.0,
-            tab_switch_count=0,
-            window_blur_count=0,
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Identity check could not be completed. It will be retried automatically.",
         )
 
 

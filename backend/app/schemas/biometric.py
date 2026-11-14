@@ -99,8 +99,8 @@ class InterviewVerifyRequest(BaseModel):
 
 class InterviewVerifyResponse(BaseModel):
     session_id:          UUID
-    face_match:          bool
-    voice_match:         bool
+    face_match:          Optional[bool] = None   # None = not checked in this call
+    voice_match:         Optional[bool] = None
     face_confidence:     float
     voice_confidence:    float
     face_mismatch_count: int

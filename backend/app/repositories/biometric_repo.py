@@ -266,6 +266,31 @@ async def record_precheck_face_verification(
 # Live Interview Dedicated Verification (Isolated for InterviewSession.jsx)
 # ─────────────────────────────────────────────────────────────────────────────
 
+# A single mismatching frame is usually noise (lighting, motion blur). Two in a
+# row start an incident; one incident is counted however long it lasts.
+MISMATCH_INCIDENT_AFTER = 2
+
+
+def _apply_check(profile: BiometricProfile, modality: str, matched: bool) -> bool:
+    """
+    Update streak / pass / incident counters for one face or voice check.
+    Returns True when this check starts a NEW mismatch incident.
+    Incident totals (`*_mismatch_count`) never reset, so a stand-in's
+    mismatches can't be erased by the real candidate returning later.
+    """
+    streak_attr = f"{modality}_mismatch_streak"
+    if matched:
+        setattr(profile, f"{modality}_verify_pass", (getattr(profile, f"{modality}_verify_pass") or 0) + 1)
+        setattr(profile, streak_attr, 0)
+        return False
+    streak = (getattr(profile, streak_attr, 0) or 0) + 1
+    setattr(profile, streak_attr, streak)
+    if streak == MISMATCH_INCIDENT_AFTER:
+        setattr(profile, f"{modality}_mismatch_count", (getattr(profile, f"{modality}_mismatch_count") or 0) + 1)
+        return True
+    return False
+
+
 async def record_interview_verification(
     db: AsyncSession,
     session_id: UUID,
@@ -295,11 +320,14 @@ async def record_interview_verification(
         )
         await db.flush()
 
-    face_match  = False
+    # None = not checked in this call (e.g. only a face frame was sent). Treating
+    # an unchecked modality as a mismatch used to log a false "mismatch" event
+    # on every face check.
+    face_match  = None
     face_conf   = 0.0
-    voice_match = False
+    voice_match = None
     voice_conf  = 0.0
-    any_mismatch = False
+    any_mismatch = False   # True when this call starts a new mismatch incident
 
     # ── Face check ───────────────────────────────────────────────────────────
     if face_embedding:
@@ -336,13 +364,8 @@ async def record_interview_verification(
             face_match = False
             face_conf = 0.15
 
-        if face_match:
-            profile.face_verify_pass += 1
-            profile.face_mismatch_count = 0  # Reset consecutive mismatch counter on successful match
-        else:
-            profile.face_mismatch_count += 1
+        if _apply_check(profile, "face", face_match):
             any_mismatch = True
-            
             reasons = list(profile.flag_reasons or [])
             face_msg = "Face mismatch: The person on camera does not match the registered candidate."
             if face_msg not in reasons:
@@ -356,13 +379,8 @@ async def record_interview_verification(
         # Noise-calibrated threshold: >= 0.42 matches genuine speaker even in noisy ambient environments
         # (different speakers/proxies score < 0.30)
         voice_match = sim >= 0.42
-        if voice_match:
-            profile.voice_verify_pass += 1
-            profile.voice_mismatch_count = 0  # Reset consecutive mismatch counter on match
-        else:
-            profile.voice_mismatch_count += 1
+        if _apply_check(profile, "voice", voice_match):
             any_mismatch = True
-            
             reasons = list(profile.flag_reasons or [])
             voice_msg = "Voice mismatch: The speaker does not match the registered voice profile (voice is altered from the registration)."
             if voice_msg not in reasons:

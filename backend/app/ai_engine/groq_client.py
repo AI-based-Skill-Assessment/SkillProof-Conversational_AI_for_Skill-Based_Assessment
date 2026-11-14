@@ -51,6 +51,8 @@ class GroqClient:
                  Scoring uses this so a Groq hiccup never becomes a fake grade.
         """
         model = model or settings.GROQ_CHAT_MODEL
+        self.last_model = model
+        self.last_simulated = False
         if self.enabled and self.client:
             last_error = None
             for attempt in range(retries + 1):
@@ -80,6 +82,7 @@ class GroqClient:
             print(f"[SkillProof AI] Error calling Groq API: {last_error}. Falling back to simulation.")
 
         # Async simulation fallback
+        self.last_simulated = True
         await asyncio.sleep(0.5)  # Simulate network latency
         return self._generate_simulated_response(messages)
 

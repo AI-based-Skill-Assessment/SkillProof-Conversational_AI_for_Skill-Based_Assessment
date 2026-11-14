@@ -293,34 +293,35 @@ async def verify_public_credential_hash(
     verification_hash: str,
     db: AsyncSession = Depends(get_db)
 ):
-    # Find matching session by hash or session ID prefix
+    # EXACT match only: a full credential code (SP-<16 hex>-<16 hex>) or a full
+    # session UUID. Partial matching used to let anyone type "SP-" (or a single
+    # letter) and receive a real candidate's credential.
+    import re
     from sqlalchemy import select
-    from app.models.session import VerificationSession
-    
-    clean_hash = verification_hash.strip().upper()
-    
-    # Try finding session directly if UUID was passed
-    matched_session_id = None
-    try:
-        uuid_candidate = UUID(clean_hash)
-        matched_session_id = uuid_candidate
-    except Exception:
-        pass
+    from app.models.session import VerificationSession, SessionStatus
 
-    if not matched_session_id:
-        # Search recent sessions to match generated verification hash
-        stmt = select(VerificationSession).order_by(VerificationSession.created_at.desc()).limit(100)
-        res = await db.execute(stmt)
-        sessions = res.scalars().all()
-        
+    clean_hash = verification_hash.strip().upper()
+    matched_session_id = None
+
+    try:
+        matched_session_id = UUID(clean_hash)
+    except ValueError:
+        if not re.fullmatch(r"SP-[0-9A-F]{16}-[0-9A-F]{16}", clean_hash):
+            raise HTTPException(status_code=404, detail="Credential not found. Check the full code, e.g. SP-1A2B...-3C4D...")
+
+        stmt = (
+            select(VerificationSession)
+            .where(VerificationSession.status == SessionStatus.scored)
+            .order_by(VerificationSession.created_at.desc())
+            .limit(5000)
+        )
+        sessions = (await db.execute(stmt)).scalars().all()
         for s in sessions:
-            cand_name = s.candidate_name or "Candidate"
-            date_iso = (s.created_at or datetime.utcnow()).isoformat()[:10]
             scores = await score_repo.get_scores_by_session(db, s.id)
             avg = round(sum(sc.overall_skill_score or 0.0 for sc in scores) / len(scores), 2) if scores else 0.0
-            gen_hash = credential_service.generate_verification_hash(s.id, cand_name, avg, date_iso)
-            
-            if gen_hash == clean_hash or clean_hash in gen_hash or str(s.id).upper().startswith(clean_hash.replace("SP-", "")):
+            date_iso = (s.created_at or datetime.utcnow()).isoformat()[:10]
+            gen_hash = credential_service.generate_verification_hash(s.id, s.candidate_name or "Candidate", avg, date_iso)
+            if gen_hash == clean_hash:
                 matched_session_id = s.id
                 break
 

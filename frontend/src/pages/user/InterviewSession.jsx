@@ -811,9 +811,10 @@ export default function InterviewSession() {
                       face_embedding: descriptorArray
                     });
 
-                    if (res.data) {
+                    // face_match is null when the server didn't check the face this time
+                    if (res.data && typeof res.data.face_match === 'boolean') {
                       const match = res.data.face_match;
-                      const conf = res.data.face_confidence !== undefined ? res.data.face_confidence : (match ? 0.94 : 0.25);
+                      const conf = typeof res.data.face_confidence === 'number' ? res.data.face_confidence : 0;
                       const matchPct = Math.min(100, Math.max(10, Math.round(conf * 100)));
 
                       setFaceMatchPct(matchPct);
@@ -1114,16 +1115,20 @@ export default function InterviewSession() {
       // Event-Driven Vision AI Check upon answer submission
       triggerVisionAICheck();
 
-      // Voice biometric verification with fail-safe fallback
+      // Voice check uses the same interview identity check as the face check,
+      // so mismatches count as proctoring incidents (and are logged for the
+      // evaluation study when enabled)
       try {
-        const res = await client.post('/biometric/verify', {
+        const res = await client.post('/biometric/interview-verify', {
           session_id: id,
           voice_embedding: embedding
         });
 
-        if (res.data && res.data.voice_match) {
+        if (res.data && res.data.voice_match === null) {
+          // No registered voice to compare against: nothing to show
+        } else if (res.data && res.data.voice_match) {
           setVoiceMatchStatus('MATCHING');
-          setVoiceMatchPct(Math.round((res.data.voice_confidence || 0.92) * 100));
+          setVoiceMatchPct(Math.round((res.data.voice_confidence || 0) * 100));
           setVoiceErrorMessage('');
         } else {
           setVoiceMatchStatus('MISMATCH');

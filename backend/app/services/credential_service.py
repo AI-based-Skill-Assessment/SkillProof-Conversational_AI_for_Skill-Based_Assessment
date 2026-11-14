@@ -45,13 +45,15 @@ class CredentialService:
         session = await session_repo.get_session(db, session_id)
         if not session:
             return {"error": "Verification session not found"}
+        # A credential only exists once the assessment has actually been scored
+        if getattr(session.status, "value", session.status) != "scored":
+            return {"error": "This assessment has not been completed and scored yet."}
 
         document = await document_repo.get_document_by_session(db, session_id)
         scores = await score_repo.get_scores_by_session(db, session_id)
         profile = await biometric_repo.get_profile(db, session_id)
 
         candidate_name = session.candidate_name or "Candidate"
-        candidate_email = session.candidate_email or ""
         created_at_iso = (session.created_at or datetime.now(timezone.utc)).isoformat()
 
         # Compute average score
@@ -75,7 +77,7 @@ class CredentialService:
         credential_subject = {
             "id": f"urn:skillproof:candidate:{session_id}",
             "candidateName": candidate_name,
-            "candidateEmail": candidate_email,
+            # No email: credentials are publicly viewable by anyone with the code
             "role": session.extracted_role or "Technical Professional",
             "company": session.extracted_company or "",
             "skills": skills_list,

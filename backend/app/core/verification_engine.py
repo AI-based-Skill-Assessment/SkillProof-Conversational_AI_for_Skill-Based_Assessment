@@ -20,6 +20,8 @@ from datetime import datetime
 
 import httpx
 
+from app.core.url_safety import UnsafeURL, check_url, safe_get
+
 try:
     from bs4 import BeautifulSoup
 except Exception:
@@ -674,11 +676,11 @@ async def _verify_company_website(base_url: str, company_name: Optional[str] = N
     Returns (is_live, snippet).
     """
     try:
-        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
-            resp = await client.get(
-                base_url,
-                headers={"User-Agent": "Mozilla/5.0 (SkillProof Certificate Verifier/2.0)"}
-            )
+        # base_url comes from the uploaded document: only fetch public hosts
+        resp = await safe_get(
+            base_url, timeout=8.0,
+            headers={"User-Agent": "Mozilla/5.0 (SkillProof Certificate Verifier/2.0)"},
+        )
 
         if resp.status_code >= 400:
             return False, ""
@@ -711,8 +713,18 @@ async def _playwright_fallback(url: str, candidate_name: Optional[str] = None) -
     try:
         from playwright.async_api import async_playwright  # type: ignore
         async with async_playwright() as pw:
+            await check_url(url)
             browser = await pw.chromium.launch(headless=True)
             page = await browser.new_page()
+
+            async def _guard(route):
+                try:
+                    await check_url(route.request.url)
+                    await route.continue_()
+                except UnsafeURL:
+                    await route.abort()
+
+            await page.route("**/*", _guard)
             await page.goto(url, timeout=20000, wait_until="networkidle")
             html = await page.content()
             await browser.close()
@@ -748,10 +760,11 @@ async def verify_url(
     snippet = ""
 
     try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            response = await client.get(verify_url_str, headers={
-                "User-Agent": "Mozilla/5.0 (SkillProof Certificate Verifier/2.0)"
-            })
+        # The verification URL is printed on the uploaded document: SSRF-safe fetch
+        response = await safe_get(
+            verify_url_str, timeout=10.0,
+            headers={"User-Agent": "Mozilla/5.0 (SkillProof Certificate Verifier/2.0)"},
+        )
 
         if response.status_code != 200:
             status = "unverifiable"
@@ -767,6 +780,9 @@ async def verify_url(
             else:
                 status, confidence = _classify_text(text, candidate_name)
 
+    except UnsafeURL as unsafe:
+        print(f"[VerificationEngine] Refused to fetch unsafe URL {verify_url_str[:60]}: {unsafe}")
+        status, confidence = "unverifiable", 0.5
     except httpx.TimeoutException:
         print(f"[VerificationEngine] Timeout fetching URL: {verify_url_str[:60]}")
         status, confidence = "unverifiable", 0.5
