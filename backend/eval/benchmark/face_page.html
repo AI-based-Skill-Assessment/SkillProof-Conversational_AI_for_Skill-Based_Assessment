@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>SkillProof face descriptor extraction</title></head>
+<body>
+<script src="/web/face-api.min.js"></script>
+<script>
+  // Same models and settings as the app:
+  //   enrolment (FaceRegistration.jsx): TinyFaceDetector inputSize 224, scoreThreshold 0.25
+  //   live check (InterviewSession.jsx): TinyFaceDetector inputSize 320, scoreThreshold 0.15
+  // both: detectSingleFace(...).withFaceLandmarks(true).withFaceDescriptor()
+  const OPTS = {
+    enrol: () => new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.25 }),
+    probe: () => new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.15 }),
+  };
+  window.ready = (async () => {
+    await faceapi.nets.tinyFaceDetector.loadFromUri('/web/models');
+    await faceapi.nets.faceLandmark68TinyNet.loadFromUri('/web/models');
+    await faceapi.nets.faceRecognitionNet.loadFromUri('/web/models');
+    return faceapi.tf.getBackend();
+  })();
+  window.describeBatch = async (urls) => {
+    const out = {};
+    for (const url of urls) {
+      try {
+        const img = await faceapi.fetchImage(url);
+        const res = {};
+        for (const mode of ['enrol', 'probe']) {
+          const det = await faceapi.detectSingleFace(img, OPTS[mode]()).withFaceLandmarks(true).withFaceDescriptor();
+          res[mode] = det ? Array.from(det.descriptor) : null;
+        }
+        out[url] = res;
+      } catch (e) {
+        out[url] = { error: String(e) };
+      }
+    }
+    return out;
+  };
+</script>
+</body>
+</html>
