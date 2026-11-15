@@ -74,10 +74,17 @@ def main(argv=None):
         item = f"I{n:03d}"
         key.append({"item_id": item, "session_id": str(s.id)})
         transcript = format_transcript(s.interview.transcript, s.candidate_name)
-        scores = list(s.scores or [])
         skills = list(s.extracted_skills or []) or ["General"]
-        for k, sc in enumerate(scores):
+        # Sessions scored twice by a (now fixed) double request have duplicate rows:
+        # keep the FIRST completed scoring run for each skill.
+        scores, seen = [], set()
+        for k, sc in enumerate(sorted(s.scores or [], key=lambda x: (x.scored_at is None, x.scored_at))):
             skill = getattr(sc, "skill_name", None) or (skills[k] if k < len(skills) else skills[0])
+            if skill.lower() in seen:
+                continue
+            seen.add(skill.lower())
+            scores.append((skill, sc))
+        for skill, sc in scores:
             blind.append({"item_id": item, "skill": skill, "transcript": transcript, **{c: "" for c in RATER_COLUMNS}})
             ai.append({"item_id": item, "skill": skill,
                        "ai_specificity": sc.specificity_score, "ai_depth": sc.depth_score,

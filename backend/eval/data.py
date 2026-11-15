@@ -68,17 +68,31 @@ def load_json(path: str) -> Dataset:
     return ds
 
 
-def load_db(impostor_sessions: Optional[Dict[str, str]] = None) -> Dataset:
+def load_db(impostor_sessions: Optional[Dict[str, object]] = None, exclude_sessions=None) -> Dataset:
     """
     Enrolment templates = users' registered face/voice; probes = biometric_probes
     (logged during interviews with RESEARCH_LOGGING=true).
-    impostor_sessions: {session_id: true_subject_label} for sessions where the
-    study team had someone OTHER than the account owner take the interview.
+
+    impostor_sessions: {session_id: true_subject} or {session_id: {"true_subject": ..., "start": datetime}}
+      for sessions where someone OTHER than the account owner answered. true_subject
+      may be a user id, an email or a participant's full name. With "start", samples
+      before that moment belong to the real owner (genuine) and samples from then on
+      to the stand-in (attack); without it the whole session is treated as an attack.
+    exclude_sessions: session ids to leave out entirely (e.g. unclear ground truth).
     """
-    return asyncio.run(_load_db(impostor_sessions or {}))
+    return asyncio.run(_load_db(impostor_sessions or {}, set(exclude_sessions or [])))
 
 
-async def _load_db(impostor_sessions: Dict[str, str]) -> Dataset:
+def _resolve_subject(label: str, users) -> str:
+    """Map a name / email / id from the study log to a user id (case-insensitive)."""
+    key = label.strip().lower()
+    for u in users:
+        if key in (str(u.id).lower(), (u.email or "").lower(), (u.full_name or "").strip().lower()):
+            return str(u.id)
+    return label.strip()   # not enrolled: still usable as an attacker identity
+
+
+async def _load_db(impostor_sessions: Dict[str, object], exclude_sessions) -> Dataset:
     from sqlalchemy import select
     from app.database import async_session_factory
     from app.models.research import BiometricProbe
@@ -95,12 +109,21 @@ async def _load_db(impostor_sessions: Dict[str, str]) -> Dataset:
                 t["voice"] = u.voice_embedding
             if t:
                 ds.templates[str(u.id)] = t
+        attacks = {}
+        for sid, v in impostor_sessions.items():
+            v = v if isinstance(v, dict) else {"true_subject": v}
+            attacks[sid] = (_resolve_subject(str(v["true_subject"]), users), v.get("start"))
+
         probes = (await db.execute(select(BiometricProbe).order_by(BiometricProbe.created_at))).scalars().all()
         for p in probes:
-            if not p.subject_user_id:
+            if not p.subject_user_id or str(p.session_id) in exclude_sessions:
                 continue
             claimed = str(p.subject_user_id)
-            true_subject = impostor_sessions.get(str(p.session_id), claimed)
+            true_subject = claimed
+            if str(p.session_id) in attacks:
+                stand_in, start = attacks[str(p.session_id)]
+                if start is None or (p.created_at and p.created_at >= start):
+                    true_subject = stand_in
             ds.probes.append(Probe(
                 subject=true_subject, claimed=claimed, modality=p.modality, embedding=p.embedding,
                 session=str(p.session_id) if p.session_id else None, time=p.created_at, call_id=str(p.call_id),

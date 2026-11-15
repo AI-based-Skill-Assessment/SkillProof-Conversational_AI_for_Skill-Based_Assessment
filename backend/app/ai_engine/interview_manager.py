@@ -218,7 +218,9 @@ class InterviewManager:
         # Measured generation time for this question (evaluation: per-question latency)
         import time as _time
         _t0 = _time.perf_counter()
-        ai_response = await self.groq.chat_completion(groq_messages)
+        # Retry through Groq's per-minute token limit instead of silently falling
+        # back to a canned simulated question (happened once in the pilot study)
+        ai_response = await self.groq.chat_completion(groq_messages, retries=2)
         gen_ms = round((_time.perf_counter() - _t0) * 1000)
         prompt_chars = sum(len(m["content"]) for m in groq_messages)
 

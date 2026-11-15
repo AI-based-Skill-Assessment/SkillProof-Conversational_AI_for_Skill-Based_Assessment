@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -37,24 +39,33 @@ async def trigger_score_calculation(
     """
     await ensure_session_access(db, session_id, current_user)
 
-    session = await session_repo.get_session(db, session_id)
-    if not session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Session {session_id} not found.")
+    # One scoring run per session at a time. Two simultaneous requests (e.g. the
+    # processing page mounting twice) used to both score and both save, leaving
+    # duplicate, sometimes disagreeing, score rows.
+    lock = _scoring_locks.setdefault(session_id, asyncio.Lock())
+    async with lock:
+        db.expire_all()   # see results committed by a request that held the lock before us
+        session = await session_repo.get_session(db, session_id)
+        if not session:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Session {session_id} not found.")
 
-    already_scored = getattr(session.status, "value", session.status) == "scored" and bool(session.scores)
-    if already_scored and not force:
-        return await _report_or_404(db, session_id)
+        already_scored = getattr(session.status, "value", session.status) == "scored" and bool(session.scores)
+        if already_scored and not force:
+            return await _report_or_404(db, session_id)
 
-    try:
-        await score_session(db, session)
-    except ScoringUnavailable as e:
-        print(f"[Score Endpoint] Scoring unavailable for {session_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI scoring is busy right now. Your answers are saved; please try again in a minute.",
-        )
+        try:
+            await score_session(db, session)
+        except ScoringUnavailable as e:
+            print(f"[Score Endpoint] Scoring unavailable for {session_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI scoring is busy right now. Your answers are saved; please try again in a minute.",
+            )
 
     return await _report_or_404(db, session_id)
+
+
+_scoring_locks: dict = {}
 
 
 async def score_session(db: AsyncSession, session) -> None:

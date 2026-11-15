@@ -238,10 +238,20 @@ def write_report(results: dict, ds: Dataset, out_dir: str, fusion_w: float, best
     return "\n".join(L)
 
 
+def parse_local_time(text: str) -> datetime:
+    """'2026-11-14 15:45' -> aware datetime. Naive times are this computer's local time."""
+    dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.astimezone()
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--json", help="Load data from a JSON file instead of the database")
-    ap.add_argument("--impostor-sessions", help="CSV with columns session_id,true_subject for deliberate impostor sessions")
+    ap.add_argument("--impostor-sessions",
+                    help="CSV session_id,true_subject[,start] for deliberate impostor sessions. true_subject may be a "
+                         "name, email or user id; optional start (e.g. 2026-11-14 15:45) is when the stand-in took over, "
+                         "in this computer's local time unless it includes a timezone")
+    ap.add_argument("--exclude-sessions", default="", help="Comma-separated session ids to leave out (unclear ground truth)")
     ap.add_argument("--fusion-weight", type=float, default=0.5, help="Face weight w in B (default 0.5)")
     ap.add_argument("--groups", help="Optional CSV subject,group (self-reported, e.g. gender or skin-tone band) for per-group FAR/FRR")
     ap.add_argument("--out", default=os.path.join("eval_results", datetime.now().strftime("%Y%m%d_%H%M%S")))
@@ -254,9 +264,16 @@ def main(argv=None):
     else:
         imp = {}
         if args.impostor_sessions:
-            for row in csv.DictReader(open(args.impostor_sessions, encoding="utf-8")):
-                imp[row["session_id"].strip()] = row["true_subject"].strip()
-        ds = load_db(imp)
+            for row in csv.DictReader(open(args.impostor_sessions, encoding="utf-8-sig")):
+                start = (row.get("start") or "").strip()
+                imp[row["session_id"].strip()] = {
+                    "true_subject": row["true_subject"].strip(),
+                    "start": parse_local_time(start) if start else None,
+                }
+        excluded = [s.strip() for s in args.exclude_sessions.split(",") if s.strip()]
+        ds = load_db(imp, excluded)
+        if excluded:
+            print(f"Excluded sessions: {', '.join(excluded)}")
     print(ds.summary())
 
     face = build_trials(ds, "face")

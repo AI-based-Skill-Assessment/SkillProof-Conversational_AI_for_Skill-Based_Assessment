@@ -222,7 +222,7 @@ def test_scoring_unavailable_returns_503_and_saves_nothing(client, monkeypatch):
     from app.main import app
 
     async def fake_db():
-        yield SimpleNamespace()
+        yield SimpleNamespace(expire_all=lambda: None)
 
     app.dependency_overrides[get_db] = fake_db
     try:
@@ -231,3 +231,34 @@ def test_scoring_unavailable_returns_503_and_saves_nothing(client, monkeypatch):
         app.dependency_overrides.pop(get_db, None)
     assert r.status_code == 503
     assert not saved
+
+
+def test_concurrent_requests_score_only_once(monkeypatch):
+    """Two simultaneous POSTs (page mounted twice) must produce one scoring run."""
+    from app.database import get_db  # noqa: F401
+
+    sess = _session()
+    runs = []
+
+    async def get_session(db, sid):
+        return sess
+
+    async def slow_score(db, s):
+        runs.append(1)
+        await asyncio.sleep(0.05)
+        s.status, s.scores = "scored", [object()]
+
+    async def report(db, sid):
+        return {"ok": True}
+
+    monkeypatch.setattr(score_ctrl.session_repo, "get_session", get_session)
+    monkeypatch.setattr(score_ctrl, "score_session", slow_score)
+    monkeypatch.setattr(score_ctrl.report_service, "generate_verdict", report)
+    db = SimpleNamespace(expire_all=lambda: None)
+
+    async def both():
+        call = lambda: score_ctrl.trigger_score_calculation(sess.id, False, db, None)
+        return await asyncio.gather(call(), call())
+
+    assert asyncio.run(both()) == [{"ok": True}, {"ok": True}]
+    assert runs == [1]

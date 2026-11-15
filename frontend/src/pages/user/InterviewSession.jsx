@@ -1316,6 +1316,9 @@ export default function InterviewSession() {
   });
 
   const [wsStatus, setWsStatus] = useState('connecting');
+  // Set when the server closes the interview for good (code 1008), e.g. persistent identity mismatch
+  const [terminatedReason, setTerminatedReason] = useState('');
+  const lastServerErrorRef = useRef('');
   const [reconnectCounter, setReconnectCounter] = useState(0);
 
   useEffect(() => {
@@ -1375,6 +1378,7 @@ export default function InterviewSession() {
           // Server-side rejection (e.g. not signed in as this session's owner,
           // unknown session, or terminated for biometric mismatch)
           if (data.type === 'error') {
+            lastServerErrorRef.current = data.message || '';
             toastRef.current.error('Interview Error', data.message || 'The interview server reported an error.');
             return;
           }
@@ -1416,6 +1420,12 @@ export default function InterviewSession() {
         if (!isComponentMounted) return;
         if (pingInterval) clearInterval(pingInterval);
         setWsStatus('disconnected');
+
+        if (e.code === 1008) {
+          // Policy close: the server will refuse reconnection, so say why instead of "disconnected"
+          setTerminatedReason(lastServerErrorRef.current || 'The interview was closed by the server.');
+          stopWebcamAndAudio();
+        }
 
         if (e.code !== 1000 && e.code !== 1008) {
           reconnectTimer = setTimeout(() => {
@@ -1459,6 +1469,9 @@ export default function InterviewSession() {
 
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: 'answer', text: msgText }));
+    } else if (terminatedReason) {
+      toastRef.current.error('Interview closed', terminatedReason);
+      setAiState('listening');
     } else {
       toastRef.current.error('Connection Error', 'WebSocket is disconnected. Please wait a moment for connection.');
       setAiState('listening');
@@ -1646,6 +1659,15 @@ export default function InterviewSession() {
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Conversation History
           </span>
+
+          {terminatedReason && (
+            <div role="alert" style={{ marginBottom: 12, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--error)', background: 'color-mix(in srgb, var(--error) 12%, transparent)', color: 'var(--text-primary)', fontSize: 14, lineHeight: 1.5 }}>
+              <strong>Interview closed by the server.</strong> {terminatedReason}
+              <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-secondary)' }}>
+                Your answers so far are saved. This attempt cannot be resumed; the organisation will see the recorded incidents.
+              </div>
+            </div>
+          )}
 
           <div ref={chatScrollRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingRight: 6 }}>
             {messages.map((m, idx) => (

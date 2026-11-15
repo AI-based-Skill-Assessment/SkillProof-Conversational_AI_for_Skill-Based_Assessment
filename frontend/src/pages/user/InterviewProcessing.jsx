@@ -15,6 +15,19 @@ const STAGES = [
   { label: 'Compiling cryptographic verification report...', minPct: 85, maxPct: 100 }
 ];
 
+// One scoring request per interview attempt, even when React mounts this page
+// twice (development StrictMode): both mounts share the same promise.
+const inFlightScoring = new Map();
+function scoreOnce(id, attempt) {
+  const key = `${id}:${attempt}`;
+  if (!inFlightScoring.has(key)) {
+    const p = client.post(`/score/${id}`, null, { timeout: 180000 });
+    inFlightScoring.set(key, p);
+    p.catch(() => inFlightScoring.delete(key));   // allow a real retry after a failure
+  }
+  return inFlightScoring.get(key);
+}
+
 export default function InterviewProcessing() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -35,7 +48,7 @@ export default function InterviewProcessing() {
     // 1. Score the interview. This is the only place scoring runs, and we
     //    wait for the real result: it can take up to a minute when the AI
     //    provider is rate-limited (the backend retries instead of guessing).
-    client.post(`/score/${id}`, null, { timeout: 180000 })
+    scoreOnce(id, attempt)
       .then(() => { isScoredRef.current = true; })
       .catch((err) => {
         if (cancelled) return;

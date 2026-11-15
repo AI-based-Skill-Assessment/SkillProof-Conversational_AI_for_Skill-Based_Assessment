@@ -15,7 +15,9 @@ from app.models.biometric import BiometricProfile
 # ── Threshold Constants ───────────────────────────────────────────────────────
 # Duplicate detection (registration): how close must two embeddings be to flag as same person
 FACE_DUPLICATE_THRESHOLD  = 0.45   # Euclidean — same face across accounts (0.35 too strict, 0.55 too loose)
-VOICE_DUPLICATE_THRESHOLD = 0.65   # Pearson correlation — same voice across accounts
+VOICE_DUPLICATE_THRESHOLD = 0.95   # Voice similarity above which a NEW registration is treated as an existing account.
+# Measured on LibriSpeech (docs/paper/benchmark): ~1% of DIFFERENT speakers score >= 0.95, but about half
+# score >= 0.65 (the previous value), which blocked most genuine new users as "duplicates".
 # Live interview match (are you the same person who registered?)
 FACE_MATCH_THRESHOLD      = 0.55   # Euclidean — more lenient, allows lighting/angle variation
 VOICE_MATCH_THRESHOLD     = 0.55   # Pearson correlation — same speaker verification
