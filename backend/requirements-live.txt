@@ -1,0 +1,5 @@
+# Optional: live (hands-free) interview mode over WebRTC, built on Pipecat.
+# Install on top of requirements.txt:  pip install -r requirements-live.txt
+# Without it the app runs normally; /api/v1/live/* returns 503 and the
+# frontend hides the Live mode switch.
+pipecat-ai[webrtc,silero]==1.16.0

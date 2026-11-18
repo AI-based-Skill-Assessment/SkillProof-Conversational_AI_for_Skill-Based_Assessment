@@ -30,6 +30,7 @@ from app.controllers.auth import router as auth_router
 from app.controllers.admin_mgmt import router as admin_mgmt_router
 from app.controllers.org_portal import router as org_portal_router
 from app.controllers.drives import router as drives_router
+from app.controllers.live_voice import router as live_router
 
 
 @asynccontextmanager
@@ -72,6 +73,15 @@ async def lifespan(app: FastAPI):
             await asyncio.sleep(24 * 3600)
 
     retention_task = asyncio.create_task(_retention_loop())
+
+    # Load the speaker model (~40 s on CPU) in the background at startup, so the
+    # first voice check doesn't make a candidate wait for it.
+    async def _preload_speaker_model():
+        from app.core import speaker_embedding
+        ok = await asyncio.to_thread(speaker_embedding.is_available)
+        print(f"[Voice] Speaker model {'ready' if ok else 'unavailable'}")
+
+    asyncio.create_task(_preload_speaker_model())
 
     yield
 
@@ -123,6 +133,7 @@ app.include_router(voice_router,      prefix="/api/v1", tags=["Voice Interview"]
 app.include_router(interview_router,  prefix="/api/v1", tags=["Interview"])
 app.include_router(score_router,      prefix="/api/v1", tags=["Scores"])
 app.include_router(biometric_router,  prefix="/api/v1", tags=["Biometrics"])
+app.include_router(live_router,       prefix="/api/v1", tags=["Live Interview (Pipecat)"])
 
 
 @app.get("/health", tags=["Health"])

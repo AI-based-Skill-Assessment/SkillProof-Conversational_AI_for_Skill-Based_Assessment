@@ -108,6 +108,40 @@ class GroqClient:
             print(f"[GroqClient] Transcription error: {e}")
             return None
 
+    async def transcribe_audio_detailed(
+        self,
+        audio_bytes: bytes,
+        filename: str = "audio.webm",
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Whisper transcription that also returns the detected language.
+        language=None lets Whisper detect it (needed for code-mixed speech);
+        prompt is an example of the expected style/spelling.
+        Returns {"text": ..., "language": ...} or None on failure.
+        """
+        if not self.enabled or not self.client:
+            return None
+        kwargs: Dict[str, Any] = {"model": "whisper-large-v3", "response_format": "verbose_json"}
+        if language:
+            kwargs["language"] = language
+        if prompt:
+            kwargs["prompt"] = prompt
+        try:
+            loop = asyncio.get_running_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.client.audio.transcriptions.create(file=(filename, audio_bytes), **kwargs),
+            )
+            text = getattr(response, "text", None) or (response.get("text") if isinstance(response, dict) else None)
+            lang = getattr(response, "language", None) or (response.get("language") if isinstance(response, dict) else None)
+            text = (text or "").strip()
+            return {"text": text, "language": lang} if text else None
+        except Exception as e:
+            print(f"[GroqClient] Transcription error: {e}")
+            return None
+
     def _generate_simulated_response(self, messages: List[Dict[str, str]]) -> str:
         """Heuristic responses to mock interviews when Groq is not active."""
         system_content = next((m["content"] for m in messages if m["role"] == "system"), "")

@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # Base URL of the frontend, used for links inside emails
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # data.gov.in API key for the MCA21 company master data lookup (free: sign up on
+    # data.gov.in -> My Account). Empty = data.gov.in's shared, rate-limited sample key.
+    DATA_GOV_API_KEY: str = ""
+
     # Biometric data retention: per-assessment face/voice templates (and research
     # samples) are erased this many days after the assessment. 0 = keep.
     BIOMETRIC_RETENTION_DAYS: int = 180

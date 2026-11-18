@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import model_validator, BaseModel, EmailStr, Field, ConfigDict
 
 
 # ── Token Responses ────────────────────────────────────────────────────────────
@@ -51,6 +51,18 @@ class UserProfileResponse(BaseModel):
     onboarding_step: str
     is_active: bool
     created_at: datetime
+    # "ecapa" = current speaker model; "legacy" = old browser spectral profile (must re-register)
+    voice_model: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _voice_model(cls, data):
+        emb = data.get("voice_embedding") if isinstance(data, dict) else getattr(data, "voice_embedding", None)
+        model = None if not emb else ("ecapa" if len(emb) == 192 else "legacy")
+        if isinstance(data, dict):
+            return {**data, "voice_model": model}
+        fields = {k: getattr(data, k) for k in cls.model_fields if k != "voice_model" and hasattr(data, k)}
+        return {**fields, "voice_model": model}
 
 
 class UserUpdateRequest(BaseModel):

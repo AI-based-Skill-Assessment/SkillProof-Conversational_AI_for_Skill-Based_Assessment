@@ -66,9 +66,9 @@ class InterviewManager:
     @staticmethod
     def _q1_text() -> str:
         return (
-            "Hello! Welcome to your SkillProof interview. "
-            "Let's start with a simple introduction — "
-            "tell me about yourself and your background."
+            "Hi, welcome to your SkillProof interview! It's nice to meet you. "
+            "This is just a friendly conversation about your skills, so take your time. "
+            "To start, could you tell me a little about yourself and your background?"
         )
 
     @staticmethod
@@ -83,20 +83,20 @@ class InterviewManager:
                 skill_list = ", ".join(skills[:-1]) + f" and {skills[-1]}" if len(skills) > 1 else skills[0]
                 role_part = f" for the {role.strip()} role" if (role or "").strip() else ""
                 return (
-                    f"Great, thank you! This assessment{role_part} covers {skill_list}. "
+                    f"Thanks for sharing that! This assessment{role_part} covers {skill_list}. "
                     f"Could you walk me through a project or task where you used {skills[0]}? "
                     f"What exactly did you build, and what was your part in it?"
                 )
             skill_str = role or "the skill you are being assessed on"
             return (
-                f"Great, thank you! This assessment is for {skill_str}. "
+                f"Thanks for sharing that! This assessment is for {skill_str}. "
                 f"Could you walk me through a project or task where you used {skill_str}? "
                 f"What exactly did you build, and what was your part in it?"
             )
         role_str    = role    or "your internship role"
         company_str = company or "your organisation"
         return (
-            f"Great, thank you! Now, could you walk me through what you learned "
+            f"Thanks for sharing that! Could you walk me through what you learned "
             f"during your {role_str} internship at {company_str}? "
             f"What specific projects or tasks did you work on?"
         )
@@ -146,7 +146,9 @@ class InterviewManager:
         candidate_name: str,
         skills: List[str],
         role: str = "",
-        company: str = ""
+        company: str = "",
+        original_text: Optional[str] = None,
+        answer_language: Optional[str] = None,
     ) -> Tuple[str, bool]:
         """
         Drives the interview forward:
@@ -172,12 +174,18 @@ class InterviewManager:
         eff_company = meta.get("company", company) or company or "the organisation"
         eff_skills  = meta.get("skills") or skills or ["General Skills"]
 
-        # Append candidate reply
-        history.append({
+        # Append candidate reply. For Tamil-English answers `content` is the
+        # English translation (used for questions and scoring) and `original`
+        # is what the candidate said, kept so reviewers can check the translation.
+        entry = {
             "role": "user",
             "content": candidate_message,
             "timestamp": datetime.utcnow().isoformat()
-        })
+        }
+        if original_text and original_text != candidate_message:
+            entry["original"] = original_text
+            entry["language"] = answer_language or "ta-en"
+        history.append(entry)
 
         # Count assistant messages already sent (= questions asked so far)
         questions_asked = sum(1 for m in history if m["role"] == "assistant")
@@ -193,8 +201,7 @@ class InterviewManager:
         # ---- HARD CEILING: max questions reached ---- #
         if questions_asked >= _MAX_QUESTIONS:
             closing = (
-                "Thank you! That concludes your SkillProof interview. "
-                "Your responses are now being evaluated."
+                "Thank you so much for your time! That concludes your SkillProof interview. Your responses are now being evaluated."
             )
             history.append({"role": "assistant", "content": closing, "timestamp": datetime.utcnow().isoformat(),
                             "source": "fixed", "gen_ms": 0})

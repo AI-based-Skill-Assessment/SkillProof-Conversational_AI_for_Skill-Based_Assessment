@@ -217,67 +217,108 @@ def _extract_company_domains(ocr_text: str) -> List[str]:
 # Strategy 1: CIN Verification via MCA21
 # =============================================================================
 
+# MCA's own APIs (api.mca.gov.in, efiling.mca.gov.in) are not publicly reachable
+# (the hosts do not resolve) and the portal pages need a captcha. MCA publishes
+# the company master data on the Government of India Open Government Data
+# platform instead, which has a documented JSON API:
+#   "Registrars of Companies (RoC)-wise Company Master Data", Ministry of
+#   Corporate Affairs, data.gov.in (Government Open Data License - India).
+MCA_OGD_RESOURCE = "4dbe5667-7b6b-41d7-82af-211562424d9a"
+MCA_OGD_URL = f"https://api.data.gov.in/resource/{MCA_OGD_RESOURCE}"
+# The sample key data.gov.in publishes on its own portal for trying the API.
+# It is shared and rate-limited: set DATA_GOV_API_KEY in .env to a free personal
+# key (data.gov.in -> sign up -> My Account -> API key) for real use.
+_OGD_PUBLIC_SAMPLE_KEY = "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b"
+
+
+def _ogd_key() -> str:
+    try:
+        from app.config import settings
+        return getattr(settings, "DATA_GOV_API_KEY", "") or _OGD_PUBLIC_SAMPLE_KEY
+    except Exception:
+        return _OGD_PUBLIC_SAMPLE_KEY
+
+
+def _mca_record_to_dict(rec: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "cin": rec.get("CIN"),
+        "companyName": rec.get("CompanyName"),
+        "companyStatus": rec.get("CompanyStatus") or "",
+        "registrationDate": rec.get("CompanyRegistrationdate_date"),
+        "roc": rec.get("CompanyROCcode"),
+        "companyClass": rec.get("CompanyClass"),
+        "state": rec.get("CompanyStateCode"),
+        "source": "mca21_ogd",
+    }
+
+
+async def _mca_ogd_query(field: str, value: str) -> Optional[Dict[str, Any]]:
+    """Exact-match lookup in MCA company master data (data.gov.in). None if no record or the API failed."""
+    params = {"api-key": _ogd_key(), "format": "json", "limit": "1", f"filters[{field}]": value}
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.get(MCA_OGD_URL, params=params, headers={"User-Agent": "SkillProof/2.0"})
+        if resp.status_code == 429:
+            print("[VerificationEngine] MCA21 (data.gov.in) rate limit reached; set DATA_GOV_API_KEY in .env")
+            return None
+        if resp.status_code != 200:
+            print(f"[VerificationEngine] MCA21 (data.gov.in) HTTP {resp.status_code}")
+            return None
+        records = (resp.json() or {}).get("records") or []
+        return _mca_record_to_dict(records[0]) if records else None
+    except Exception as e:
+        print(f"[VerificationEngine] MCA21 (data.gov.in) lookup failed: {e}")
+        return None
+
+
+_SUFFIXES = [
+    (r"\bPVT\.?\s*LTD\.?$", "PRIVATE LIMITED"),
+    (r"\bP\.?\s*LTD\.?$", "PRIVATE LIMITED"),
+    (r"\(P\)\s*LTD\.?$", "PRIVATE LIMITED"),
+    (r"\bPRIVATE\s+LTD\.?$", "PRIVATE LIMITED"),
+    (r"\bPVT\.?\s*LIMITED$", "PRIVATE LIMITED"),
+    (r"\bLTD\.?$", "LIMITED"),
+]
+
+
+def mca_name_variants(company_name: str) -> List[str]:
+    """
+    Registry spellings to try for a company name read from a certificate.
+    MCA stores names in upper case with the legal suffix spelled out
+    ("ABC SOLUTIONS PRIVATE LIMITED"), and the API only does exact matches.
+    """
+    n = re.sub(r"[^A-Za-z0-9&().\s-]", " ", company_name or "").upper()
+    n = re.sub(r"\s+", " ", n).strip(" .,-")
+    if not n:
+        return []
+    for pat, rep in _SUFFIXES:
+        n2 = re.sub(pat, rep, n)
+        if n2 != n:
+            n = n2
+            break
+    out = [n]
+    if not re.search(r"\b(LIMITED|LLP)$", n):
+        out += [n + " PRIVATE LIMITED", n + " LIMITED"]
+    # de-duplicate, keep order
+    seen, uniq = set(), []
+    for v in out:
+        if v not in seen:
+            seen.add(v)
+            uniq.append(v)
+    return uniq
+
+
 async def _verify_cin(cin: str) -> Optional[Dict[str, Any]]:
-    """
-    Verify a Company Identification Number (CIN) via MCA21 APIs.
-    Tries multiple endpoints for resilience.
-    Returns company info dict on success, None on failure.
-    """
-    cin_upper = cin.upper()
+    """Look up a CIN in MCA company master data. Returns the company record or None."""
+    return await _mca_ogd_query("CIN", cin.upper())
 
-    # Endpoint 1: MCA21 v3 REST API (company master data)
-    try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            resp = await client.get(
-                f"https://api.mca.gov.in/api/v3/company/master/{cin_upper}",
-                headers={
-                    "User-Agent": "SkillProof/2.0",
-                    "Accept": "application/json"
-                }
-            )
-        if resp.status_code == 200:
-            data = resp.json()
-            if data:
-                return data
-    except Exception as e:
-        print(f"[VerificationEngine] MCA21 CIN v3 API failed: {e}")
 
-    # Endpoint 2: MCA21 efiling company search by CIN
-    try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            resp = await client.get(
-                "https://efiling.mca.gov.in/efiling/SearchCompany",
-                params={"companyName": cin_upper, "searchType": "CIN"},
-                headers={"User-Agent": "SkillProof/2.0", "Accept": "application/json"}
-            )
-        if resp.status_code == 200:
-            try:
-                data = resp.json()
-                if isinstance(data, list) and data:
-                    return data[0]
-                elif isinstance(data, dict) and data:
-                    return data
-            except Exception:
-                pass
-    except Exception as e:
-        print(f"[VerificationEngine] MCA21 CIN efiling API failed: {e}")
-
-    # Endpoint 3: MCA Legacy portal
-    try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            resp = await client.get(
-                "https://www.mca.gov.in/mcafoportal/viewCompanyMasterData.do",
-                params={"companyName": cin_upper},
-                headers={"User-Agent": "SkillProof/2.0"}
-            )
-        if resp.status_code == 200 and len(resp.text) > 100:
-            # Parse HTML response for company status
-            text = _extract_visible_text(resp.text)
-            if "active" in text.lower():
-                return {"companyStatus": "Active", "source": "mca_legacy", "cin": cin_upper}
-    except Exception as e:
-        print(f"[VerificationEngine] MCA21 legacy CIN lookup failed: {e}")
-
+async def verify_company_name_mca(company_name: str) -> Optional[Dict[str, Any]]:
+    """Look up a company by its registered name in MCA company master data."""
+    for variant in mca_name_variants(company_name)[:3]:
+        rec = await _mca_ogd_query("CompanyName", variant)
+        if rec:
+            return rec
     return None
 
 
@@ -942,17 +983,34 @@ async def verify_company_mca21(
                 status     = "verified"
                 confidence = 0.97
                 snippet    = (
-                    f"CIN Verified via MCA21: {company_nm} | CIN: {cin} | "
+                    f"CIN Verified via MCA21 company master data: {company_nm} | CIN: {cin} | "
                     f"Status: {cin_data.get('companyStatus', 'Active')} | "
-                    f"Source: {cin_data.get('source', 'mca21')}"
+                    f"Registered: {cin_data.get('registrationDate', 'N/A')} | "
+                    f"Source: data.gov.in (Ministry of Corporate Affairs)"
                 )
                 path = "mca21_cin"
                 print(f"[VerificationEngine] CIN verified: {snippet}")
-            elif "strike" in cin_status or "dissolved" in cin_status:
+            elif any(k in cin_status for k in ("strike", "dissolved", "liquidat", "amalgamated")):
                 status     = "not_found"
                 confidence = 0.90
                 snippet    = f"MCA21 CIN Lookup: {company_nm} | Status: {cin_data.get('companyStatus', '')} (Not Active)"
                 path = "mca21_cin"
+
+    # ── STRATEGY 1b: Company name in MCA master data (data.gov.in) ───────────
+    if status not in ("verified", "not_found") and company_name:
+        mca = await verify_company_name_mca(company_name)
+        if mca:
+            st = mca["companyStatus"].lower()
+            if st == "active":
+                status, confidence, path = "verified", 0.93, "mca21_name"
+            elif any(k in st for k in ("strike", "dissolved", "liquidat", "amalgamated")):
+                status, confidence, path = "not_found", 0.88, "mca21_name"
+            if path == "mca21_name":
+                cin = cin or mca["cin"]
+                snippet = (f"MCA21 company master data: {mca['companyName']} | CIN: {mca['cin']} | "
+                           f"Status: {mca['companyStatus']} | Registered: {mca['registrationDate']} | "
+                           f"{mca['roc']} | Source: data.gov.in (Ministry of Corporate Affairs)")
+                print(f"[VerificationEngine] MCA21 name lookup: {snippet}")
 
     # ── STRATEGY 2: GSTIN extraction + GST portal verification ───────────────
     if status not in ("verified",):

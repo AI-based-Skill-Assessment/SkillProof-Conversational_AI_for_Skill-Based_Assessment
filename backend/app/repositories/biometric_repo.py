@@ -272,6 +272,37 @@ async def record_precheck_face_verification(
 # row start an incident; one incident is counted however long it lasts.
 MISMATCH_INCIDENT_AFTER = 2
 
+# ECAPA-TDNN cosine similarity at or above which a voice sample is accepted as
+# the registered speaker. Calibrated on LibriSpeech (docs/paper/benchmark/
+# ECAPA_VOICE_RESULTS.md); see eval/benchmark/ecapa_voice.py.
+VOICE_ECAPA_THRESHOLD = 0.34   # FAR 1% / FRR 4.1% on LibriSpeech; EER 2.63% at 0.296
+# A NEW registration this similar to another account's ECAPA voice is a duplicate.
+VOICE_ECAPA_DUPLICATE_THRESHOLD = 0.75
+
+
+async def _voice_template_for(db, profile, session_id, probe):
+    """
+    The registered voice template to compare `probe` against, of the SAME kind
+    (ECAPA 192-d vs legacy 64-d spectral). A session created before the owner
+    re-registered their voice holds an old template, so fall back to the owner's
+    current one. Returns None when no comparable template exists.
+    """
+    if not probe:
+        return None
+    from app.core import speaker_embedding as SE
+    want_ecapa = SE.is_ecapa(probe)
+    tpl = profile.voice_embedding
+    if tpl and SE.is_ecapa(tpl) == want_ecapa:
+        return tpl
+    from app.repositories import session_repo, user_repo
+    sess = await session_repo.get_session(db, session_id)
+    if sess and sess.owner_id:
+        owner = await user_repo.get_user_by_id(db, sess.owner_id)
+        if owner and owner.voice_embedding and SE.is_ecapa(owner.voice_embedding) == want_ecapa:
+            profile.voice_embedding = owner.voice_embedding
+            return owner.voice_embedding
+    return None
+
 
 def _apply_check(profile: BiometricProfile, modality: str, matched: bool) -> bool:
     """
@@ -375,12 +406,18 @@ async def record_interview_verification(
                 profile.flag_reasons = reasons
 
     # ── Voice check ──────────────────────────────────────────────────────────
-    if voice_embedding and profile.voice_embedding:
-        sim = voice_similarity(voice_embedding, profile.voice_embedding)
-        voice_conf  = max(0.0, round(sim, 4))
-        # Noise-calibrated threshold: >= 0.42 matches genuine speaker even in noisy ambient environments
-        # (different speakers/proxies score < 0.30)
-        voice_match = sim >= 0.42
+    voice_template = await _voice_template_for(db, profile, session_id, voice_embedding)
+    if voice_embedding and voice_template:
+        from app.core import speaker_embedding as SE
+        if SE.is_ecapa(voice_embedding):
+            sim = SE.cosine(voice_embedding, voice_template)
+            voice_match = sim >= VOICE_ECAPA_THRESHOLD
+        else:
+            # Legacy browser spectral profile (pilot study). Kept only so old
+            # sessions still work; it does not discriminate between speakers.
+            sim = voice_similarity(voice_embedding, voice_template)
+            voice_match = sim >= 0.42
+        voice_conf = max(0.0, round(sim, 4))
         if _apply_check(profile, "voice", voice_match):
             any_mismatch = True
             reasons = list(profile.flag_reasons or [])

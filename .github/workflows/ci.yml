@@ -35,11 +35,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libzbar0
 
       # The tests need no database, Redis or AI models. Skip the heavy optional
-      # packages (DeepFace/TensorFlow, MediaPipe, Playwright, audio CLI tools):
-      # the app imports them lazily and they add many minutes to every run.
+      # packages (DeepFace/TensorFlow, MediaPipe, Playwright, audio CLI tools,
+      # PyTorch/SpeechBrain): the app imports them lazily, the tests replace the
+      # speaker model with a fake, and they add many minutes to every run.
       - name: Install Python dependencies
         run: |
-          grep -viE '^(deepface|tf-keras|mediapipe|playwright|sounddevice|pyttsx3|scipy)\b' requirements.txt > /tmp/requirements-ci.txt
+          grep -viE '^(deepface|tf-keras|mediapipe|playwright|sounddevice|pyttsx3|torch|torchaudio|speechbrain)\b' requirements.txt > /tmp/requirements-ci.txt
           pip install -r /tmp/requirements-ci.txt
 
       - name: Run tests

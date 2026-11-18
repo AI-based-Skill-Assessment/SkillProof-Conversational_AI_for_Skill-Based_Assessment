@@ -1,5 +1,8 @@
 # SkillProof prompts (verbatim, rendered with example values)
 
+> **Note (2026-11-18):** these are the prompts used in the pilot study. After the pilot, the interviewer's wording was made friendlier (warm acknowledgement before each question, simple English, reassurance when the candidate is unsure; see `app/ai_engine/interview_context.py`). The question rules and the scoring prompt are unchanged.
+
+
 Generated from `backend/app/ai_engine/interview_context.py` and `interview_manager.py`. Values in <angle brackets> and the skills/role shown are examples; at run time they are the candidate's.
 
 Model: `qwen/qwen3.8-27b` via the Groq API. Question generation: temperature 0.3, max 1500 tokens, the system prompt below plus the full conversation so far. Scoring: temperature 0.1, max 4000 tokens, system message "You are a database compiler. Output only valid JSON objects. No formatting blocks." plus the scoring prompt below.

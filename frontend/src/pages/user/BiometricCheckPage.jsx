@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import client from '../../core/api/client';
+import { uploadVoiceSample } from '../../utils/wavEncoder';
 import Button from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import ROUTES from '../../core/routes';
@@ -363,9 +364,15 @@ export default function BiometricCheckPage() {
       }
 
       setVoiceStatus('Comparing voice credentials...');
-      const res = await client.post('/biometric/verify', {
-        voice_embedding: embedding
-      });
+      // Server-side speaker model (ECAPA-TDNN); a pre-check records nothing
+      const res = { data: await uploadVoiceSample(client, chunksRef.current, 'check') };
+      if (res.data.voice_match === null) {
+        setVoiceChecking(false);
+        setVoiceStatus(res.data.message);
+        setVoiceStatusClass('err');
+        toast.error('Re-register your voice', res.data.message);
+        return;
+      }
 
       if (res.data.voice_match) {
         setVoiceVerified(true);

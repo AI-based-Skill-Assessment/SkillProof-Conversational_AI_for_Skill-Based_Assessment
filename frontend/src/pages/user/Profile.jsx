@@ -7,6 +7,7 @@ import Button from '../../components/common/Button';
 import { Card, CardHeader, CardTitle, CardBody } from '../../components/common/Card';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate } from '../../utils/formatDate';
+import ROUTES from '../../core/routes';
 
 export default function Profile() {
   const { user, updateUserCache, logout } = useAuth();
@@ -109,9 +110,12 @@ export default function Profile() {
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Voice ID Registry:</div>
             <div>
-              <StatusBadge variant={currentUser?.voice_registered ? 'success' : 'neutral'}>
-                {currentUser?.voice_registered ? 'Registered' : 'Not Registered'}
+              <StatusBadge variant={currentUser?.voice_model === 'legacy' ? 'warning' : currentUser?.voice_registered ? 'success' : 'neutral'}>
+                {currentUser?.voice_model === 'legacy' ? 'Needs re-registration' : currentUser?.voice_registered ? 'Registered' : 'Not Registered'}
               </StatusBadge>
+              <a href={`${ROUTES.USER.VOICE_REGISTRATION}?rereg=1`} style={{ marginLeft: 10, fontSize: 13, fontWeight: 600 }}>
+                Re-register voice
+              </a>
             </div>
 
             <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Member Since:</div>

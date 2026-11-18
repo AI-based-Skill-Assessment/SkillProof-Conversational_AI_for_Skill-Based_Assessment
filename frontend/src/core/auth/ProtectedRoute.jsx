@@ -80,7 +80,9 @@ export function ProtectedRoute({ requiredRole, children }) {
         ROUTES.USER.VOICE_REGISTRATION
       ].includes(path);
 
-      if (isOnboardingRoute) {
+      const isVoiceReRegistration = path === ROUTES.USER.VOICE_REGISTRATION
+        && new URLSearchParams(location.search).get('rereg') === '1';
+      if (isOnboardingRoute && !isVoiceReRegistration) {
         return <Navigate to={ROUTES.USER.DASHBOARD} replace />;
       }
     }

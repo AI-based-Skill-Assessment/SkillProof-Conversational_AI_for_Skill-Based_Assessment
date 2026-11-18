@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../core/auth/AuthContext';
 import { useToast } from '../../components/common/Toast';
 import client from '../../core/api/client';
+import { uploadVoiceSample } from '../../utils/wavEncoder';
 import Button from '../../components/common/Button';
 import ROUTES from '../../core/routes';
 import '../../styles/pages/biometrics-premium.css';
@@ -243,35 +244,34 @@ export default function VoiceRegistration() {
     await new Promise(r => setTimeout(r, 400));
 
     try {
-      const embedding = await extractVoiceEmbedding(chunksRef.current);
-      if (!embedding || embedding.length === 0) {
+      // Local check only: rejects silence / too-short recordings with a clear message
+      const localCheck = await extractVoiceEmbedding(chunksRef.current);
+      if (!localCheck || localCheck.length === 0) {
         throw new Error('Empty audio captured — please record longer.');
       }
 
-      setProgress(70);
-      setStatusMessage('Checking for duplicate voice registrations…');
+      setProgress(75);
+      setStatusMessage('Creating your voice fingerprint on the server…');
       setStatusClass('info');
 
-      const dupResult = await checkDuplicate(embedding);
-      if (dupResult && dupResult.voice_is_duplicate) {
-        stopVoiceMic();
-        setRegistering(false);
-        setBlocked(true);
-        setStatusMessage(dupResult.message || 'Duplicate voice detected');
-        setStatusClass('err');
-        setProgress(0);
-        toast.error('Duplicate Voice Detected', dupResult.message || 'This voice is already registered under a different account.');
-        return;
+      // The server computes a speaker embedding (ECAPA-TDNN) from the recording
+      // itself and checks it against other accounts for duplicates.
+      try {
+        await uploadVoiceSample(client, chunksRef.current, 'register');
+      } catch (uploadErr) {
+        const detail = uploadErr.response?.data?.detail || '';
+        if (uploadErr.response?.status === 400 && /duplicate/i.test(detail)) {
+          stopVoiceMic();
+          setRegistering(false);
+          setBlocked(true);
+          setStatusMessage(detail);
+          setStatusClass('err');
+          setProgress(0);
+          toast.error('Duplicate Voice Detected', detail);
+          return;
+        }
+        throw uploadErr;
       }
-
-      setProgress(85);
-      setStatusMessage('Saving voice fingerprint to database profile…');
-      setStatusClass('info');
-
-      await client.post('/biometric/register', {
-        session_id: user?.id || user?.user_id,
-        voice_embedding: embedding
-      });
 
       if (updateUserCache) {
         updateUserCache({ 
@@ -497,7 +497,7 @@ export default function VoiceRegistration() {
         </div>
 
         <p className="biometric-card__subtitle" style={{ textAlign: 'left', alignSelf: 'flex-start', marginBottom: 20, color: 'var(--text-secondary)' }}>
-          Read the security phrase clearly into your microphone. This template will protect against voice spoofing and deepfakes during verification.
+          Read the security phrase clearly into your microphone. Your voice sample is used to confirm it's really you answering during the interview.
         </p>
 
         {/* 4:3 Rectangular Waveform media panel (ported from the former biometric_enroll.html page) */}

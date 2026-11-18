@@ -18,10 +18,12 @@ import { formatScore, scoreColor, verdictVariant } from '../../utils/formatScore
 import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
 import ROUTES from '../../core/routes';
+import { useAuth } from '../../core/auth/AuthContext';
 import '../../styles/pages/portal.css';
 
 export default function Dashboard() {
   const { isDemo, setIsDemo } = useOutletContext() || {};
+  const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [stats, setStats] = useState(EMPTY_STATS);
   const [error, setError] = useState(null);
@@ -106,6 +108,16 @@ export default function Dashboard() {
       </div>
 
       {error && <div style={{ marginBottom: 16 }}><Alert type="error">{error}</Alert></div>}
+
+      {user?.voice_model === 'legacy' && (
+        <div style={{ marginBottom: 16 }}>
+          <Alert type="warning">
+            Voice verification has been upgraded. Please{' '}
+            <a href={`${ROUTES.USER.VOICE_REGISTRATION}?rereg=1`} style={{ fontWeight: 700 }}>re-register your voice</a>
+            {' '}(about 30 seconds) before your next interview.
+          </Alert>
+        </div>
+      )}
 
       {/* Candidate Action Hub Cards */}
       <div className="dashboard-grid">

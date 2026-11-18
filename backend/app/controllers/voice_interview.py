@@ -16,7 +16,7 @@ import asyncio
 from uuid import UUID
 from typing import Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query, UploadFile, File
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +25,8 @@ from app.models.session import VerificationSession
 from app.repositories import session_repo, score_repo, biometric_repo
 from app.ai_engine.interview_manager import InterviewManager
 from app.ai_engine.groq_client import GroqClient
+from app.ai_engine import multilingual
+from app.security.deps import get_current_user
 from app.schemas.score import SkillScoreCreate
 
 router = APIRouter()
@@ -39,11 +41,16 @@ groq_client = GroqClient()
 @router.post("/interview/transcribe")
 async def transcribe_audio(
     audio: UploadFile = File(...),
+    language: str = Form("en"),
+    current_user=Depends(get_current_user),
 ):
     """Transcribe uploaded audio using Groq Whisper API.
-    
+
     Accepts audio/webm, audio/wav, audio/mpeg, audio/mp4, audio/ogg, etc.
-    Returns { "text": "<transcription>" } on success.
+    language: "en" (default) or "ta-en" for Tamil-English code-mixed answers,
+    which are transcribed with language detection and translated to English.
+    Returns { "text": "<English text>", "original": "<as spoken, if translated>",
+              "language": "<detected>", "mode": "en"|"ta-en", "translated": bool }.
     """
     if not groq_client.enabled:
         return JSONResponse(
@@ -57,12 +64,12 @@ async def transcribe_audio(
                 status_code=400,
                 content={"error": "Audio file too small or empty."}
             )
-        
+
         filename = audio.filename or "audio.webm"
-        text = await groq_client.transcribe_audio(audio_bytes, filename=filename)
-        
-        if text:
-            return {"text": text}
+        result = await multilingual.transcribe_answer(audio_bytes, filename, language)
+
+        if result and result.get("text"):
+            return result
         else:
             return JSONResponse(
                 status_code=422,
@@ -187,7 +194,7 @@ async def realtime_interview_ws(
                             if profile:
                                 # Kick only after persistent consecutive mismatches or critical fraud
                                 if ((profile.face_mismatch_streak or 0) >= 15 or
-                                    (profile.voice_mismatch_streak or 0) >= 5 or 
+                                    (profile.voice_mismatch_streak or 0) >= 5 or
                                     (profile.interview_flagged and profile.fraud_flags >= 20)):
                                     try:
                                         await websocket.send_json({
@@ -267,13 +274,19 @@ async def realtime_interview_ws(
                         })
                         continue
 
+                    # Tamil-English answers arrive translated; keep what was said for review
+                    original_text = (msg.get("original") or "").strip()[:4000] or None
+                    answer_language = (msg.get("language") or "").strip()[:20] or None
+
                     ai_response, is_complete = await interview_manager.process_turn(
                         session_id,
                         answer_text,
                         candidate_name,
                         skills,
                         role=cand_role,
-                        company=cand_company
+                        company=cand_company,
+                        original_text=original_text,
+                        answer_language=answer_language,
                     )
 
                     # Persist chat history

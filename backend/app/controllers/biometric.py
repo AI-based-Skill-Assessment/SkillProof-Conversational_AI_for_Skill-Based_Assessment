@@ -811,3 +811,111 @@ async def record_telemetry_event(
         message=f"Telemetry recorded: {details}"
     )
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# POST /api/v1/biometric/voice-sample   (server-side ECAPA-TDNN speaker check)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from fastapi import File, Form, UploadFile  # noqa: E402
+
+from app.security.deps import get_current_user  # noqa: E402
+
+
+@router.post(
+    "/biometric/voice-sample",
+    summary="Register or verify a voice from an audio recording (ECAPA-TDNN)",
+    description=(
+        "Upload a WAV recording. purpose=register stores the speaker embedding as the candidate's voice "
+        "template; purpose=verify (with session_id) compares it with the registered voice during an interview. "
+        "The embedding is computed on the server from the audio, so clients cannot submit arbitrary vectors."
+    ),
+)
+async def voice_sample(
+    audio: UploadFile = File(...),
+    purpose: str = Form(...),
+    session_id: Optional[UUID] = Form(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    import asyncio as _asyncio
+    from app.core import speaker_embedding as SE
+
+    if purpose not in ("register", "verify", "check"):
+        raise HTTPException(status_code=400, detail="purpose must be 'register', 'verify' or 'check'.")
+    data = await audio.read()
+    if not data or len(data) < 1000:
+        raise HTTPException(status_code=400, detail="The recording is empty. Please record again.")
+    try:
+        emb = await _asyncio.to_thread(SE.embed_wav_bytes, data)
+    except SE.SpeakerModelUnavailable as e:
+        raise HTTPException(status_code=503, detail=f"Voice verification model is not available on the server: {e}")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"[Voice sample] could not process audio: {e}")
+        raise HTTPException(status_code=400, detail="Could not read the recording. Please record again.")
+
+    if purpose == "register":
+        others = (await db.execute(
+            select(User).where(User.voice_registered == True).where(User.id != current_user.id)  # noqa: E712
+        )).scalars().all()
+        for u in others:
+            if SE.is_ecapa(u.voice_embedding) and SE.cosine(emb, u.voice_embedding) >= biometric_repo.VOICE_ECAPA_DUPLICATE_THRESHOLD:
+                raise HTTPException(status_code=400, detail="Duplicate voice detected: this voice is already registered under another account.")
+        from app.repositories import user_repo
+        await user_repo.set_biometric_flags(db, current_user, voice_registered=True, voice_embedding=emb)
+        await db.commit()
+        return {"registered": True, "model": "ecapa-tdnn", "dim": len(emb)}
+
+    if purpose == "check":
+        # Pre-interview check: compare with the registered voice, record nothing
+        tpl = current_user.voice_embedding
+        if not SE.is_ecapa(tpl):
+            return {"voice_match": None, "voice_confidence": 0.0, "needs_reregistration": True,
+                    "message": "Your voice was registered with an older method. Please re-register your voice in Profile."}
+        sim = SE.cosine(emb, tpl)
+        match = sim >= biometric_repo.VOICE_ECAPA_THRESHOLD
+        return {"voice_match": match, "voice_confidence": round(sim, 4), "needs_reregistration": False,
+                "message": "Voice verified." if match else
+                           "Voice does not match your registered voice. Speak clearly in a quiet place and try again."}
+
+    # verify
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required for purpose=verify.")
+    await ensure_session_access(db, session_id, current_user)
+    return await verify_session_voice(db, session_id, emb)
+
+
+async def verify_session_voice(db: AsyncSession, session_id, emb) -> dict:
+    """Compare a 192-d ECAPA embedding with the session owner's registered voice and record
+    the result as an interview voice check (counters, incidents, timeline, integrity).
+    Used by POST /biometric/voice-sample (purpose=verify) and the live interview mode."""
+    profile = await biometric_repo.get_profile(db, session_id)
+    if not profile:
+        profile = await biometric_repo.create_or_update_profile(db, session_id=session_id)
+        await db.flush()
+
+    from app.config import settings as _settings
+    if _settings.RESEARCH_LOGGING:
+        await _log_research_probes(db, session_id, None, emb)
+
+    _, voice_match, _, voice_conf, profile = await biometric_repo.record_interview_verification(
+        db, session_id=session_id, face_embedding=None, voice_embedding=emb,
+    )
+    if voice_match is False:
+        import datetime
+        timeline = list(profile.proctoring_timeline or [])
+        timeline.append({"timestamp": datetime.datetime.utcnow().isoformat(), "type": "voice_mismatch",
+                         "event": "Voice did not match the registered speaker (ECAPA-TDNN)", "severity": "high",
+                         "confidence": voice_conf})
+        profile.proctoring_timeline = timeline[-50:]
+    biometric_repo.recompute_integrity(profile)
+    await db.commit()
+    return {
+        "voice_match": voice_match,          # None = no comparable registered voice (re-register)
+        "voice_confidence": voice_conf,
+        "needs_reregistration": voice_match is None,
+        "voice_mismatch_count": profile.voice_mismatch_count,
+        "integrity_score": profile.integrity_score,
+    }

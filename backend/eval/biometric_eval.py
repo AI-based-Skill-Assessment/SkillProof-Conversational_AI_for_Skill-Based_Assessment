@@ -49,6 +49,9 @@ def voice_score(probe, template) -> float:
     if _voice is None:
         from app.core.voice_verifier import BackendVoiceVerifier
         _voice = BackendVoiceVerifier()
+    if len(probe) == 192:                              # ECAPA-TDNN embeddings: cosine similarity
+        from app.core.speaker_embedding import cosine
+        return cosine(probe, template)
     import contextlib
     import io
     with contextlib.redirect_stdout(io.StringIO()):   # production code prints a debug line per comparison
@@ -69,6 +72,8 @@ def build_trials(ds: Dataset, modality: str):
         for subj, tpl in ds.templates.items():
             if modality not in tpl:
                 continue
+            if modality == "voice" and len(tpl[modality]) != len(p.embedding):
+                continue                                     # never compare ECAPA with the old spectral feature
             if p.claimed != p.subject:                       # deliberate attack
                 if subj == p.claimed:
                     trials.append((score(p.embedding, tpl[modality]), False, p.subject, "attack"))
@@ -251,6 +256,8 @@ def main(argv=None):
                     help="CSV session_id,true_subject[,start] for deliberate impostor sessions. true_subject may be a "
                          "name, email or user id; optional start (e.g. 2026-11-14 15:45) is when the stand-in took over, "
                          "in this computer's local time unless it includes a timezone")
+    ap.add_argument("--voice-kind", choices=["legacy", "ecapa"], default="legacy",
+                    help="Which voice feature to evaluate: the old browser spectral profile (64-d) or server ECAPA-TDNN (192-d)")
     ap.add_argument("--exclude-sessions", default="", help="Comma-separated session ids to leave out (unclear ground truth)")
     ap.add_argument("--fusion-weight", type=float, default=0.5, help="Face weight w in B (default 0.5)")
     ap.add_argument("--groups", help="Optional CSV subject,group (self-reported, e.g. gender or skin-tone band) for per-group FAR/FRR")
@@ -274,6 +281,14 @@ def main(argv=None):
         ds = load_db(imp, excluded)
         if excluded:
             print(f"Excluded sessions: {', '.join(excluded)}")
+    dim = 192 if args.voice_kind == "ecapa" else 64
+    ds.probes = [p for p in ds.probes if p.modality != "voice" or len(p.embedding) == dim]
+    for t in ds.templates.values():
+        if "voice" in t and len(t["voice"]) != dim:
+            del t["voice"]
+    if args.voice_kind == "ecapa":
+        PROD_THRESHOLD["voice"] = 0.34
+    print(f"Voice feature: {args.voice_kind}")
     print(ds.summary())
 
     face = build_trials(ds, "face")

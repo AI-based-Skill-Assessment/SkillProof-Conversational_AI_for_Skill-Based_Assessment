@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/common/Toast';
 import client from '../../core/api/client';
+import { uploadVoiceSample } from '../../utils/wavEncoder';
+import { isLiveModeAvailable, startLiveVoice } from '../../utils/liveVoice';
 import VoiceWaveform from '../../components/common/VoiceWaveform';
 import AIOrb from '../../components/common/AIOrb';
 import Button from '../../components/common/Button';
@@ -30,7 +32,7 @@ export default function InterviewSession() {
   const speechRecRef = useRef(null);
   const spokenTranscriptRef = useRef('');
   const lastFaceVerifyTimeRef = useRef(0);
-  const DEFAULT_Q1 = "Hello! Welcome to your SkillProof interview. Let's start with a simple introduction — tell me about yourself and your background.";
+  const DEFAULT_Q1 = "Hi, welcome to your SkillProof interview! It's nice to meet you. This is just a friendly conversation about your skills, so take your time. To start, could you tell me a little about yourself and your background?";
   const firstQuestionRef = useRef(DEFAULT_Q1);
 
   const [messages, setMessages] = useState([]);
@@ -48,6 +50,25 @@ export default function InterviewSession() {
 
   // Speaker ON/OFF control state
   const [speakerOn, setSpeakerOn] = useState(true);
+  // Answer language: 'en' or 'ta-en' (Tamil-English code-mixed, translated to English for scoring)
+  const [answerLang, setAnswerLang] = useState(() => {
+    try { return localStorage.getItem('sp_answer_lang') === 'ta-en' ? 'ta-en' : 'en'; } catch { return 'en'; }
+  });
+  const answerLangRef = useRef(answerLang);
+  useEffect(() => {
+    answerLangRef.current = answerLang;
+    try { localStorage.setItem('sp_answer_lang', answerLang); } catch { /* storage unavailable */ }
+    liveRef.current?.setLanguage(answerLang);
+  }, [answerLang]);
+
+  // Live (hands-free) mode: microphone streamed to the server over WebRTC (Pipecat);
+  // the server detects the end of each answer, transcribes it and checks the voice.
+  const [liveAvailable, setLiveAvailable] = useState(false);
+  const [liveMode, setLiveMode] = useState(false);
+  const [liveState, setLiveState] = useState('off'); // off | connecting | connected | failed | closed
+  const [liveHearing, setLiveHearing] = useState(false);
+  const liveRef = useRef(null);
+  const liveHandlerRef = useRef(null);
   const speakerOnRef = useRef(speakerOn);
   useEffect(() => {
     speakerOnRef.current = speakerOn;
@@ -65,6 +86,7 @@ export default function InterviewSession() {
   const [voiceMatchPct, setVoiceMatchPct] = useState(94);
   const [voiceMatchStatus, setVoiceMatchStatus] = useState('MATCHING');
   const [voiceErrorMessage, setVoiceErrorMessage] = useState('');
+  const [voiceNotice, setVoiceNotice] = useState('');
   const [gazeCount, setGazeCount] = useState(0);
   const [cheatingAlert, setCheatingAlert] = useState(false);
   const [alertReason, setAlertReason] = useState('');
@@ -911,6 +933,26 @@ export default function InterviewSession() {
   const lastVisionCheckTimeRef = useRef(0);
   // Set once the server says no vision model is configured: stop uploading frames
   const visionDisabledRef = useRef(false);
+  // Show the result of a per-answer voice check (normal and live mode)
+  function applyVoiceResult(data) {
+    if (data && data.voice_match === null) {
+      // Registered with the old voice method (or the check was unavailable): don't flag
+      setVoiceMatchStatus('NOT CHECKED');
+      setVoiceErrorMessage('');
+      if (data.needs_reregistration) {
+        setVoiceNotice('Voice check skipped: your voice was registered with an older method. Re-register it in Profile after this interview. Nothing is counted against you.');
+      }
+    } else if (data && data.voice_match) {
+      setVoiceMatchStatus('MATCHING');
+      setVoiceMatchPct(Math.round((data.voice_confidence || 0) * 100));
+      setVoiceErrorMessage('');
+    } else if (data) {
+      setVoiceMatchStatus('MISMATCH');
+      setVoiceMatchPct(35);
+      setVoiceErrorMessage(data.message || 'Voice did not match the registered voice.');
+    }
+  }
+
   async function triggerVisionAICheck() {
     if (visionDisabledRef.current) return;
     // Throttle checks to max 1 call per 5 seconds per candidate
@@ -1073,11 +1115,13 @@ export default function InterviewSession() {
 
       // Transcribe audio on backend using Groq Whisper API
       let transcribedText = '';
+      let sttExtra = null;
       setIsTranscribing(true);
       try {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('audio', audioBlob, 'answer.webm');
+        formData.append('language', answerLangRef.current);
 
         const sttRes = await client.post('/interview/transcribe', formData, {
           timeout: 30000,
@@ -1085,6 +1129,9 @@ export default function InterviewSession() {
 
         if (sttRes.data && sttRes.data.text) {
           transcribedText = sttRes.data.text.trim();
+          if (sttRes.data.original) {
+            sttExtra = { original: sttRes.data.original, language: sttRes.data.language || 'ta-en' };
+          }
         }
       } catch (sttErr) {
         console.warn('Backend transcription failed, falling back to client-side Web Speech API:', sttErr);
@@ -1104,7 +1151,7 @@ export default function InterviewSession() {
         'you', 'applause', 'laughter', 'music', ''
       ];
 
-      const cleanTranscribed = transcribedText.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+      const cleanTranscribed = transcribedText.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim();
 
       // Check if candidate actually spoke genuine words
       if (!transcribedText || HALLUCINATED_SILENCE_TEXTS.includes(cleanTranscribed) || cleanTranscribed.length < 3) {
@@ -1119,29 +1166,16 @@ export default function InterviewSession() {
       // so mismatches count as proctoring incidents (and are logged for the
       // evaluation study when enabled)
       try {
-        const res = await client.post('/biometric/interview-verify', {
-          session_id: id,
-          voice_embedding: embedding
-        });
-
-        if (res.data && res.data.voice_match === null) {
-          // No registered voice to compare against: nothing to show
-        } else if (res.data && res.data.voice_match) {
-          setVoiceMatchStatus('MATCHING');
-          setVoiceMatchPct(Math.round((res.data.voice_confidence || 0) * 100));
-          setVoiceErrorMessage('');
-        } else {
-          setVoiceMatchStatus('MISMATCH');
-          setVoiceMatchPct(35);
-          const errMsg = res.data?.message || 'Voice signature variation detected under ambient sound.';
-          setVoiceErrorMessage(errMsg);
-        }
+        // The server computes a speaker embedding (ECAPA-TDNN) from this answer's
+        // audio and compares it with the registered voice
+        const data = await uploadVoiceSample(client, audioChunksRef.current, 'verify', id);
+        applyVoiceResult(data);
       } catch (bioErr) {
         console.warn('Voice biometric verification ping warning:', bioErr);
       }
 
       // Always forward the candidate's answer to the AI so the interview flows uninterrupted
-      handleSendTextWithMsg(transcribedText);
+      handleSendTextWithMsg(transcribedText, sttExtra);
     } catch (err) {
       console.error('Voice answer verification failed:', err);
     }
@@ -1447,7 +1481,7 @@ export default function InterviewSession() {
     };
   }, [id, reconnectCounter]);
 
-  function handleSendTextWithMsg(msgText) {
+  function handleSendTextWithMsg(msgText, extra = null) {
     if (!msgText.trim()) return;
 
     // Check if face was missing during this question answer submission
@@ -1464,11 +1498,15 @@ export default function InterviewSession() {
       setShowFacePromptModal(false);
     }
 
-    setMessages(prev => [...prev, { sender: 'user', text: msgText }]);
+    setMessages(prev => [...prev, { sender: 'user', text: msgText, original: extra?.original }]);
     setAiState('processing');
 
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ type: 'answer', text: msgText }));
+      socketRef.current.send(JSON.stringify({
+        type: 'answer',
+        text: msgText,
+        ...(extra?.original ? { original: extra.original, language: extra.language } : {}),
+      }));
     } else if (terminatedReason) {
       toastRef.current.error('Interview closed', terminatedReason);
       setAiState('listening');
@@ -1479,6 +1517,73 @@ export default function InterviewSession() {
   }
 
   // Check if Record button should be locked when AI is speaking with Speaker ON
+  // Live mode: what to do with each server message (ref so it always sees current state)
+  liveHandlerRef.current = (msg) => {
+    if (msg.type === 'speaking') {
+      setLiveHearing(true);
+    } else if (msg.type === 'processing') {
+      setLiveHearing(false);
+      setIsTranscribing(true);
+    } else if (msg.type === 'answer') {
+      setIsTranscribing(false);
+      if (msg.voice) applyVoiceResult(msg.voice);
+      triggerVisionAICheck();
+      handleSendTextWithMsg(msg.text, msg.original ? { original: msg.original, language: msg.language || 'ta-en' } : null);
+    } else if (msg.type === 'no_speech') {
+      setIsTranscribing(false);
+      toastRef.current.warning('No speech detected', 'Please answer again, a little louder.');
+    } else if (msg.type === 'error') {
+      setIsTranscribing(false);
+      toastRef.current.error('Live mode', msg.message || 'Could not process that answer.');
+    }
+  };
+
+  useEffect(() => {
+    isLiveModeAvailable(client).then(setLiveAvailable);
+  }, []);
+
+  useEffect(() => {
+    if (!liveMode) return undefined;
+    let cancelled = false;
+    let ctl = null;
+    startLiveVoice({
+      client,
+      sessionId: id,
+      language: answerLangRef.current,
+      onMessage: (m) => liveHandlerRef.current?.(m),
+      onStateChange: (st) => { if (!cancelled) setLiveState(st); },
+    }).then((c) => {
+      if (cancelled) { c.stop(); return; }
+      ctl = c;
+      liveRef.current = c;
+    }).catch((err) => {
+      if (cancelled) return;
+      setLiveMode(false);
+      toastRef.current.error('Live mode unavailable', err?.response?.data?.detail || 'Could not connect. Use Record Answer instead.');
+    });
+    return () => {
+      cancelled = true;
+      liveRef.current = null;
+      ctl?.stop();
+      setLiveState('off');
+      setLiveHearing(false);
+    };
+  }, [liveMode, id]);
+
+  useEffect(() => {
+    if (liveState === 'failed' && liveMode) {
+      setLiveMode(false);
+      toastRef.current.error('Live mode disconnected', 'Switched back to Record Answer. On some networks live audio is blocked.');
+    }
+  }, [liveState, liveMode]);
+
+  // Open the microphone only while the interview is waiting for an answer
+  useEffect(() => {
+    const on = liveState === 'connected' && isInterviewStarted && aiState === 'listening' && !isTranscribing && !terminatedReason;
+    liveRef.current?.setListening(on);
+    if (!on) setLiveHearing(false);
+  }, [liveState, isInterviewStarted, aiState, isTranscribing, terminatedReason]);
+
   const isRecordLocked = speakerOn && aiState === 'speaking';
 
   return (
@@ -1594,6 +1699,56 @@ export default function InterviewSession() {
               <span>💬</span> CC {showClosedCaptions ? 'ON' : 'OFF'}
             </button>
 
+            {/* Live (hands-free) mode toggle */}
+            {liveAvailable && (
+              <button
+                type="button"
+                onClick={() => setLiveMode(v => !v)}
+                title={liveMode ? 'Live mode ON: just speak, your answer is sent after a short pause. Click to use Record Answer.' : 'Turn on live mode: answer hands-free, no Record button'}
+                aria-pressed={liveMode}
+                style={{
+                  background: liveMode ? 'rgba(18, 163, 126, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                  color: liveMode ? 'var(--primary)' : 'var(--text-secondary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '6px 10px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5
+                }}
+              >
+                <span>⚡</span> Live {liveMode ? 'ON' : 'OFF'}
+              </button>
+            )}
+
+            {/* Answer language: English or Tamil-English */}
+            <button
+              type="button"
+              onClick={() => setAnswerLang(l => (l === 'en' ? 'ta-en' : 'en'))}
+              title={answerLang === 'en'
+                ? 'Answering in English. Click to answer in Tamil + English (translated to English for scoring)'
+                : 'Answering in Tamil + English (translated to English for scoring). Click for English only'}
+              aria-label="Answer language"
+              style={{
+                background: answerLang === 'ta-en' ? 'rgba(18, 163, 126, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                color: answerLang === 'ta-en' ? 'var(--primary)' : 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                padding: '6px 10px',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5
+              }}
+            >
+              <span>🗣</span> {answerLang === 'ta-en' ? 'தமிழ் + English' : 'English'}
+            </button>
+
             {/* Speaker ON/OFF Button */}
             <button
               type="button"
@@ -1686,6 +1841,11 @@ export default function InterviewSession() {
                 }}
               >
                 {m.text}
+                {m.original && (
+                  <div style={{ marginTop: 6, fontSize: 11.5, opacity: 0.85, borderTop: '1px solid rgba(255,255,255,0.25)', paddingTop: 5 }}>
+                    <span style={{ fontWeight: 700 }}>You said:</span> {m.original}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1880,28 +2040,57 @@ export default function InterviewSession() {
             </div>
           ) : (
             <>
-              <div title={!isInterviewStarted ? "Position your face in the camera frame to start the interview" : isRecordLocked ? "Please wait until AI completes reading the question out loud" : ""}>
-                <Button
-                  type="button"
-                  variant={isRecordingVoice ? "danger" : "primary"}
-                  onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
-                  disabled={!isInterviewStarted || aiState === 'processing' || isRecordLocked || isTranscribing}
+              {liveMode ? (
+                <div
+                  role="status"
+                  aria-live="polite"
                   style={{
                     width: '100%',
-                    padding: '14px 20px',
-                    fontSize: 15,
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    opacity: (!isInterviewStarted || isRecordLocked || isTranscribing) ? 0.6 : 1,
-                    cursor: (!isInterviewStarted || isRecordLocked || isTranscribing) ? 'not-allowed' : 'pointer'
+                    padding: '14px 18px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border)',
+                    background: liveHearing ? 'rgba(18, 163, 126, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    textAlign: 'center',
+                    color: liveHearing ? 'var(--primary)' : 'var(--text-primary)'
                   }}
                 >
-                  {isRecordingVoice ? `Stop & Submit Answer (${voiceSecs}s)` : isTranscribing ? 'Transcribing...' : !isInterviewStarted ? 'Awaiting Face Detection...' : 'Record Answer'}
-                </Button>
-              </div>
+                  {liveState === 'connecting' ? 'Connecting live audio...'
+                    : liveState !== 'connected' ? 'Live audio not connected'
+                    : isTranscribing ? 'Processing your answer...'
+                    : !isInterviewStarted ? 'Awaiting face detection...'
+                    : aiState !== 'listening' ? 'Wait for the question...'
+                    : liveHearing ? '🎙 Listening... pause for 2 seconds when you are done'
+                    : '🎙 Just speak your answer'}
+                  <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-secondary)', marginTop: 4 }}>
+                    Live mode: your answer is submitted automatically after a short pause.
+                  </div>
+                </div>
+              ) : (
+                <div title={!isInterviewStarted ? "Position your face in the camera frame to start the interview" : isRecordLocked ? "Please wait until AI completes reading the question out loud" : ""}>
+                  <Button
+                    type="button"
+                    variant={isRecordingVoice ? "danger" : "primary"}
+                    onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
+                    disabled={!isInterviewStarted || aiState === 'processing' || isRecordLocked || isTranscribing}
+                    style={{
+                      width: '100%',
+                      padding: '14px 20px',
+                      fontSize: 15,
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      opacity: (!isInterviewStarted || isRecordLocked || isTranscribing) ? 0.6 : 1,
+                      cursor: (!isInterviewStarted || isRecordLocked || isTranscribing) ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {isRecordingVoice ? `Stop & Submit Answer (${voiceSecs}s)` : isTranscribing ? 'Transcribing...' : !isInterviewStarted ? 'Awaiting Face Detection...' : 'Record Answer'}
+                  </Button>
+                </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <button
@@ -1984,6 +2173,13 @@ export default function InterviewSession() {
 
             {/* Organic Canvas Waveform Visualizer */}
             <VoiceWaveform active={true} audioLevels={audioSpectrum} style={{ height: 32 }} />
+
+            {voiceNotice && !voiceErrorMessage && (
+              <div style={{ background: 'color-mix(in srgb, var(--info) 12%, transparent)', border: '1px solid var(--info)',
+                borderRadius: 'var(--radius-md)', padding: '10px 14px', fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                {voiceNotice}
+              </div>
+            )}
 
             {/* Voice Mismatch Error Banner (Below video feed) */}
             {voiceErrorMessage && (
