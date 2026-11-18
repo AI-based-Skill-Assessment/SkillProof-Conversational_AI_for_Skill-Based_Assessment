@@ -264,7 +264,11 @@ export default function ReportDetail() {
                     {report.assessment.role || 'Software Engineer'}
                   </h3>
                   <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 4 }}>
-                    {report.assessment.company ? `Internship verified at ${report.assessment.company}` : 'General Skill Profile'}
+                    {!report.assessment.company
+                      ? 'General Skill Profile'
+                      : /^self[- ]declared$/i.test(report.assessment.company.trim())
+                        ? 'Self-declared skill assessment'
+                        : `Internship verified at ${report.assessment.company}`}
                   </p>
                   {report.assessment.certificate && (
                     <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>

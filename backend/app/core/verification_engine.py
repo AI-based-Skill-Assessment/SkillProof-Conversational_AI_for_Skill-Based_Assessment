@@ -1001,11 +1001,13 @@ async def verify_company_mca21(
         mca = await verify_company_name_mca(company_name)
         if mca:
             st = mca["companyStatus"].lower()
+            decided = False
+            # "mca21" is an existing value of the verification_path DB enum
             if st == "active":
-                status, confidence, path = "verified", 0.93, "mca21_name"
+                status, confidence, path, decided = "verified", 0.93, "mca21", True
             elif any(k in st for k in ("strike", "dissolved", "liquidat", "amalgamated")):
-                status, confidence, path = "not_found", 0.88, "mca21_name"
-            if path == "mca21_name":
+                status, confidence, path, decided = "not_found", 0.88, "mca21", True
+            if decided:
                 cin = cin or mca["cin"]
                 snippet = (f"MCA21 company master data: {mca['companyName']} | CIN: {mca['cin']} | "
                            f"Status: {mca['companyStatus']} | Registered: {mca['registrationDate']} | "

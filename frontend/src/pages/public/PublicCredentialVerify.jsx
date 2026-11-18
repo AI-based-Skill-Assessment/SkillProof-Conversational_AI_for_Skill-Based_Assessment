@@ -193,7 +193,7 @@ export default function PublicCredentialVerify() {
                 {subj.candidateName}
               </h2>
               <div style={{ fontSize: 14, color: 'var(--primary)', fontWeight: 600, marginTop: 2 }}>
-                {subj.role} {subj.company ? `• Verified at ${subj.company}` : ''}
+                {subj.role} {subj.company && !/^self[- ]declared$/i.test(String(subj.company).trim()) ? `• Verified at ${subj.company}` : ''}
               </div>
             </div>
 

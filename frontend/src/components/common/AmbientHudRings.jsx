@@ -51,7 +51,8 @@ export default function AmbientHudRings({
     return false;
   };
 
-  if (isExcluded()) {
+  // The animated rings suit the dark theme only; the light theme stays clean.
+  if (!isDark || isExcluded()) {
     return null;
   }
 

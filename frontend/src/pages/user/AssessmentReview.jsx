@@ -79,6 +79,32 @@ export default function AssessmentReview() {
   const isCert = session.intake_mode === 'certificate';
   const isCrawlComplete = session.status !== 'pending';
 
+  // Show what verification actually found, not just that it ran
+  const verification = (() => {
+    const doc = session.document || {};
+    const fetchStatus = doc.fetch_status;
+    const path = doc.verification_path;
+    if (fetchStatus === 'verified') {
+      const how = {
+        url_fetch: ["Confirmed on the issuer's verification page", 'Verified with issuer'],
+        mca21: ['Company found active in MCA records', 'Company verified (MCA)'],
+        mca21_cin: ['Company found active in MCA records', 'Company verified (MCA)'],
+        gst_portal: ['Company found on the GST portal', 'Company verified (GST)'],
+        falconebiz_registry: ['Company found in a public company registry', 'Company found'],
+        search_zaubacorp: ['Company found in a public company registry', 'Company found'],
+        website_ping: ["Company website is reachable", 'Website reachable'],
+      }[path] || ['Verified', 'Verified'];
+      return { label: how[0], badge: how[1], color: 'var(--success)' };
+    }
+    if (fetchStatus === 'not_found') {
+      return { label: 'The issuer or registry reports no matching record', badge: 'Not found', color: 'var(--danger, #ef4444)' };
+    }
+    if (fetchStatus === 'mismatched') {
+      return { label: "Details don't match the issuer's record", badge: 'Mismatch', color: 'var(--danger, #ef4444)' };
+    }
+    return { label: 'Could not be verified automatically', badge: 'Not verified', color: 'var(--warning, #f59e0b)' };
+  })();
+
   return (
     <div className="anim-fade-in" style={{ maxWidth: 720, margin: '0 auto' }}>
       <div className="page-header">
@@ -180,10 +206,10 @@ export default function AssessmentReview() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Verification State: {session.status === 'pending' ? 'Not Run' : 'Document is Verified'}
+                    Verification result: {!isCrawlComplete ? 'Not run yet' : verification.label}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-                    Runs URL verification and MCA corporate checks to confirm issuer details.
+                    Checks the certificate's verification link with the issuer when it has one, and looks up the company in official registry data.
                   </div>
                 </div>
 
@@ -192,7 +218,7 @@ export default function AssessmentReview() {
                     Verify Certificate
                   </Button>
                 ) : (
-                  <span style={{ color: 'var(--success)', fontWeight: 600 }}>Verified at Source</span>
+                  <span style={{ color: verification.color, fontWeight: 600 }}>{verification.badge}</span>
                 )}
               </div>
             </div>

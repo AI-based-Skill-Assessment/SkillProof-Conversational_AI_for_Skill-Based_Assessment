@@ -274,3 +274,18 @@ def test_segmenter_joins_pauses_into_one_answer(monkeypatch):
 
     run(muted())
     assert sent == []
+
+
+def test_mca_cascade_records_a_valid_db_path(monkeypatch):
+    """Every verification_path the cascade returns must exist in the DB enum."""
+    from app.models.document import VerificationPath
+
+    async def active(name):
+        return {"cin": "U1", "companyName": "SAVIC TECHNOLOGIES PRIVATE LIMITED", "companyStatus": "Active",
+                "registrationDate": "2010-01-01", "roc": "ROC Chennai", "source": "mca21_ogd"}
+
+    monkeypatch.setattr(ve, "verify_company_name_mca", active)
+    r = run(ve.verify_company_mca21("Savic Technologies", None, raw_ocr_text="Savic Technologies certificate"))
+    assert r["fetch_status"] == "verified"
+    assert r["verification_path"] in {p.value for p in VerificationPath}
+    assert "data.gov.in" in r["fetched_content_snippet"]
